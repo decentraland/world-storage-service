@@ -1,3 +1,4 @@
+import { resolve } from 'path'
 import { createDotEnvConfigComponent } from '@well-known-components/env-config-provider'
 import { Verbosity, instrumentHttpServerWithRequestLogger } from '@well-known-components/http-requests-logger-component'
 import {
@@ -8,8 +9,10 @@ import {
 import { createHttpTracerComponent } from '@well-known-components/http-tracer-component'
 import { createLogComponent } from '@well-known-components/logger'
 import { createMetricsComponent } from '@well-known-components/metrics'
+import { createPgComponent } from '@well-known-components/pg-component'
 import { createTracerComponent } from '@well-known-components/tracer-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
+import { getDbConnectionString } from './logic/utils'
 import { metricDeclarations } from './metrics'
 import type { AppComponents, GlobalContext } from './types'
 
@@ -31,12 +34,26 @@ export async function initComponents(): Promise<AppComponents> {
 
   await instrumentHttpServerWithPromClientRegistry({ metrics, server, config, registry: metrics.registry })
 
+  const pg = await createPgComponent(
+    { logs, config, metrics },
+    {
+      migration: {
+        databaseUrl: await getDbConnectionString({ config }),
+        dir: resolve(__dirname, 'migrations'),
+        migrationsTable: 'pgmigrations',
+        ignorePattern: '.*\\.map',
+        direction: 'up'
+      }
+    }
+  )
+
   return {
     fetcher,
     config,
     logs,
     server,
     statusChecks,
-    metrics
+    metrics,
+    pg
   }
 }
