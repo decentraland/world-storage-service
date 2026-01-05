@@ -1,8 +1,9 @@
 /* eslint-disable camelcase */
+import type { ColumnDefinitions, MigrationBuilder } from 'node-pg-migrate'
 
-exports.shorthands = undefined
+export const shorthands: ColumnDefinitions | undefined = undefined
 
-exports.up = (pgm) => {
+export async function up(pgm: MigrationBuilder): Promise<void> {
   pgm.createTable('env_variables', {
     world_name: {
       type: 'varchar(255)',
@@ -35,6 +36,8 @@ exports.up = (pgm) => {
   })
 }
 
-exports.down = (pgm) => {
+export async function down(pgm: MigrationBuilder): Promise<void> {
   pgm.dropTable('env_variables')
 }
+
+
