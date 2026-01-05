@@ -1,10 +1,8 @@
-# {server-name} Server
+# World Storage Service
 
-[![Coverage Status](https://coveralls.io/repos/github/{org-name}/{repo-name}/badge.svg?branch=main)](https://coveralls.io/github/{org-name}/{repo-name}?branch=main)
+[![Coverage Status](https://coveralls.io/repos/github/decentraland/world-storage-service/badge.svg?branch=main)](https://coveralls.io/github/decentraland/world-storage-service?branch=main)
 
-<!-- A brief description of the purpose of the service -->
-
-This server interacts with X, Y and Z server in order to provider users with F.
+A standalone service that provides secure, isolated storage and environment variable access for Decentraland worlds. It acts as an API gateway for persistent storage and secrets management, used by Authoritative Servers running server-side scene code. The service enforces world isolation through cryptographic validation of signed fetch requests.
 
 ## Table of Contents
 
@@ -26,28 +24,20 @@ This server interacts with X, Y and Z server in order to provider users with F.
 
 ## Features
 
-<!-- List of features the server has -->
-
-- **Feature 1**: Provides Y functionality to the users.
+- **Signed Fetch Validation**: Validates signed fetch requests from authoritative servers using Decentraland's ADR-44 specification, ensuring only authorized servers can access their world's data.
+- **World Isolation**: Enforces cryptographic world isolation by extracting world name from signed payload metadata, preventing unauthorized access between worlds.
+- **Key-Value Storage API**: Provides persistent storage with two namespaces - world-scoped storage and player-scoped storage for flexible data management.
+- **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time, accessible only to the authoritative server for each world.
 
 ## Dependencies & Related Services
 
-<!-- List any services this server depends on or interacts with -->
-
 This service interacts with the following services:
 
-- **[Service Name 1](link-to-service-repo)**: Description of interaction
-- **[Service Name 2](link-to-service-repo)**: Description of interaction
-
-External dependencies:
-
-- List any external APIs or third-party services
-- Database systems
-- Message queues or event streams
+- **[Authoritative Server](https://github.com/decentraland/js-sdk-toolchain/wiki/Decentraland-SDK7-Authoritative-Server-Guide)**: Receives signed fetch requests from authoritative servers running server-side scene code. The authoritative server signs requests using its private key tied to its world deployment.
 
 ## API Documentation
 
-The API is fully documented using the [OpenAPI standard](https://swagger.io/specification/). It's schema is located at [docs/openapi.yaml](docs/ai-agent-context.md).
+The API is fully documented using the [OpenAPI standard](https://swagger.io/specification/). It's schema is located at [docs/openapi.yaml](docs/openapi.yaml).
 
 ## Database
 
@@ -95,7 +85,7 @@ yarn migrate down
 
 Before running this service, ensure you have the following installed:
 
-- **Node.js**: Version 22.x or higher (LTS recommended)
+- **Node.js**: Version 24.x or higher (LTS recommended)
 - **Yarn**: Version 1.22.x or higher
 - **Docker**: For containerized deployment
 
@@ -106,8 +96,8 @@ Before running this service, ensure you have the following installed:
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/{org-name}/{repo-name}.git
-cd {repo-name}
+git clone https://github.com/decentraland/world-storage-service.git
+cd world-storage-service
 ```
 
 2. Install dependencies:
@@ -187,7 +177,3 @@ For detailed testing guidelines and standards, refer to our [Testing Standards](
 ## AI Agent Context
 
 For detailed AI Agent context, see [docs/ai-agent-context.md](docs/ai-agent-context.md).
-
----
-
-**Note**: Remember to replace all placeholders in this README (e.g., `{server-name}`, `{org-name}`, `{repo-name}`, `{service-name}`, links to documentation) with actual values specific to your service.
