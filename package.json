@@ -14,7 +14,7 @@
     "@well-known-components/test-helpers": "^1.5.8",
     "eslint": "^8",
     "jest": "^30.2.0",
-    "nodemon": "^3.1.10",
+    "nodemon": "^3.1.11",
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
