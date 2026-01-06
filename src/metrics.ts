@@ -6,8 +6,8 @@ import { validateMetricsDeclaration } from '@well-known-components/metrics'
 export const metricDeclarations = {
   ...getDefaultHttpMetrics(),
   ...logsMetricsDeclarations,
-  test_ping_counter: {
-    help: 'Count calls to ping',
+  get_world_storage_counter: {
+    help: 'Count calls to get world storage',
     type: IMetricsComponent.CounterType,
     labelNames: ['pathname']
   }
