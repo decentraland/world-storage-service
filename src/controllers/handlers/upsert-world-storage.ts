@@ -32,13 +32,23 @@ export async function upsertWorldStorageHandler(
   try {
     parsedBody = (await request.json()) as UpsertWorldStorageBody
   } catch {
-    throw new Error('Request body must be valid JSON')
+    return {
+      status: 400,
+      body: {
+        message: 'Request body must be valid JSON'
+      }
+    }
   }
 
   const value = parsedBody?.value
 
   if (value === undefined) {
-    throw new Error('Value is required')
+    return {
+      status: 400,
+      body: {
+        message: 'Value is required'
+      }
+    }
   }
 
   logger.info('Upserting world storage value', {
