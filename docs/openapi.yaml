@@ -5,7 +5,9 @@ info:
   description: |
     ## Overview
 
-    World Storage Service provides secure, world-isolated key-value storage for Decentraland worlds.
+    World Storage Service provides world-isolated key-value storage. All requests
+    must be signed using Decentraland's Signed Fetch (ADR-44); the calling world
+    is derived from the signed fetch metadata.
 
   contact:
     name: Decentraland Foundation
@@ -13,38 +15,26 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 
-# List of servers the API is available on
 servers:
   - url: http://localhost:3000
     description: Local development server
 
-# List of tags for the API
 tags:
   - name: World Storage
-    description: API endpoints for world-scoped storage
+    description: Endpoints for world-scoped storage
 
-# List of security requirements for the API
 security:
-  # - SignedFetch: []
+  - SignedFetch: []
 
 paths:
-  # List of paths for the API
-  /health/check:
-    get:
-      summary: Check the server health
-      description: Check the server health to check if it is alive
-      responses:
-        '200':
-          description: OK
-        '500':
-          description: Internal Server Error
-
   /storage/world/{key}:
     get:
       tags:
         - World Storage
       summary: Get a world storage value
-      description: Retrieves a value by key for the calling world (world is derived from signed fetch metadata).
+      description: |
+        Retrieves the value stored under `key` for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
       parameters:
         - name: key
           in: path
@@ -57,32 +47,37 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  value: {}
+                $ref: '#/components/schemas/WorldStorageValueResponse'
+        '400':
+          description: Signed fetch is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
         '404':
           description: Value not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal Server Error
+          description: Unexpected error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags:
         - World Storage
       summary: Upsert a world storage value
-      description: Creates or updates a value by key for the calling world (world is derived from signed fetch metadata).
+      description: |
+        Creates or updates the value stored under `key` for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
       parameters:
         - name: key
           in: path
@@ -94,34 +89,49 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                value: {}
-              required:
-                - value
+              $ref: '#/components/schemas/UpsertWorldStorageRequest'
+            examples:
+              upsertValue:
+                value:
+                  value:
+                    foo: bar
       responses:
         '200':
           description: Value upserted
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  value: {}
-        '500':
-          description: Internal Server Error
+                $ref: '#/components/schemas/WorldStorageValueResponse'
+        '400':
+          description: Invalid signed fetch or request body
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidJson:
+                  value:
+                    message: Request body must be valid JSON
+                missingValue:
+                  value:
+                    message: Value is required
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       tags:
         - World Storage
       summary: Delete a world storage value
-      description: Deletes a value by key for the calling world (world is derived from signed fetch metadata).
+      description: |
+        Deletes the value stored under `key` for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
       parameters:
         - name: key
           in: path
@@ -131,15 +141,23 @@ paths:
       responses:
         '204':
           description: Deleted (or did not exist)
-        '500':
-          description: Internal Server Error
+        '400':
+          description: Signed fetch is missing or invalid
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   securitySchemes:
@@ -150,3 +168,29 @@ components:
       description: |
         Signed fetch authentication using Decentraland's ADR-44 specification.
         Multiple headers are used to provide the authentication chain.
+  schemas:
+    WorldStorageValueResponse:
+      type: object
+      properties:
+        value: {}
+      required:
+        - value
+      description: Stored value for the given world and key.
+    UpsertWorldStorageRequest:
+      type: object
+      properties:
+        value: {}
+      required:
+        - value
+      description: Payload to persist under the provided key.
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        error:
+          type: string
+          description: Optional error code or cause when available.
+      required:
+        - message
+      description: Error response body.

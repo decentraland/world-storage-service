@@ -6,6 +6,7 @@
     "lint": "eslint '{src,test}/**/*.{js,ts}'",
     "lint:check": "eslint '{src,test}/**/*.{js,ts}'",
     "lint:fix": "eslint '{src,test}/**/*.{js,ts}' --fix",
+    "docs:check": "npx @redocly/cli@latest lint docs/openapi.yaml",
     "start:dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "test": "jest --forceExit --detectOpenHandles --coverage --verbose",
     "migrate": "node-pg-migrate -j ts --tsconfig tsconfig.json -m src/migrations"
