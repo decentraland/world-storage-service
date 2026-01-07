@@ -4,7 +4,7 @@ module.exports = {
   },
   moduleFileExtensions: ["ts", "js"],
   coverageDirectory: "coverage",
-  collectCoverageFrom: ["src/**/*.ts", "src/**/*.js", "!src/migrations/**"],
+  collectCoverageFrom: ["src/**/*.ts", "src/**/*.js", "!src/migrations/**", "!src/types/**", "!src/index.ts"],
   testMatch: ["**/*.spec.(ts)"],
   testEnvironment: "node",
 }
