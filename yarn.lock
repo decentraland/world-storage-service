@@ -284,6 +284,15 @@
   dependencies:
     "@well-known-components/interfaces" "^1.5.2"
 
+"@dcl/crypto@^3.4.3":
+  version "3.4.5"
+  resolved "https://registry.yarnpkg.com/@dcl/crypto/-/crypto-3.4.5.tgz#95ca2beab46fa3494b4d38f009bf0d49c87ba235"
+  integrity sha512-uneyjOAOx7pi5kabZsLmPm9kSLkCk4Cok8FUsvT+6k8RquqkjKqocvkGVOMaoWsfU6S3mkLOyaeqEKmOy4ErxA==
+  dependencies:
+    "@dcl/schemas" "^9.2.0"
+    eth-connect "^6.0.3"
+    ethereum-cryptography "^1.0.3"
+
 "@dcl/eslint-config@^2.4.3":
   version "2.4.3"
   resolved "https://registry.yarnpkg.com/@dcl/eslint-config/-/eslint-config-2.4.3.tgz#505f4817c6a5750e762163c42b68b113c5ea93be"
@@ -316,6 +325,15 @@
     path-to-regexp "^6.3.0"
     reflect-metadata "^0.2.2"
 
+"@dcl/platform-crypto-middleware@^1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@dcl/platform-crypto-middleware/-/platform-crypto-middleware-1.1.0.tgz#11434eb4fc8d461799ab71d28ce869ab330bdb23"
+  integrity sha512-E2AAIRcbeF+DLQ6urmOkoqwSOGaBlX498nygyOc3EnChEPjJhM0LiTQ9rwAG572DdMGf8ZGbNg+odx6i9M3cMA==
+  dependencies:
+    "@dcl/crypto" "^3.4.3"
+    "@well-known-components/fetch-component" "^2.0.2"
+    "@well-known-components/interfaces" "^1.4.2"
+
 "@dcl/platform-server-commons@^1.0.1":
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@dcl/platform-server-commons/-/platform-server-commons-1.0.1.tgz#c88e339b83958ca3b3203aca20d64eacff2ac26c"
@@ -335,6 +353,15 @@
     ajv-errors "^3.0.0"
     ajv-keywords "^5.1.0"
     mitt "^3.0.1"
+
+"@dcl/schemas@^9.2.0":
+  version "9.15.0"
+  resolved "https://registry.yarnpkg.com/@dcl/schemas/-/schemas-9.15.0.tgz#81337faa396d21a2d1e704e5ec3cfd7b7b14343e"
+  integrity sha512-nip5rsOcJplNfBWeImwezuHLprM0gLW03kEeqGIvT9J6HnEBTtvIwkk9+NSt7hzFKEvWGI+C23vyNWbG3nU+SQ==
+  dependencies:
+    ajv "^8.11.0"
+    ajv-errors "^3.0.0"
+    ajv-keywords "^5.1.0"
 
 "@dcl/traced-fetch-component@^1.0.2":
   version "1.0.2"
@@ -909,6 +936,21 @@
     "@emnapi/runtime" "^1.4.3"
     "@tybys/wasm-util" "^0.10.0"
 
+"@noble/hashes@1.2.0", "@noble/hashes@~1.2.0":
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.2.0.tgz#a3150eeb09cc7ab207ebf6d7b9ad311a9bdbed12"
+  integrity sha512-FZfhjEDbT5GRswV3C6uvLPHMiVD6lQBmpoX5+eSiPaMTXte/IKqI5dykDxzZB/WBeK/CDuQRBWarPdi3FNY2zQ==
+
+"@noble/secp256k1@1.7.1":
+  version "1.7.1"
+  resolved "https://registry.yarnpkg.com/@noble/secp256k1/-/secp256k1-1.7.1.tgz#b251c70f824ce3ca7f8dc3df08d58f005cc0507c"
+  integrity sha512-hOUk6AyBFmqVrv7k5WAw/LpszxVbj9gGN4JRkIX52fdFAj1UA61KXmZDvqVEm+pOyec3+fIeZB02LYa/pWOArw==
+
+"@noble/secp256k1@~1.7.0":
+  version "1.7.2"
+  resolved "https://registry.yarnpkg.com/@noble/secp256k1/-/secp256k1-1.7.2.tgz#c2c3343e2dce80e15a914d7442147507f8a98e7f"
+  integrity sha512-/qzwYl5eFLH8OWIecQWM31qld2g1NfjgylK+TNhqtaUKP37Nm+Y+z30Fjhw0Ct8p9yCQEm2N3W/AckdIb3SMcQ==
+
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
   resolved "https://registry.yarnpkg.com/@nodelib/fs.scandir/-/fs.scandir-2.1.5.tgz#7619c2eb21b25483f6d167548b4cfd5a7488c3d5"
@@ -949,6 +991,28 @@
   version "0.2.9"
   resolved "https://registry.yarnpkg.com/@pkgr/core/-/core-0.2.9.tgz#d229a7b7f9dac167a156992ef23c7f023653f53b"
   integrity sha512-QNqXyfVS2wm9hweSYD2O7F0G06uurj9kZ96TRQE5Y9hU7+tgdZwIkbAKc5Ocy1HxEY2kuDQa6cQ1WRs/O5LFKA==
+
+"@scure/base@~1.1.0":
+  version "1.1.9"
+  resolved "https://registry.yarnpkg.com/@scure/base/-/base-1.1.9.tgz#e5e142fbbfe251091f9c5f1dd4c834ac04c3dbd1"
+  integrity sha512-8YKhl8GHiNI/pU2VMaofa2Tor7PJRAjwQLBBuilkJ9L5+13yVbC7JO/wS7piioAvPSwR3JKM1IJ/u4xQzbcXKg==
+
+"@scure/bip32@1.1.5":
+  version "1.1.5"
+  resolved "https://registry.yarnpkg.com/@scure/bip32/-/bip32-1.1.5.tgz#d2ccae16dcc2e75bc1d75f5ef3c66a338d1ba300"
+  integrity sha512-XyNh1rB0SkEqd3tXcXMi+Xe1fvg+kUIcoRIEujP1Jgv7DqW2r9lg3Ah0NkFaCs9sTkQAQA8kw7xiRXzENi9Rtw==
+  dependencies:
+    "@noble/hashes" "~1.2.0"
+    "@noble/secp256k1" "~1.7.0"
+    "@scure/base" "~1.1.0"
+
+"@scure/bip39@1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@scure/bip39/-/bip39-1.1.1.tgz#b54557b2e86214319405db819c4b6a370cf340c5"
+  integrity sha512-t+wDck2rVkh65Hmv280fYdVdY25J9YeEUIgn2LG1WM6gxFkGzcksoDiUkWVpVp3Oex9xGC68JU2dSbUfwZ2jPg==
+  dependencies:
+    "@noble/hashes" "~1.2.0"
+    "@scure/base" "~1.1.0"
 
 "@sinclair/typebox@^0.27.8":
   version "0.27.8"
@@ -1372,6 +1436,14 @@
   dependencies:
     dotenv "^16.0.1"
 
+"@well-known-components/fetch-component@^2.0.2":
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/@well-known-components/fetch-component/-/fetch-component-2.0.2.tgz#02260611f9d05551efe825c4358cbc628a71c4c0"
+  integrity sha512-LdY+6n9kuyACg3fcU4qMrNhLZuG7eqPxLSqzDgQyoHKeNjlzggoUqTVJKtIyi6vjPs8pSQ/Fx1xdLuBhOKCgww==
+  dependencies:
+    "@well-known-components/interfaces" "^1.4.1"
+    cross-fetch "^3.1.5"
+
 "@well-known-components/fetch-component@^3.0.0":
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/@well-known-components/fetch-component/-/fetch-component-3.0.0.tgz#93921f0d18b1fc21f1f5540cc4ae035a0dabf55d"
@@ -1410,7 +1482,7 @@
     "@well-known-components/interfaces" "^1.2.0"
     tslib "^2.5.0"
 
-"@well-known-components/interfaces@^1.2.0", "@well-known-components/interfaces@^1.4.1", "@well-known-components/interfaces@^1.4.3", "@well-known-components/interfaces@^1.5.2":
+"@well-known-components/interfaces@^1.2.0", "@well-known-components/interfaces@^1.4.1", "@well-known-components/interfaces@^1.4.2", "@well-known-components/interfaces@^1.4.3", "@well-known-components/interfaces@^1.5.2":
   version "1.5.2"
   resolved "https://registry.yarnpkg.com/@well-known-components/interfaces/-/interfaces-1.5.2.tgz#ef7001a19d410459e65b216dd948d15be19e4efa"
   integrity sha512-TzKQblOci2Azczk1DZ4JL5aJW7hwq7kHrFMO4lCRMmW51bA71BtiZlq0WP72Dln067xTSoHQAU4WHCFJlGYvEQ==
@@ -2278,6 +2350,21 @@ esutils@^2.0.2:
   version "2.0.3"
   resolved "https://registry.yarnpkg.com/esutils/-/esutils-2.0.3.tgz#74d2eb4de0b8da1293711910d50775b9b710ef64"
   integrity sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==
+
+eth-connect@^6.0.3:
+  version "6.2.4"
+  resolved "https://registry.yarnpkg.com/eth-connect/-/eth-connect-6.2.4.tgz#81a94bce29f6743b46f336a0ec9d42ed73fbe6fd"
+  integrity sha512-K0+g+pZoWkcJKKc4hwlYvaruoMBFcARoULIdf50bz/Zk9YdgFoKPjlRQWAtBgSDfxJS7AAHqg40k2Z/uQI0aNw==
+
+ethereum-cryptography@^1.0.3:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/ethereum-cryptography/-/ethereum-cryptography-1.2.0.tgz#5ccfa183e85fdaf9f9b299a79430c044268c9b3a"
+  integrity sha512-6yFQC9b5ug6/17CQpCyE3k9eKBMdhyVjzUy1WkiuY/E4vj/SXDBbCw8QEIaXqf0Mf2SnY6RmpDcwlUmBSS0EJw==
+  dependencies:
+    "@noble/hashes" "1.2.0"
+    "@noble/secp256k1" "1.7.1"
+    "@scure/bip32" "1.1.5"
+    "@scure/bip39" "1.1.1"
 
 execa@^5.0.0, execa@^5.1.1:
   version "5.1.1"
