@@ -42,6 +42,7 @@
     "@well-known-components/metrics": "^2.1.0",
     "@well-known-components/pg-component": "^1.1.0",
     "@well-known-components/tracer-component": "^1.2.0",
+    "decentraland-crypto-fetch": "^2.0.1",
     "sql-template-strings": "^2.2.2"
   }
 }

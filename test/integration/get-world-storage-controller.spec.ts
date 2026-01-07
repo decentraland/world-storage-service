@@ -1,22 +1,42 @@
+import { type Identity, createTestIdentity, makeAuthenticatedRequest } from './utils/auth'
 import { test } from '../components'
 
 test('Get World Storage Controller', function ({ components, stubComponents }) {
+  const makeRequest = makeAuthenticatedRequest(components)
+
   describe('when getting a world storage value', () => {
     let key: string
-    let localFetch: typeof components.localFetch
+    let identity: Identity
 
-    beforeEach(() => {
+    beforeEach(async () => {
       key = 'my-key'
-      localFetch = components.localFetch
+      identity = await createTestIdentity()
+    })
+
+    describe('and the request does not include an identity', () => {
+      let response: Awaited<ReturnType<typeof components.localFetch.fetch>>
+
+      beforeEach(async () => {
+        response = await makeRequest(undefined, `/storage/world/${key}`, 'GET')
+      })
+
+      it('should respond with a 400 and a signed fetch required message', async () => {
+        expect(response.status).toBe(400)
+        const body = await response.json()
+        expect(body).toEqual({
+          error: 'Invalid Auth Chain',
+          message: 'This endpoint requires a signed fetch request. See ADR-44.'
+        })
+      })
     })
 
     describe('and the value does not exist', () => {
       beforeEach(async () => {
-        await localFetch.fetch(`/storage/world/${key}`, { method: 'DELETE' })
+        await makeRequest(identity, `/storage/world/${key}`, 'DELETE')
       })
 
       it('should respond with a 404 and a not found message', async () => {
-        const response = await localFetch.fetch(`/storage/world/${key}`)
+        const response = await makeRequest(identity, `/storage/world/${key}`, 'GET')
         expect(response.status).toBe(404)
         const body = await response.json()
         expect(body).toEqual({
@@ -30,21 +50,15 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
 
       beforeEach(async () => {
         storedValue = 'stored-value'
-        await localFetch.fetch(`/storage/world/${key}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ value: storedValue })
-        })
+        await makeRequest(identity, `/storage/world/${key}`, 'PUT', { value: storedValue })
       })
 
       afterEach(async () => {
-        await localFetch.fetch(`/storage/world/${key}`, { method: 'DELETE' })
+        await makeRequest(identity, `/storage/world/${key}`, 'DELETE')
       })
 
       it('should respond with a 200 and the stored value', async () => {
-        const response = await localFetch.fetch(`/storage/world/${key}`)
+        const response = await makeRequest(identity, `/storage/world/${key}`, 'GET')
         expect(response.status).toBe(200)
         const body = await response.json()
         expect(body).toEqual({
@@ -63,7 +77,7 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
       })
 
       it('should respond with a 500 and the error message', async () => {
-        const response = await localFetch.fetch(`/storage/world/${key}`)
+        const response = await makeRequest(identity, `/storage/world/${key}`, 'GET')
         expect(response.status).toBe(500)
         const body = await response.json()
         expect(body).toEqual({

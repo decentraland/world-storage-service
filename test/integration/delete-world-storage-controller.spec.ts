@@ -1,14 +1,32 @@
+import { type Identity, createTestIdentity, makeAuthenticatedRequest } from './utils/auth'
 import { test } from '../components'
 
 test('Delete World Storage Controller', function ({ components, stubComponents }) {
+  const makeRequest = makeAuthenticatedRequest(components)
+
   describe('when deleting a world storage value', () => {
     let key: string
-    let localFetch: typeof components.localFetch
+    let identity: Identity
     let response: Awaited<ReturnType<typeof components.localFetch.fetch>>
 
-    beforeEach(() => {
+    beforeEach(async () => {
       key = 'my-key'
-      localFetch = components.localFetch
+      identity = await createTestIdentity()
+    })
+
+    describe('and the request does not include an identity', () => {
+      beforeEach(async () => {
+        response = await makeRequest(undefined, `/storage/world/${key}`, 'DELETE')
+      })
+
+      it('should respond with a 400 and a signed fetch required message', async () => {
+        expect(response.status).toBe(400)
+        const body = await response.json()
+        expect(body).toEqual({
+          error: 'Invalid Auth Chain',
+          message: 'This endpoint requires a signed fetch request. See ADR-44.'
+        })
+      })
     })
 
     describe('and the delete succeeds', () => {
@@ -16,15 +34,8 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
 
       beforeEach(async () => {
         storedValue = 'to-delete'
-        await localFetch.fetch(`/storage/world/${key}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ value: storedValue })
-        })
-
-        response = await localFetch.fetch(`/storage/world/${key}`, { method: 'DELETE' })
+        await makeRequest(identity, `/storage/world/${key}`, 'PUT', { value: storedValue })
+        response = await makeRequest(identity, `/storage/world/${key}`, 'DELETE')
       })
 
       it('should respond with a 204', () => {
@@ -35,7 +46,7 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
     describe('and the storage delete throws an error', () => {
       beforeEach(async () => {
         stubComponents.worldStorage.deleteValue.rejects(new Error('boom'))
-        response = await localFetch.fetch(`/storage/world/${key}`, { method: 'DELETE' })
+        response = await makeRequest(identity, `/storage/world/${key}`, 'DELETE')
       })
 
       afterEach(() => {

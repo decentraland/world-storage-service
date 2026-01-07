@@ -1,14 +1,32 @@
+import { type Identity, createTestIdentity, makeAuthenticatedRequest } from './utils/auth'
 import { test } from '../components'
 
 test('Upsert World Storage Controller', function ({ components, stubComponents }) {
+  const makeRequest = makeAuthenticatedRequest(components)
+
   describe('when upserting a world storage value', () => {
     let key: string
-    let localFetch: typeof components.localFetch
+    let identity: Identity
     let response: Awaited<ReturnType<typeof components.localFetch.fetch>>
 
-    beforeEach(() => {
+    beforeEach(async () => {
       key = 'my-key'
-      localFetch = components.localFetch
+      identity = await createTestIdentity()
+    })
+
+    describe('and the request does not include an identity', () => {
+      beforeEach(async () => {
+        response = await makeRequest(undefined, `/storage/world/${key}`, 'PUT', { value: 'payload' })
+      })
+
+      it('should respond with a 400 and a signed fetch required message', async () => {
+        expect(response.status).toBe(400)
+        const body = await response.json()
+        expect(body).toEqual({
+          error: 'Invalid Auth Chain',
+          message: 'This endpoint requires a signed fetch request. See ADR-44.'
+        })
+      })
     })
 
     describe('and the request body is not valid JSON', () => {
@@ -16,13 +34,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
       beforeEach(async () => {
         invalidBody = '{ "value": '
-        response = await localFetch.fetch(`/storage/world/${key}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: invalidBody
-        })
+        response = await makeRequest(identity, `/storage/world/${key}`, 'PUT', invalidBody)
       })
 
       it('should respond with a 400 and an invalid json message', async () => {
@@ -36,13 +48,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
     describe('and the request body does not include a value', () => {
       beforeEach(async () => {
-        response = await localFetch.fetch(`/storage/world/${key}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({})
-        })
+        response = await makeRequest(identity, `/storage/world/${key}`, 'PUT', {})
       })
 
       it('should respond with a 400 and a missing value message', async () => {
@@ -59,17 +65,11 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
       beforeEach(async () => {
         storedValue = { foo: 'bar' }
-        response = await localFetch.fetch(`/storage/world/${key}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ value: storedValue })
-        })
+        response = await makeRequest(identity, `/storage/world/${key}`, 'PUT', { value: storedValue })
       })
 
       afterEach(async () => {
-        await localFetch.fetch(`/storage/world/${key}`, { method: 'DELETE' })
+        await makeRequest(identity, `/storage/world/${key}`, 'DELETE')
       })
 
       it('should respond with a 200 and the stored value', async () => {
@@ -84,13 +84,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
     describe('and the database throws an error', () => {
       beforeEach(async () => {
         stubComponents.worldStorage.setValue.rejects(new Error('boom'))
-        response = await localFetch.fetch(`/storage/world/${key}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ value: 'payload' })
-        })
+        response = await makeRequest(identity, `/storage/world/${key}`, 'PUT', { value: 'payload' })
       })
 
       afterEach(() => {
