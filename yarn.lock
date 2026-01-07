@@ -293,7 +293,7 @@
     eth-connect "^6.0.3"
     ethereum-cryptography "^1.0.3"
 
-"@dcl/eslint-config@2.4.3":
+"@dcl/eslint-config@^2.4.3":
   version "2.4.3"
   resolved "https://registry.yarnpkg.com/@dcl/eslint-config/-/eslint-config-2.4.3.tgz#505f4817c6a5750e762163c42b68b113c5ea93be"
   integrity sha512-SFgQv5Fnvv1fFgXyF9VXxw4cAbJSntiID/h0qwWYDLtlxOp45KnzYDol4IqDFgnuXZOwJgU62GTmYt4/XcOqFA==
@@ -325,7 +325,7 @@
     path-to-regexp "^6.3.0"
     reflect-metadata "^0.2.2"
 
-"@dcl/platform-crypto-middleware@1.1.0":
+"@dcl/platform-crypto-middleware@^1.1.0":
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/@dcl/platform-crypto-middleware/-/platform-crypto-middleware-1.1.0.tgz#11434eb4fc8d461799ab71d28ce869ab330bdb23"
   integrity sha512-E2AAIRcbeF+DLQ6urmOkoqwSOGaBlX498nygyOc3EnChEPjJhM0LiTQ9rwAG572DdMGf8ZGbNg+odx6i9M3cMA==
@@ -334,7 +334,7 @@
     "@well-known-components/fetch-component" "^2.0.2"
     "@well-known-components/interfaces" "^1.4.2"
 
-"@dcl/platform-server-commons@1.0.1":
+"@dcl/platform-server-commons@^1.0.1":
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@dcl/platform-server-commons/-/platform-server-commons-1.0.1.tgz#c88e339b83958ca3b3203aca20d64eacff2ac26c"
   integrity sha512-qXd/UCTxQC2A5uJuE5MiDXGmxNpk+kMPZjdCEFVZsvmFjDEKxg5oonMI26iNoYrjhfnSt9u1We9qf62MbqdlDg==
@@ -363,7 +363,7 @@
     ajv-errors "^3.0.0"
     ajv-keywords "^5.1.0"
 
-"@dcl/traced-fetch-component@1.0.2":
+"@dcl/traced-fetch-component@^1.0.2":
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/@dcl/traced-fetch-component/-/traced-fetch-component-1.0.2.tgz#5be68ced806185632cbebf1e3303c8e96c0e35b8"
   integrity sha512-ADo9itOEK0iisGHjb42vFEe9DWdJIj9jBna3zXeSnWkH+1p1Dw7F7lAkanBI0vZK3FlnrpVt5FtUR0KcmZNCLg==
@@ -2019,7 +2019,7 @@ decamelize@^5.0.0:
   resolved "https://registry.yarnpkg.com/decamelize/-/decamelize-5.0.1.tgz#db11a92e58c741ef339fb0a2868d8a06a9a7b1e9"
   integrity sha512-VfxadyCECXgQlkoEAjeghAr5gY3Hf+IKjKb+X8tGVDtveCjN+USwprd2q3QXBR9T1+x2DG0XZF5/w+7HAtSaXA==
 
-decentraland-crypto-fetch@2.0.1:
+decentraland-crypto-fetch@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/decentraland-crypto-fetch/-/decentraland-crypto-fetch-2.0.1.tgz#02875f30b8a33c6b41284612fb61c632dea7f924"
   integrity sha512-2IKu6Y4k/fle8bmU0b4zy7V1i1R0oCXtqlJumBXc4jwHUHKAcHDLD2YtgJFdd7JjsWQwf+t0DsKpzBCjQDKANg==
