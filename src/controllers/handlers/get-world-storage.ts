@@ -20,7 +20,12 @@ export async function getWorldStorageHandler(
   const key = params.key
 
   if (!worldName || !key) {
-    throw new Error('World name and key are required')
+    return {
+      status: 400,
+      body: {
+        message: 'World name and key are required'
+      }
+    }
   }
 
   logger.info('Getting world storage value', {

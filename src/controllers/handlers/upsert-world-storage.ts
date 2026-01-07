@@ -25,7 +25,12 @@ export async function upsertWorldStorageHandler(
   const key = params.key
 
   if (!worldName || !key) {
-    throw new Error('World name and key are required')
+    return {
+      status: 400,
+      body: {
+        message: 'World name and key are required'
+      }
+    }
   }
 
   let parsedBody: UpsertWorldStorageBody
