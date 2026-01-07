@@ -1,113 +1,117 @@
+import type { IPgComponent } from '@well-known-components/pg-component'
 import { createWorldStorageComponent } from '../../../src/logic/world-storage/component'
-import type { IWorldStorageDBComponent, WorldStorageItem } from '../../../src/adapters/db/world-storage-db'
+import type { WorldStorageItem } from '../../../src/logic/world-storage/types'
 
-describe('World Storage Component', () => {
-  let worldStorageDb: jest.Mocked<Pick<IWorldStorageDBComponent, 'getValue' | 'setValue' | 'deleteValue'>>
-  let component: ReturnType<typeof createWorldStorageComponent>
+interface SqlQuery {
+  text?: string
+  values?: unknown[]
+}
+
+describe('World Storage DB Component', () => {
+  let pg: Pick<IPgComponent, 'query' | 'start' | 'streamQuery' | 'getPool' | 'stop'>
+  let worldStorage: ReturnType<typeof createWorldStorageComponent>
 
   let worldName: string
   let key: string
-  let value: string
-  let item: WorldStorageItem
+  let value: unknown
 
   beforeEach(() => {
-    worldStorageDb = {
-      getValue: jest.fn(),
-      setValue: jest.fn(),
-      deleteValue: jest.fn()
-    }
+    pg = {
+      query: jest.fn()
+    } as unknown as Pick<IPgComponent, 'query' | 'start' | 'streamQuery' | 'getPool' | 'stop'>
 
-    component = createWorldStorageComponent({ worldStorageDb })
+    worldStorage = createWorldStorageComponent({ pg })
 
     worldName = 'my-world'
     key = 'my-key'
-    value = 'my-value'
-    item = { worldName, key, value }
+    value = { foo: 'bar' }
   })
 
   afterEach(() => {
+    jest.useRealTimers()
     jest.resetAllMocks()
   })
 
   describe('when calling getValue', () => {
-    describe('and the db resolves with a value', () => {
-      let result: string | null
+    describe('and the query returns a row', () => {
+      let result: unknown | null
+      let queryArg: SqlQuery
 
       beforeEach(async () => {
-        worldStorageDb.getValue.mockResolvedValueOnce(value)
-        result = await component.getValue(worldName, key)
+        ;(pg.query as jest.Mock).mockResolvedValueOnce({ rows: [{ value }] })
+
+        result = await worldStorage.getValue(worldName, key)
+        queryArg = (pg.query as jest.Mock).mock.calls[0][0] as SqlQuery
       })
 
-      it('should return the db value', () => {
+      it('should return the value', () => {
         expect(result).toBe(value)
+      })
+
+      it('should query by world name and key', () => {
+        expect(queryArg.values).toEqual([worldName, key])
       })
     })
 
-    describe('and the db rejects', () => {
-      let error: Error
+    describe('and the query returns no rows', () => {
+      let result: unknown | null
 
-      beforeEach(() => {
-        error = new Error('boom')
-        worldStorageDb.getValue.mockRejectedValueOnce(error)
+      beforeEach(async () => {
+        ;(pg.query as jest.Mock).mockResolvedValueOnce({ rows: [] })
+        result = await worldStorage.getValue(worldName, key)
       })
 
-      it('should propagate the error', async () => {
-        await expect(component.getValue(worldName, key)).rejects.toThrow(error)
+      it('should return null', () => {
+        expect(result).toBeNull()
       })
     })
   })
 
   describe('when calling setValue', () => {
-    describe('and the db resolves with the stored item', () => {
+    describe('and the query returns the inserted row', () => {
+      let now: string
+      let jsonValue: string
+      let item: WorldStorageItem
       let result: WorldStorageItem
+      let queryArg: SqlQuery
 
       beforeEach(async () => {
-        worldStorageDb.setValue.mockResolvedValueOnce(item)
-        result = await component.setValue(worldName, key, value)
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+        now = new Date().toISOString()
+        jsonValue = JSON.stringify(value)
+
+        item = { worldName, key, value }
+        ;(pg.query as jest.Mock).mockResolvedValueOnce({ rows: [item] })
+
+        result = await worldStorage.setValue(worldName, key, value)
+        queryArg = (pg.query as jest.Mock).mock.calls[0][0] as SqlQuery
       })
 
       it('should return the stored item', () => {
         expect(result).toEqual(item)
       })
-    })
 
-    describe('and the db rejects', () => {
-      let error: Error
-
-      beforeEach(() => {
-        error = new Error('boom')
-        worldStorageDb.setValue.mockRejectedValueOnce(error)
-      })
-
-      it('should propagate the error', async () => {
-        await expect(component.setValue(worldName, key, value)).rejects.toThrow(error)
+      it('should pass world name, key, value and timestamps as query values', () => {
+        expect(queryArg.values).toEqual([worldName, key, jsonValue, now, now, jsonValue, now])
       })
     })
   })
 
   describe('when calling deleteValue', () => {
-    describe('and the db resolves', () => {
-      beforeEach(async () => {
-        worldStorageDb.deleteValue.mockResolvedValueOnce()
-        await component.deleteValue(worldName, key)
-      })
+    let queryArg: SqlQuery
 
-      it('should call the db delete', () => {
-        expect(worldStorageDb.deleteValue).toHaveBeenCalledWith(worldName, key)
-      })
+    beforeEach(async () => {
+      ;(pg.query as jest.Mock).mockResolvedValueOnce({ rows: [] })
+      await worldStorage.deleteValue(worldName, key)
+      queryArg = (pg.query as jest.Mock).mock.calls[0][0] as SqlQuery
     })
 
-    describe('and the db rejects', () => {
-      let error: Error
+    it('should call pg.query once', () => {
+      expect((pg.query as jest.Mock).mock.calls.length).toBe(1)
+    })
 
-      beforeEach(() => {
-        error = new Error('boom')
-        worldStorageDb.deleteValue.mockRejectedValueOnce(error)
-      })
-
-      it('should propagate the error', async () => {
-        await expect(component.deleteValue(worldName, key)).rejects.toThrow(error)
-      })
+    it('should query by world name and key', () => {
+      expect(queryArg.values).toEqual([worldName, key])
     })
   })
 })

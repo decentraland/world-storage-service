@@ -1,10 +1,10 @@
 import type { ILoggerComponent } from '@well-known-components/interfaces'
-import { getWorldStorageHandler } from '../../../../src/controllers/handlers/get-world-storage'
+import { deleteWorldStorageHandler } from '../../../../src/controllers/handlers/delete-world-storage'
 import type { IWorldStorageComponent } from '../../../../src/logic/world-storage/types'
 import type { HTTPResponse } from '../../../../src/types/http'
 import type { HandlerContextWithPath, WorldStorageContext } from '../../../../src/types/system'
 
-describe('when handling a get world storage request', () => {
+describe('when handling a delete world storage request', () => {
   let logs: ILoggerComponent
   let logger: { info: jest.Mock; error: jest.Mock }
   let worldStorage: jest.Mocked<Pick<IWorldStorageComponent, 'getValue' | 'setValue' | 'deleteValue'>>
@@ -18,7 +18,7 @@ describe('when handling a get world storage request', () => {
   > &
     WorldStorageContext
 
-  let response: HTTPResponse<unknown>
+  let response: HTTPResponse
 
   beforeEach(() => {
     logger = {
@@ -64,7 +64,7 @@ describe('when handling a get world storage request', () => {
     })
 
     it('should throw an error', async () => {
-      await expect(getWorldStorageHandler(context)).rejects.toThrow('World name and key are required')
+      await expect(deleteWorldStorageHandler(context)).rejects.toThrow('World name and key are required')
     })
   })
 
@@ -75,46 +75,31 @@ describe('when handling a get world storage request', () => {
     })
 
     it('should throw an error', async () => {
-      await expect(getWorldStorageHandler(context)).rejects.toThrow('World name and key are required')
+      await expect(deleteWorldStorageHandler(context)).rejects.toThrow('World name and key are required')
     })
   })
 
-  describe('and the value does not exist', () => {
+  describe('and the delete succeeds', () => {
     beforeEach(async () => {
-      ;(worldStorage.getValue as jest.Mock).mockResolvedValueOnce(null)
-      response = await getWorldStorageHandler(context)
+      ;(worldStorage.deleteValue as jest.Mock).mockResolvedValueOnce(undefined)
+      response = await deleteWorldStorageHandler(context)
     })
 
-    it('should respond with a 404 and a not found message', () => {
+    it('should call deleteValue with world name and key', () => {
+      expect(worldStorage.deleteValue).toHaveBeenCalledWith('my-world', 'my-key')
+    })
+
+    it('should respond with a 204', () => {
       expect(response).toEqual({
-        status: 404,
-        body: {
-          message: 'Value not found'
-        }
+        status: 204
       })
     })
   })
 
-  describe('and the value exists', () => {
+  describe('and the storage delete throws an error', () => {
     beforeEach(async () => {
-      ;(worldStorage.getValue as jest.Mock).mockResolvedValueOnce('stored-value')
-      response = await getWorldStorageHandler(context)
-    })
-
-    it('should respond with a 200 and the stored value', () => {
-      expect(response).toEqual({
-        status: 200,
-        body: {
-          value: 'stored-value'
-        }
-      })
-    })
-  })
-
-  describe('and the database throws an error', () => {
-    beforeEach(async () => {
-      ;(worldStorage.getValue as jest.Mock).mockRejectedValueOnce(new Error('boom'))
-      response = await getWorldStorageHandler(context)
+      ;(worldStorage.deleteValue as jest.Mock).mockRejectedValueOnce(new Error('boom'))
+      response = await deleteWorldStorageHandler(context)
     })
 
     it('should respond with a 500 and the error message', () => {

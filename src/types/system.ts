@@ -7,7 +7,6 @@ import type {
   IMetricsComponent
 } from '@well-known-components/interfaces'
 import type { IPgComponent } from '@well-known-components/pg-component'
-import type { IWorldStorageDBComponent } from '../adapters/db/world-storage-db'
 import type { IWorldStorageComponent } from '../logic/world-storage/types'
 import type { metricDeclarations } from '../metrics'
 
@@ -26,7 +25,6 @@ export interface BaseComponents {
   server: IHttpServerComponent<GlobalContext>
   metrics: IMetricsComponent<keyof typeof metricDeclarations>
   fetcher: IFetchComponent
-  worldStorageDb: IWorldStorageDBComponent
   worldStorage: IWorldStorageComponent
 }
 

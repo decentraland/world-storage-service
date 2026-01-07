@@ -12,7 +12,6 @@ import { createMetricsComponent } from '@well-known-components/metrics'
 import { createPgComponent } from '@well-known-components/pg-component'
 import { createTracerComponent } from '@well-known-components/tracer-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
-import { createWorldStorageDBComponent } from './adapters/db/world-storage-db/component'
 import { getDbConnectionString } from './logic/utils'
 import { createWorldStorageComponent } from './logic/world-storage/component'
 import { metricDeclarations } from './metrics'
@@ -49,8 +48,7 @@ export async function initComponents(): Promise<AppComponents> {
     }
   )
 
-  const worldStorageDb = createWorldStorageDBComponent({ pg })
-  const worldStorage = createWorldStorageComponent({ worldStorageDb })
+  const worldStorage = createWorldStorageComponent({ pg })
 
   return {
     fetcher,
@@ -60,7 +58,6 @@ export async function initComponents(): Promise<AppComponents> {
     statusChecks,
     metrics,
     pg,
-    worldStorageDb,
     worldStorage
   }
 }

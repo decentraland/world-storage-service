@@ -1,11 +1,11 @@
 openapi: 3.0.3
 info:
-  title: X Server API
+  title: World Storage Service API
   version: 1.0.0
   description: |
     ## Overview
 
-    <!-- Description of the API, including its purpose, key features, authentication requirements, and other relevant information -->
+    World Storage Service provides secure, world-isolated key-value storage for Decentraland worlds.
 
   contact:
     name: Decentraland Foundation
@@ -20,8 +20,8 @@ servers:
 
 # List of tags for the API
 tags:
-  - name: X Server
-    description: API endpoints for X Server
+  - name: World Storage
+    description: API endpoints for world-scoped storage
 
 # List of security requirements for the API
 security:
@@ -38,6 +38,108 @@ paths:
           description: OK
         '500':
           description: Internal Server Error
+
+  /storage/world/{key}:
+    get:
+      tags:
+        - World Storage
+      summary: Get a world storage value
+      description: Retrieves a value by key for the calling world (world is derived from signed fetch metadata).
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Value found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value: {}
+        '404':
+          description: Value not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+    put:
+      tags:
+        - World Storage
+      summary: Upsert a world storage value
+      description: Creates or updates a value by key for the calling world (world is derived from signed fetch metadata).
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value: {}
+              required:
+                - value
+      responses:
+        '200':
+          description: Value upserted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value: {}
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+    delete:
+      tags:
+        - World Storage
+      summary: Delete a world storage value
+      description: Deletes a value by key for the calling world (world is derived from signed fetch metadata).
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted (or did not exist)
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
 
 components:
   securitySchemes:

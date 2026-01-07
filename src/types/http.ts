@@ -3,9 +3,8 @@ export interface HTTPResponse<T = undefined> {
   body?:
     | {
         message: string
-        data?: object
       }
     | {
-        data?: T
+        value?: T
       }
 }
