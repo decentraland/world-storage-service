@@ -8,7 +8,7 @@ import type {
 } from '@well-known-components/interfaces'
 import type { IPgComponent } from '@well-known-components/pg-component'
 import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
-import type { IWorldStorageComponent } from '../logic/world-storage/types'
+import type { IWorldStorageComponent } from '../adapters/world-storage/types'
 import type { metricDeclarations } from '../metrics'
 
 export interface GlobalContext {

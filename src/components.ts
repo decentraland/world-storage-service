@@ -14,7 +14,7 @@ import { createTracerComponent } from '@well-known-components/tracer-component'
 import { createSchemaValidatorComponent } from '@dcl/schema-validator-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
 import { getDbConnectionString } from './logic/utils'
-import { createWorldStorageComponent } from './logic/world-storage/component'
+import { createWorldStorageComponent } from './adapters/world-storage/component'
 import { metricDeclarations } from './metrics'
 import type { AppComponents, GlobalContext } from './types'
 

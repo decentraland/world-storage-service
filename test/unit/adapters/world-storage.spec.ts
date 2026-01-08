@@ -1,6 +1,6 @@
 import type { IPgComponent } from '@well-known-components/pg-component'
-import { createWorldStorageComponent } from '../../../src/logic/world-storage/component'
-import type { WorldStorageItem } from '../../../src/logic/world-storage/types'
+import { createWorldStorageComponent } from '../../../src/adapters/world-storage/component'
+import type { WorldStorageItem } from '../../../src/adapters/world-storage/types'
 
 interface SqlQuery {
   text?: string
