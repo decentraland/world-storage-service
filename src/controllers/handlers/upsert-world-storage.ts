@@ -29,18 +29,7 @@ export async function upsertWorldStorageHandler(
       throw new InvalidRequestError('World name and key are required')
     }
 
-    let parsedBody: UpsertWorldStorageBody
-    try {
-      parsedBody = (await request.json()) as UpsertWorldStorageBody
-    } catch {
-      throw new InvalidRequestError('Request body must be valid JSON')
-    }
-
-    const value = parsedBody?.value
-
-    if (value === undefined) {
-      throw new InvalidRequestError('Value is required')
-    }
+    const { value }: UpsertWorldStorageBody = await request.json()
 
     logger.info('Upserting world storage value', {
       worldName,

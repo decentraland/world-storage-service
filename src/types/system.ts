@@ -7,6 +7,7 @@ import type {
   IMetricsComponent
 } from '@well-known-components/interfaces'
 import type { IPgComponent } from '@well-known-components/pg-component'
+import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
 import type { IWorldStorageComponent } from '../logic/world-storage/types'
 import type { metricDeclarations } from '../metrics'
 
@@ -26,6 +27,7 @@ export interface BaseComponents {
   metrics: IMetricsComponent<keyof typeof metricDeclarations>
   fetcher: IFetchComponent
   worldStorage: IWorldStorageComponent
+  schemaValidator: ISchemaValidatorComponent<GlobalContext>
 }
 
 // components used in runtime

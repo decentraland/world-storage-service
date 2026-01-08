@@ -40,9 +40,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       it('should respond with a 400 and an invalid json message', async () => {
         expect(response.status).toBe(400)
         const body = await response.json()
-        expect(body).toEqual({
-          message: 'Request body must be valid JSON'
-        })
+        expect(body.message).toContain('Unexpected end of JSON input')
       })
     })
 
@@ -54,9 +52,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       it('should respond with a 400 and a missing value message', async () => {
         expect(response.status).toBe(400)
         const body = await response.json()
-        expect(body).toEqual({
-          message: 'Value is required'
-        })
+        expect(body.message).toEqual('Invalid JSON body')
       })
     })
 

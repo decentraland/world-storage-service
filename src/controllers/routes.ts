@@ -3,13 +3,14 @@ import { wellKnownComponents } from '@dcl/platform-crypto-middleware'
 import { errorHandler } from '@dcl/platform-server-commons'
 import { deleteWorldStorageHandler } from './handlers/delete-world-storage'
 import { getWorldStorageHandler } from './handlers/get-world-storage'
+import { UpsertWorldStorageRequestSchema } from './handlers/schemas'
 import { upsertWorldStorageHandler } from './handlers/upsert-world-storage'
 import { worldNameMiddleware } from './middlewares/world-name-middleware'
 import type { GlobalContext } from '../types'
 
 // We return the entire router because it will be easier to test than a whole server
 export async function setupRouter(context: GlobalContext): Promise<Router<GlobalContext>> {
-  const { fetcher } = context.components
+  const { fetcher, schemaValidator } = context.components
   const router = new Router<GlobalContext>()
 
   router.use(errorHandler)
@@ -32,7 +33,11 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   router.use(worldNameMiddleware)
 
   router.get('/values/:key', getWorldStorageHandler)
-  router.put('/values/:key', upsertWorldStorageHandler)
+  router.put(
+    '/values/:key',
+    schemaValidator.withSchemaValidatorMiddleware(UpsertWorldStorageRequestSchema),
+    upsertWorldStorageHandler
+  )
   router.delete('/values/:key', deleteWorldStorageHandler)
 
   return router
