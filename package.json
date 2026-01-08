@@ -30,6 +30,7 @@
     "tabWidth": 2
   },
   "dependencies": {
+    "@dcl/http-commons": "^1.0.0",
     "@dcl/platform-crypto-middleware": "^1.1.0",
     "@dcl/platform-server-commons": "^1.0.1",
     "@dcl/schema-validator-component": "^0.2.2",
