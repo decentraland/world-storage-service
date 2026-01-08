@@ -11,7 +11,9 @@ import { createLogComponent } from '@well-known-components/logger'
 import { createMetricsComponent } from '@well-known-components/metrics'
 import { createPgComponent } from '@well-known-components/pg-component'
 import { createTracerComponent } from '@well-known-components/tracer-component'
+import { createSchemaValidatorComponent } from '@dcl/schema-validator-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
+import { createWorldStorageComponent } from './adapters/world-storage/component'
 import { getDbConnectionString } from './logic/utils'
 import { metricDeclarations } from './metrics'
 import type { AppComponents, GlobalContext } from './types'
@@ -34,6 +36,8 @@ export async function initComponents(): Promise<AppComponents> {
 
   await instrumentHttpServerWithPromClientRegistry({ metrics, server, config, registry: metrics.registry })
 
+  const schemaValidator = createSchemaValidatorComponent({ ensureJsonContentType: true })
+
   const pg = await createPgComponent(
     { logs, config, metrics },
     {
@@ -47,6 +51,8 @@ export async function initComponents(): Promise<AppComponents> {
     }
   )
 
+  const worldStorage = createWorldStorageComponent({ pg })
+
   return {
     fetcher,
     config,
@@ -54,6 +60,8 @@ export async function initComponents(): Promise<AppComponents> {
     server,
     statusChecks,
     metrics,
-    pg
+    pg,
+    worldStorage,
+    schemaValidator
   }
 }

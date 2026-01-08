@@ -6,20 +6,21 @@
     "lint": "eslint '{src,test}/**/*.{js,ts}'",
     "lint:check": "eslint '{src,test}/**/*.{js,ts}'",
     "lint:fix": "eslint '{src,test}/**/*.{js,ts}' --fix",
+    "docs:check": "npx @redocly/cli@latest lint docs/openapi.yaml",
     "start:dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "test": "jest --forceExit --detectOpenHandles --coverage --verbose",
     "migrate": "node-pg-migrate -j ts --tsconfig tsconfig.json -m src/migrations"
   },
   "devDependencies": {
     "@dcl/eslint-config": "^2.4.3",
-    "@types/node": "^25.0.3",
-    "@well-known-components/test-helpers": "^1.5.8",
-    "eslint": "^8",
-    "jest": "^30.2.0",
-    "nodemon": "^3.1.11",
-    "ts-jest": "^29.4.6",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
+    "@types/node": "25.0.3",
+    "@well-known-components/test-helpers": "1.5.8",
+    "eslint": "8",
+    "jest": "30.2.0",
+    "nodemon": "3.1.11",
+    "ts-jest": "29.4.6",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3"
   },
   "prettier": {
     "printWidth": 120,
@@ -29,16 +30,22 @@
     "tabWidth": 2
   },
   "dependencies": {
+    "@dcl/http-commons": "^1.0.0",
+    "@dcl/platform-crypto-middleware": "^1.1.0",
+    "@dcl/platform-server-commons": "^1.0.1",
+    "@dcl/schema-validator-component": "^0.2.2",
     "@dcl/traced-fetch-component": "^1.0.2",
-    "@well-known-components/env-config-provider": "^1.2.0",
-    "@well-known-components/fetch-component": "^3.0.0",
-    "@well-known-components/http-requests-logger-component": "^2.1.0",
-    "@well-known-components/http-server": "^2.1.0",
-    "@well-known-components/http-tracer-component": "^1.1.0",
-    "@well-known-components/interfaces": "^1.5.2",
-    "@well-known-components/logger": "^3.1.3",
-    "@well-known-components/metrics": "^2.1.0",
-    "@well-known-components/pg-component": "^1.1.0",
-    "@well-known-components/tracer-component": "^1.2.0"
+    "@well-known-components/env-config-provider": "1.2.0",
+    "@well-known-components/fetch-component": "3.0.0",
+    "@well-known-components/http-requests-logger-component": "2.1.0",
+    "@well-known-components/http-server": "2.1.0",
+    "@well-known-components/http-tracer-component": "1.1.0",
+    "@well-known-components/interfaces": "1.5.2",
+    "@well-known-components/logger": "3.1.3",
+    "@well-known-components/metrics": "2.1.0",
+    "@well-known-components/pg-component": "1.1.0",
+    "@well-known-components/tracer-component": "1.2.0",
+    "decentraland-crypto-fetch": "^2.0.1",
+    "sql-template-strings": "2.2.2"
   }
 }

@@ -7,10 +7,16 @@ import type {
   IMetricsComponent
 } from '@well-known-components/interfaces'
 import type { IPgComponent } from '@well-known-components/pg-component'
-import type { metricDeclarations } from './metrics'
+import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
+import type { IWorldStorageComponent } from '../adapters/world-storage/types'
+import type { metricDeclarations } from '../metrics'
 
 export interface GlobalContext {
   components: BaseComponents
+}
+
+export interface WorldStorageContext {
+  worldName?: string
 }
 
 // components used in every environment
@@ -20,6 +26,8 @@ export interface BaseComponents {
   server: IHttpServerComponent<GlobalContext>
   metrics: IMetricsComponent<keyof typeof metricDeclarations>
   fetcher: IFetchComponent
+  worldStorage: IWorldStorageComponent
+  schemaValidator: ISchemaValidatorComponent<GlobalContext>
 }
 
 // components used in runtime
