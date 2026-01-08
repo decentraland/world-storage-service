@@ -23,10 +23,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
         error: err.message,
         message: 'This endpoint requires a signed fetch request. See ADR-44.'
       }),
-      metadataValidator: (metadata) => {
-        console.log('metadata', metadata)
-        return true
-      } // TODO: Add metadata validator to check for world name and authoritative server origin
+      metadataValidator: (metadata) => metadata?.signer !== 'decentraland-kernel-scene' // prevent requests from scenes TODO: check if we don't want the scenes to be able to get values
     })
 
   router.use(signedFetchMiddleware())
