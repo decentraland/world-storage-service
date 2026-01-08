@@ -31,9 +31,9 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   router.use(signedFetchMiddleware())
   router.use(worldNameMiddleware)
 
-  router.get('/storage/world/:key', getWorldStorageHandler)
-  router.put('/storage/world/:key', upsertWorldStorageHandler)
-  router.delete('/storage/world/:key', deleteWorldStorageHandler)
+  router.get('/values/:key', getWorldStorageHandler)
+  router.put('/values/:key', upsertWorldStorageHandler)
+  router.delete('/values/:key', deleteWorldStorageHandler)
 
   return router
 }

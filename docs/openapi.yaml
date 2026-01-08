@@ -27,7 +27,7 @@ security:
   - SignedFetch: []
 
 paths:
-  /storage/world/{key}:
+  /values/{key}:
     get:
       tags:
         - World Storage

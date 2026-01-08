@@ -16,7 +16,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
     describe('and the request does not include an identity', () => {
       beforeEach(async () => {
-        response = await makeRequest(undefined, `/storage/world/${key}`, 'PUT', { value: 'payload' })
+        response = await makeRequest(undefined, `/values/${key}`, 'PUT', { value: 'payload' })
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
@@ -34,7 +34,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
       beforeEach(async () => {
         invalidBody = '{ "value": '
-        response = await makeRequest(identity, `/storage/world/${key}`, 'PUT', invalidBody)
+        response = await makeRequest(identity, `/values/${key}`, 'PUT', invalidBody)
       })
 
       it('should respond with a 400 and an invalid json message', async () => {
@@ -48,7 +48,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
     describe('and the request body does not include a value', () => {
       beforeEach(async () => {
-        response = await makeRequest(identity, `/storage/world/${key}`, 'PUT', {})
+        response = await makeRequest(identity, `/values/${key}`, 'PUT', {})
       })
 
       it('should respond with a 400 and a missing value message', async () => {
@@ -65,11 +65,11 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
       beforeEach(async () => {
         storedValue = { foo: 'bar' }
-        response = await makeRequest(identity, `/storage/world/${key}`, 'PUT', { value: storedValue })
+        response = await makeRequest(identity, `/values/${key}`, 'PUT', { value: storedValue })
       })
 
       afterEach(async () => {
-        await makeRequest(identity, `/storage/world/${key}`, 'DELETE')
+        await makeRequest(identity, `/values/${key}`, 'DELETE')
       })
 
       it('should respond with a 200 and the stored value', async () => {
@@ -84,7 +84,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
     describe('and the database throws an error', () => {
       beforeEach(async () => {
         stubComponents.worldStorage.setValue.rejects(new Error('boom'))
-        response = await makeRequest(identity, `/storage/world/${key}`, 'PUT', { value: 'payload' })
+        response = await makeRequest(identity, `/values/${key}`, 'PUT', { value: 'payload' })
       })
 
       afterEach(() => {

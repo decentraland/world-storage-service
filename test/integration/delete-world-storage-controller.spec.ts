@@ -16,7 +16,7 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
 
     describe('and the request does not include an identity', () => {
       beforeEach(async () => {
-        response = await makeRequest(undefined, `/storage/world/${key}`, 'DELETE')
+        response = await makeRequest(undefined, `/values/${key}`, 'DELETE')
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
@@ -34,8 +34,8 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
 
       beforeEach(async () => {
         storedValue = 'to-delete'
-        await makeRequest(identity, `/storage/world/${key}`, 'PUT', { value: storedValue })
-        response = await makeRequest(identity, `/storage/world/${key}`, 'DELETE')
+        await makeRequest(identity, `/values/${key}`, 'PUT', { value: storedValue })
+        response = await makeRequest(identity, `/values/${key}`, 'DELETE')
       })
 
       it('should respond with a 204', () => {
@@ -46,7 +46,7 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
     describe('and the storage delete throws an error', () => {
       beforeEach(async () => {
         stubComponents.worldStorage.deleteValue.rejects(new Error('boom'))
-        response = await makeRequest(identity, `/storage/world/${key}`, 'DELETE')
+        response = await makeRequest(identity, `/values/${key}`, 'DELETE')
       })
 
       afterEach(() => {

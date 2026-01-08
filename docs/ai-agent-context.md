@@ -9,7 +9,7 @@ The World Storage Service is a standalone service that provides secure, isolated
 - **Signed Fetch Validation**: Receives and validates signed fetch requests from authoritative servers using Decentraland's ADR-44 specification. Only requests signed by valid authoritative servers with proper private keys are accepted.
 - **World Isolation Enforcement**: Extracts world name (e.g., "worldname.dcl.eth") from signed payload metadata (`serverName` or `realmName`), never from user-provided query parameters or request body. This ensures cryptographic proof of world ownership.
 - **Key-Value Storage API**: Provides persistent storage with two namespaces:
-  - **World storage**: Global key-value storage scoped to a world (`/storage/world/:key`)
+  - **World storage**: Global key-value storage scoped to a world (`/values/:key`)
   - **Player storage**: Per-player key-value storage scoped to both world and player address (`/storage/player/:player_addr/:key`)
 - **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time (`/env/:key`). Values are encrypted at rest and only accessible to the authoritative server for that world.
 

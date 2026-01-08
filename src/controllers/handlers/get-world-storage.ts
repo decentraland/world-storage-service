@@ -3,10 +3,7 @@ import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
 import type { HTTPResponse } from '../../types/http'
 
 export async function getWorldStorageHandler(
-  context: Pick<
-    HandlerContextWithPath<'logs' | 'worldStorage', '/storage/world/:key'>,
-    'url' | 'components' | 'params'
-  > &
+  context: Pick<HandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>, 'url' | 'components' | 'params'> &
     WorldStorageContext
 ): Promise<HTTPResponse<unknown>> {
   const {

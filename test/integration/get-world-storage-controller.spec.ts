@@ -17,7 +17,7 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
       let response: Awaited<ReturnType<typeof components.localFetch.fetch>>
 
       beforeEach(async () => {
-        response = await makeRequest(undefined, `/storage/world/${key}`, 'GET')
+        response = await makeRequest(undefined, `/values/${key}`, 'GET')
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
@@ -32,11 +32,11 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
 
     describe('and the value does not exist', () => {
       beforeEach(async () => {
-        await makeRequest(identity, `/storage/world/${key}`, 'DELETE')
+        await makeRequest(identity, `/values/${key}`, 'DELETE')
       })
 
       it('should respond with a 404 and a not found message', async () => {
-        const response = await makeRequest(identity, `/storage/world/${key}`, 'GET')
+        const response = await makeRequest(identity, `/values/${key}`, 'GET')
         expect(response.status).toBe(404)
         const body = await response.json()
         expect(body).toEqual({
@@ -50,15 +50,15 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
 
       beforeEach(async () => {
         storedValue = 'stored-value'
-        await makeRequest(identity, `/storage/world/${key}`, 'PUT', { value: storedValue })
+        await makeRequest(identity, `/values/${key}`, 'PUT', { value: storedValue })
       })
 
       afterEach(async () => {
-        await makeRequest(identity, `/storage/world/${key}`, 'DELETE')
+        await makeRequest(identity, `/values/${key}`, 'DELETE')
       })
 
       it('should respond with a 200 and the stored value', async () => {
-        const response = await makeRequest(identity, `/storage/world/${key}`, 'GET')
+        const response = await makeRequest(identity, `/values/${key}`, 'GET')
         expect(response.status).toBe(200)
         const body = await response.json()
         expect(body).toEqual({
@@ -77,7 +77,7 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
       })
 
       it('should respond with a 500 and the error message', async () => {
-        const response = await makeRequest(identity, `/storage/world/${key}`, 'GET')
+        const response = await makeRequest(identity, `/values/${key}`, 'GET')
         expect(response.status).toBe(500)
         const body = await response.json()
         expect(body).toEqual({

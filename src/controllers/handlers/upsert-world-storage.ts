@@ -8,7 +8,7 @@ interface UpsertWorldStorageBody {
 
 export async function upsertWorldStorageHandler(
   context: Pick<
-    HandlerContextWithPath<'logs' | 'worldStorage', '/storage/world/:key'>,
+    HandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>,
     'url' | 'components' | 'params' | 'request'
   > &
     WorldStorageContext
