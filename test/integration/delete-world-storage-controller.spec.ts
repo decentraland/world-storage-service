@@ -44,6 +44,7 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
         storedValue = 'to-delete'
         await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
           identity
         })

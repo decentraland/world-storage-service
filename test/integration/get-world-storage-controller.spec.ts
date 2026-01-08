@@ -60,6 +60,7 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
         storedValue = 'stored-value'
         await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
           identity
         })

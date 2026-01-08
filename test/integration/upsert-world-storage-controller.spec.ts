@@ -26,6 +26,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       beforeEach(async () => {
         response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: 'payload' })
         })
       })
@@ -47,6 +48,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
         invalidBody = '{ "value": '
         response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: invalidBody,
           identity
         })
@@ -63,6 +65,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       beforeEach(async () => {
         response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
           identity
         })
@@ -82,6 +85,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
         storedValue = { foo: 'bar' }
         response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
           identity
         })
@@ -114,6 +118,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
         stubComponents.worldStorage.setValue.rejects(new Error('boom'))
         response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: 'payload' }),
           identity
         })
