@@ -32,8 +32,8 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
-        expect(response.status).toBe(400)
         const body = await response.json()
+        expect(response.status).toBe(400)
         expect(body).toEqual({
           error: 'Invalid Auth Chain',
           message: 'This endpoint requires a signed fetch request. See ADR-44.'
@@ -55,8 +55,8 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       })
 
       it('should respond with a 400 and an invalid json message', async () => {
-        expect(response.status).toBe(400)
         const body = await response.json()
+        expect(response.status).toBe(400)
         expect(body.message).toContain('Unexpected end of JSON input')
       })
     })
@@ -72,8 +72,8 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       })
 
       it('should respond with a 400 and a missing value message', async () => {
-        expect(response.status).toBe(400)
         const body = await response.json()
+        expect(response.status).toBe(400)
         expect(body.message).toEqual('Invalid JSON body')
       })
     })
@@ -95,19 +95,16 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
         await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity })
       })
 
-      it('should respond with a 200 and the stored value', async () => {
-        expect(response.status).toBe(200)
+      it('should store the value and respond with a 200', async () => {
         const body = await response.json()
+        const getResponse = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
+        const getBody = await getResponse.json()
+        expect(response.status).toBe(200)
         expect(body).toEqual({
           value: storedValue
         })
-      })
-
-      it('should have stored the value', async () => {
-        const getResponse = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
         expect(getResponse.status).toBe(200)
-        const body = await getResponse.json()
-        expect(body).toEqual({
+        expect(getBody).toEqual({
           value: storedValue
         })
       })
@@ -129,8 +126,8 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       })
 
       it('should respond with a 500 and the error message', async () => {
-        expect(response.status).toBe(500)
         const body = await response.json()
+        expect(response.status).toBe(500)
         expect(body).toEqual({
           message: 'boom'
         })

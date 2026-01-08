@@ -28,8 +28,8 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
-        expect(response.status).toBe(400)
         const body = await response.json()
+        expect(response.status).toBe(400)
         expect(body).toEqual({
           error: 'Invalid Auth Chain',
           message: 'This endpoint requires a signed fetch request. See ADR-44.'
@@ -51,14 +51,11 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
         response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity })
       })
 
-      it('should respond with a 204', () => {
-        expect(response.status).toBe(204)
-      })
-
-      it('should have deleted the value', async () => {
+      it('should delete the value and respond with a 204', async () => {
         const getResponse = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
-        expect(getResponse.status).toBe(404)
         const body = await getResponse.json()
+        expect(response.status).toBe(204)
+        expect(getResponse.status).toBe(404)
         expect(body).toEqual({
           message: 'Value not found'
         })
@@ -76,8 +73,8 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
       })
 
       it('should respond with a 500 and the error message', async () => {
-        expect(response.status).toBe(500)
         const body = await response.json()
+        expect(response.status).toBe(500)
         expect(body).toEqual({
           message: 'boom'
         })

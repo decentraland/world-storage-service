@@ -29,8 +29,8 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
-        expect(response.status).toBe(400)
         const body = await response.json()
+        expect(response.status).toBe(400)
         expect(body).toEqual({
           error: 'Invalid Auth Chain',
           message: 'This endpoint requires a signed fetch request. See ADR-44.'
@@ -45,8 +45,8 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
 
       it('should respond with a 404 and a not found message', async () => {
         const response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
-        expect(response.status).toBe(404)
         const body = await response.json()
+        expect(response.status).toBe(404)
         expect(body).toEqual({
           message: 'Value not found'
         })
@@ -72,8 +72,8 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
 
       it('should respond with a 200 and the stored value', async () => {
         const response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
-        expect(response.status).toBe(200)
         const body = await response.json()
+        expect(response.status).toBe(200)
         expect(body).toEqual({
           value: storedValue
         })
@@ -91,8 +91,8 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
 
       it('should respond with a 500 and the error message', async () => {
         const response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
-        expect(response.status).toBe(500)
         const body = await response.json()
+        expect(response.status).toBe(500)
         expect(body).toEqual({
           message: 'boom'
         })
