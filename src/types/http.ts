@@ -8,3 +8,5 @@ export interface HTTPResponse<T = undefined> {
         value?: T
       }
 }
+
+export type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue }

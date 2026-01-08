@@ -1,10 +1,7 @@
 import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
+import type { UpsertWorldStorageBody } from './schemas'
 import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
 import type { HTTPResponse } from '../../types/http'
-
-interface UpsertWorldStorageBody {
-  value?: unknown
-}
 
 export async function upsertWorldStorageHandler(
   context: Pick<
