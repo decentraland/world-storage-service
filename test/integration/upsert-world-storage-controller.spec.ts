@@ -75,6 +75,15 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
           value: storedValue
         })
       })
+
+      it('should have stored the value', async () => {
+        const getResponse = await makeRequest(identity, `/values/${key}`, 'GET')
+        expect(getResponse.status).toBe(200)
+        const body = await getResponse.json()
+        expect(body).toEqual({
+          value: storedValue
+        })
+      })
     })
 
     describe('and the database throws an error', () => {
