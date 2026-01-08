@@ -41,6 +41,15 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
       it('should respond with a 204', () => {
         expect(response.status).toBe(204)
       })
+
+      it('should have deleted the value', async () => {
+        const getResponse = await makeRequest(identity, `/values/${key}`, 'GET')
+        expect(getResponse.status).toBe(404)
+        const body = await getResponse.json()
+        expect(body).toEqual({
+          message: 'Value not found'
+        })
+      })
     })
 
     describe('and the storage delete throws an error', () => {
