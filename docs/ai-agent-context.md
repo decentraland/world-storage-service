@@ -10,7 +10,7 @@ The World Storage Service is a standalone service that provides secure, isolated
 - **World Isolation Enforcement**: Extracts world name (e.g., "worldname.dcl.eth") from signed payload metadata (`serverName` or `realmName`), never from user-provided query parameters or request body. This ensures cryptographic proof of world ownership.
 - **Key-Value Storage API**: Provides persistent storage with two namespaces:
   - **World storage**: Global key-value storage scoped to a world (`/values/:key`)
-  - **Player storage**: Per-player key-value storage scoped to both world and player address (`/storage/player/:player_addr/:key`)
+  - **Player storage**: Per-player key-value storage scoped to both world and player address (`/players/:player_address/values/:key`)
 - **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time (`/env/:key`). Values are encrypted at rest and only accessible to the authoritative server for that world.
 
 **Communication Pattern:**
