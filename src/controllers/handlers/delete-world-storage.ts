@@ -1,4 +1,4 @@
-import { errorMessageOrDefault } from '../../utils/errors'
+import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
 import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
 import type { HTTPResponse } from '../../types/http'
 
@@ -14,28 +14,32 @@ export async function deleteWorldStorageHandler(
 
   const logger = logs.getLogger('delete-world-storage-handler')
 
-  const key = params.key
-
-  if (!worldName || !key) {
-    return {
-      status: 400,
-      body: {
-        message: 'World name and key are required'
-      }
-    }
-  }
-
-  logger.info('Deleting world storage value', {
-    worldName,
-    key
-  })
-
   try {
+    const key = params.key
+
+    if (!worldName || !key) {
+      throw new InvalidRequestError('World name and key are required')
+    }
+
+    logger.info('Deleting world storage value', {
+      worldName,
+      key
+    })
+
     await worldStorage.deleteValue(worldName, key)
     return {
       status: 204
     }
   } catch (error) {
+    if (isInvalidRequestError(error)) {
+      return {
+        status: 400,
+        body: {
+          message: error.message
+        }
+      }
+    }
+
     logger.error('Error deleting world storage value', {
       error: errorMessageOrDefault(error, 'Unknown error')
     })

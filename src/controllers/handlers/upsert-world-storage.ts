@@ -1,4 +1,4 @@
-import { errorMessageOrDefault } from '../../utils/errors'
+import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
 import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
 import type { HTTPResponse } from '../../types/http'
 
@@ -22,46 +22,31 @@ export async function upsertWorldStorageHandler(
 
   const logger = logs.getLogger('upsert-world-storage-handler')
 
-  const key = params.key
-
-  if (!worldName || !key) {
-    return {
-      status: 400,
-      body: {
-        message: 'World name and key are required'
-      }
-    }
-  }
-
-  let parsedBody: UpsertWorldStorageBody
   try {
-    parsedBody = (await request.json()) as UpsertWorldStorageBody
-  } catch {
-    return {
-      status: 400,
-      body: {
-        message: 'Request body must be valid JSON'
-      }
+    const key = params.key
+
+    if (!worldName || !key) {
+      throw new InvalidRequestError('World name and key are required')
     }
-  }
 
-  const value = parsedBody?.value
-
-  if (value === undefined) {
-    return {
-      status: 400,
-      body: {
-        message: 'Value is required'
-      }
+    let parsedBody: UpsertWorldStorageBody
+    try {
+      parsedBody = (await request.json()) as UpsertWorldStorageBody
+    } catch {
+      throw new InvalidRequestError('Request body must be valid JSON')
     }
-  }
 
-  logger.info('Upserting world storage value', {
-    worldName,
-    key
-  })
+    const value = parsedBody?.value
 
-  try {
+    if (value === undefined) {
+      throw new InvalidRequestError('Value is required')
+    }
+
+    logger.info('Upserting world storage value', {
+      worldName,
+      key
+    })
+
     const item = await worldStorage.setValue(worldName, key, value)
     return {
       status: 200,
@@ -70,6 +55,15 @@ export async function upsertWorldStorageHandler(
       }
     }
   } catch (error) {
+    if (isInvalidRequestError(error)) {
+      return {
+        status: 400,
+        body: {
+          message: error.message
+        }
+      }
+    }
+
     logger.error('Error upserting world storage value', {
       error: errorMessageOrDefault(error, 'Unknown error')
     })
