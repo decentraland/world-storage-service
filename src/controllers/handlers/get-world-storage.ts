@@ -53,13 +53,16 @@ export async function getWorldStorageHandler(
       }
     }
 
+    const errorMessage = errorMessageOrDefault(error, 'Unknown error')
+
     logger.error('Error getting world storage value', {
-      error: errorMessageOrDefault(error, 'Unknown error')
+      error: errorMessage
     })
+
     return {
       status: 500,
       body: {
-        message: errorMessageOrDefault(error, 'Unknown error')
+        message: errorMessage
       }
     }
   }
