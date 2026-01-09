@@ -38,11 +38,15 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
 
     describe('and the value does not exist', () => {
       beforeEach(async () => {
-        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity })
+        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
       })
 
       it('should respond with a 404 and a not found message', async () => {
-        const response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
+        const response = await signedFetch(`${baseUrl}/values/${key}`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
         const body = await response.json()
         expect(response.status).toBe(404)
         expect(body).toEqual({
@@ -60,16 +64,21 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
-          identity
+          identity,
+          metadata: TEST_REALM_METADATA
         })
       })
 
       afterEach(async () => {
-        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity })
+        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
       })
 
       it('should respond with a 200 and the stored value', async () => {
-        const response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
+        const response = await signedFetch(`${baseUrl}/values/${key}`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
         const body = await response.json()
         expect(response.status).toBe(200)
         expect(body).toEqual({
@@ -88,7 +97,11 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
       })
 
       it('should respond with a 500 and the error message', async () => {
-        const response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
+        const response = await signedFetch(`${baseUrl}/values/${key}`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
         const body = await response.json()
         expect(response.status).toBe(500)
         expect(body).toEqual({

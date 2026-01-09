@@ -17,16 +17,16 @@ export async function deleteWorldStorageHandler(
   try {
     const key = params.key
 
-    if (!worldName || !key) {
-      throw new InvalidRequestError('World name and key are required')
+    if (!key) {
+      throw new InvalidRequestError('Key is required')
     }
 
     logger.info('Deleting world storage value', {
-      worldName,
+      worldName: worldName!,
       key
     })
 
-    await worldStorage.deleteValue(worldName, key)
+    await worldStorage.deleteValue(worldName!, key)
     return {
       status: 204
     }

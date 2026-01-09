@@ -1,15 +1,36 @@
 import type { IHttpServerComponent } from '@well-known-components/interfaces'
+import type { DecentralandSignatureContext } from '@dcl/platform-crypto-middleware'
+import { InvalidRequestError, isInvalidRequestError } from '../../utils/errors'
 import type { WorldStorageContext } from '../../types'
-const DUMMY_WORLD_NAME = 'worldname.dcl.eth'
 
 /**
- * Dummy middleware that injects a fixed `worldName` into every request.
+ * Middleware that extracts and validates the `worldName` from the signed fetch metadata.
  *
  * It attaches it to the request context so handlers can read it as `context.worldName`.
+ * If the worldName cannot be extracted from the metadata, it returns a 400 error.
  */
 export const worldNameMiddleware: IHttpServerComponent.IRequestHandler<
-  IHttpServerComponent.PathAwareContext<WorldStorageContext, string>
+  IHttpServerComponent.PathAwareContext<WorldStorageContext, string> & DecentralandSignatureContext<any>
 > = async (ctx, next) => {
-  ctx.worldName = DUMMY_WORLD_NAME
-  return await next()
+  try {
+    const metadata = ctx.verification!.authMetadata
+    const worldName = metadata?.realm?.serverName ?? metadata?.realmName
+
+    if (!worldName) {
+      throw new InvalidRequestError('World name is required')
+    }
+
+    ctx.worldName = worldName
+    return await next()
+  } catch (error) {
+    if (isInvalidRequestError(error)) {
+      return {
+        status: 400,
+        body: {
+          message: error.message
+        }
+      }
+    }
+    throw error
+  }
 }

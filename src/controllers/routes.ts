@@ -9,6 +9,7 @@ import { UpsertStorageRequestSchema } from './handlers/schemas'
 import { upsertPlayerStorageHandler } from './handlers/upsert-player-storage'
 import { upsertWorldStorageHandler } from './handlers/upsert-world-storage'
 import { worldNameMiddleware } from './middlewares/world-name-middleware'
+import { writeAuthorizationMiddleware } from './middlewares/write-authorization-middleware'
 import type { GlobalContext } from '../types'
 
 // We return the entire router because it will be easier to test than a whole server
@@ -39,7 +40,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
     upsertWorldStorageHandler
   )
-  router.delete('/values/:key', deleteWorldStorageHandler)
+  router.delete('/values/:key', writeAuthorizationMiddleware, deleteWorldStorageHandler)
 
   // Player storage endpoints
   router.get('/players/:player_address/values/:key', getPlayerStorageHandler)

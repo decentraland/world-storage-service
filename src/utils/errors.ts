@@ -1,6 +1,6 @@
-import { InvalidRequestError } from '@dcl/http-commons'
+import { InvalidRequestError, NotAuthorizedError } from '@dcl/http-commons'
 
-export { InvalidRequestError }
+export { InvalidRequestError, NotAuthorizedError }
 
 export function isErrorWithMessage(error: unknown): error is Error {
   return error !== undefined && error !== null && typeof error === 'object' && 'message' in error
@@ -12,4 +12,8 @@ export function errorMessageOrDefault(error: unknown, defaultMessage = 'Unknown 
 
 export function isInvalidRequestError(error: unknown): error is InvalidRequestError {
   return error instanceof InvalidRequestError
+}
+
+export function isNotAuthorizedError(error: unknown): error is NotAuthorizedError {
+  return error instanceof NotAuthorizedError
 }
