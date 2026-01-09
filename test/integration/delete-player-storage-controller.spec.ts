@@ -3,17 +3,19 @@ import type { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { createTestSetup } from './utils/setup'
 import { test } from '../components'
 
-test('Delete World Storage Controller', function ({ components, stubComponents }) {
+test('Delete Player Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
 
-  describe('when deleting a world storage value', () => {
+  describe('when deleting a player storage value', () => {
     let key: string
+    let playerAddress: string
     let identity: AuthIdentity
     let response: Awaited<ReturnType<typeof signedFetch>>
 
     beforeEach(async () => {
       key = 'my-key'
+      playerAddress = '0x1234567890abcdef1234567890abcdef12345678'
       const setup = await createTestSetup(components)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
@@ -22,7 +24,7 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
 
     describe('and the request does not include an identity', () => {
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE' })
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, { method: 'DELETE' })
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
@@ -35,22 +37,48 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
       })
     })
 
+    describe('and the player address is invalid', () => {
+      let invalidPlayerAddress: string
+
+      beforeEach(async () => {
+        invalidPlayerAddress = 'invalid-address'
+        response = await signedFetch(`${baseUrl}/players/${invalidPlayerAddress}/values/${key}`, {
+          method: 'DELETE',
+          identity
+        })
+      })
+
+      it('should respond with a 400 and an invalid player address message', async () => {
+        const body = await response.json()
+        expect(response.status).toBe(400)
+        expect(body).toEqual({
+          message: 'Invalid player address'
+        })
+      })
+    })
+
     describe('and the delete succeeds', () => {
       let storedValue: string
 
       beforeEach(async () => {
         storedValue = 'to-delete'
-        await signedFetch(`${baseUrl}/values/${key}`, {
+        await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
           identity
         })
-        response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity })
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+          method: 'DELETE',
+          identity
+        })
       })
 
       it('should delete the value and respond with a 204', async () => {
-        const getResponse = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
+        const getResponse = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+          method: 'GET',
+          identity
+        })
         const body = await getResponse.json()
         expect(response.status).toBe(204)
         expect(getResponse.status).toBe(404)
@@ -62,12 +90,15 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
 
     describe('and the storage delete throws an error', () => {
       beforeEach(async () => {
-        stubComponents.worldStorage.deleteValue.rejects(new Error('boom'))
-        response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity })
+        stubComponents.playerStorage.deleteValue.rejects(new Error('boom'))
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+          method: 'DELETE',
+          identity
+        })
       })
 
       afterEach(() => {
-        stubComponents.worldStorage.deleteValue.reset()
+        stubComponents.playerStorage.deleteValue.reset()
       })
 
       it('should respond with a 500 and the error message', async () => {

@@ -1,9 +1,12 @@
 import { Router } from '@well-known-components/http-server'
 import { wellKnownComponents } from '@dcl/platform-crypto-middleware'
 import { errorHandler } from '@dcl/platform-server-commons'
+import { deletePlayerStorageHandler } from './handlers/delete-player-storage'
 import { deleteWorldStorageHandler } from './handlers/delete-world-storage'
+import { getPlayerStorageHandler } from './handlers/get-player-storage'
 import { getWorldStorageHandler } from './handlers/get-world-storage'
-import { UpsertWorldStorageRequestSchema } from './handlers/schemas'
+import { UpsertStorageRequestSchema } from './handlers/schemas'
+import { upsertPlayerStorageHandler } from './handlers/upsert-player-storage'
 import { upsertWorldStorageHandler } from './handlers/upsert-world-storage'
 import { worldNameMiddleware } from './middlewares/world-name-middleware'
 import type { GlobalContext } from '../types'
@@ -29,13 +32,23 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   router.use(signedFetchMiddleware())
   router.use(worldNameMiddleware)
 
+  // World storage endpoints
   router.get('/values/:key', getWorldStorageHandler)
   router.put(
     '/values/:key',
-    schemaValidator.withSchemaValidatorMiddleware(UpsertWorldStorageRequestSchema),
+    schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
     upsertWorldStorageHandler
   )
   router.delete('/values/:key', deleteWorldStorageHandler)
+
+  // Player storage endpoints
+  router.get('/players/:player_address/values/:key', getPlayerStorageHandler)
+  router.put(
+    '/players/:player_address/values/:key',
+    schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
+    upsertPlayerStorageHandler
+  )
+  router.delete('/players/:player_address/values/:key', deletePlayerStorageHandler)
 
   return router
 }

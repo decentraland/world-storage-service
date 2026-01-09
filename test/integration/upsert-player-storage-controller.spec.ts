@@ -3,17 +3,19 @@ import type { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { createTestSetup } from './utils/setup'
 import { test } from '../components'
 
-test('Upsert World Storage Controller', function ({ components, stubComponents }) {
+test('Upsert Player Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
 
-  describe('when upserting a world storage value', () => {
+  describe('when upserting a player storage value', () => {
     let key: string
+    let playerAddress: string
     let identity: AuthIdentity
     let response: Awaited<ReturnType<typeof signedFetch>>
 
     beforeEach(async () => {
       key = 'my-key'
+      playerAddress = '0x1234567890abcdef1234567890abcdef12345678'
       const setup = await createTestSetup(components)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
@@ -22,7 +24,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
     describe('and the request does not include an identity', () => {
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/values/${key}`, {
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: 'payload' })
@@ -39,12 +41,34 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       })
     })
 
+    describe('and the player address is invalid', () => {
+      let invalidPlayerAddress: string
+
+      beforeEach(async () => {
+        invalidPlayerAddress = 'invalid-address'
+        response = await signedFetch(`${baseUrl}/players/${invalidPlayerAddress}/values/${key}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'payload' }),
+          identity
+        })
+      })
+
+      it('should respond with a 400 and an invalid player address message', async () => {
+        const body = await response.json()
+        expect(response.status).toBe(400)
+        expect(body).toEqual({
+          message: 'Invalid player address'
+        })
+      })
+    })
+
     describe('and the request body is not valid JSON', () => {
       let invalidBody: string
 
       beforeEach(async () => {
         invalidBody = '{ "value": '
-        response = await signedFetch(`${baseUrl}/values/${key}`, {
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: invalidBody,
@@ -61,7 +85,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
     describe('and the request body does not include a value', () => {
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/values/${key}`, {
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
@@ -81,7 +105,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
       beforeEach(async () => {
         storedValue = { foo: 'bar' }
-        response = await signedFetch(`${baseUrl}/values/${key}`, {
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
@@ -90,12 +114,15 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       })
 
       afterEach(async () => {
-        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity })
+        await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, { method: 'DELETE', identity })
       })
 
       it('should store the value and respond with a 200', async () => {
         const body = await response.json()
-        const getResponse = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
+        const getResponse = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+          method: 'GET',
+          identity
+        })
         const getBody = await getResponse.json()
         expect(response.status).toBe(200)
         expect(body).toEqual({
@@ -110,8 +137,8 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
 
     describe('and the database throws an error', () => {
       beforeEach(async () => {
-        stubComponents.worldStorage.setValue.rejects(new Error('boom'))
-        response = await signedFetch(`${baseUrl}/values/${key}`, {
+        stubComponents.playerStorage.setValue.rejects(new Error('boom'))
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: 'payload' }),
@@ -120,7 +147,7 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
       })
 
       afterEach(() => {
-        stubComponents.worldStorage.setValue.reset()
+        stubComponents.playerStorage.setValue.reset()
       })
 
       it('should respond with a 500 and the error message', async () => {

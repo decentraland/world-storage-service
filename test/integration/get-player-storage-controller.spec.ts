@@ -3,16 +3,18 @@ import type { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { createTestSetup } from './utils/setup'
 import { test } from '../components'
 
-test('Get World Storage Controller', function ({ components, stubComponents }) {
+test('Get Player Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
 
-  describe('when getting a world storage value', () => {
+  describe('when getting a player storage value', () => {
     let key: string
+    let playerAddress: string
     let identity: AuthIdentity
 
     beforeEach(async () => {
       key = 'my-key'
+      playerAddress = '0x1234567890abcdef1234567890abcdef12345678'
       const setup = await createTestSetup(components)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
@@ -23,7 +25,7 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
       let response: Awaited<ReturnType<typeof signedFetch>>
 
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET' })
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, { method: 'GET' })
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
@@ -36,13 +38,37 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
       })
     })
 
+    describe('and the player address is invalid', () => {
+      let invalidPlayerAddress: string
+      let response: Awaited<ReturnType<typeof signedFetch>>
+
+      beforeEach(async () => {
+        invalidPlayerAddress = 'invalid-address'
+        response = await signedFetch(`${baseUrl}/players/${invalidPlayerAddress}/values/${key}`, {
+          method: 'GET',
+          identity
+        })
+      })
+
+      it('should respond with a 400 and an invalid player address message', async () => {
+        const body = await response.json()
+        expect(response.status).toBe(400)
+        expect(body).toEqual({
+          message: 'Invalid player address'
+        })
+      })
+    })
+
     describe('and the value does not exist', () => {
       beforeEach(async () => {
-        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity })
+        await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, { method: 'DELETE', identity })
       })
 
       it('should respond with a 404 and a not found message', async () => {
-        const response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
+        const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+          method: 'GET',
+          identity
+        })
         const body = await response.json()
         expect(response.status).toBe(404)
         expect(body).toEqual({
@@ -56,7 +82,7 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
 
       beforeEach(async () => {
         storedValue = 'stored-value'
-        await signedFetch(`${baseUrl}/values/${key}`, {
+        await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
@@ -65,11 +91,14 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
       })
 
       afterEach(async () => {
-        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity })
+        await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, { method: 'DELETE', identity })
       })
 
       it('should respond with a 200 and the stored value', async () => {
-        const response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
+        const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+          method: 'GET',
+          identity
+        })
         const body = await response.json()
         expect(response.status).toBe(200)
         expect(body).toEqual({
@@ -80,15 +109,18 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
 
     describe('and the database throws an error', () => {
       beforeEach(() => {
-        stubComponents.worldStorage.getValue.rejects(new Error('boom'))
+        stubComponents.playerStorage.getValue.rejects(new Error('boom'))
       })
 
       afterEach(() => {
-        stubComponents.worldStorage.getValue.reset()
+        stubComponents.playerStorage.getValue.reset()
       })
 
       it('should respond with a 500 and the error message', async () => {
-        const response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
+        const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+          method: 'GET',
+          identity
+        })
         const body = await response.json()
         expect(response.status).toBe(500)
         expect(body).toEqual({

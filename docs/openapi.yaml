@@ -5,8 +5,11 @@ info:
   description: |
     ## Overview
 
-    World Storage Service provides world-isolated key-value storage. All requests
-    must be signed using Decentraland's Signed Fetch (ADR-44); the calling world
+    World Storage Service provides world-isolated key-value storage with two namespaces:
+    - **World Storage**: Global key-value storage scoped to a world (`/values/:key`)
+    - **Player Storage**: Per-player key-value storage scoped to both world and player address (`/players/:player_address/values/:key`)
+
+    All requests must be signed using Decentraland's Signed Fetch (ADR-44); the calling world
     is derived from the signed fetch metadata.
 
   contact:
@@ -22,6 +25,8 @@ servers:
 tags:
   - name: World Storage
     description: Endpoints for world-scoped storage
+  - name: Player Storage
+    description: Endpoints for player-scoped storage (scoped by world and player address)
 
 security:
   - SignedFetch: []
@@ -29,6 +34,7 @@ security:
 paths:
   /values/{key}:
     get:
+      operationId: getWorldStorageValue
       tags:
         - World Storage
       summary: Get a world storage value
@@ -47,7 +53,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorldStorageValueResponse'
+                $ref: '#/components/schemas/StorageValueResponse'
         '400':
           description: Signed fetch is missing or invalid
           content:
@@ -72,6 +78,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     put:
+      operationId: upsertWorldStorageValue
       tags:
         - World Storage
       summary: Upsert a world storage value
@@ -89,7 +96,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpsertWorldStorageRequest'
+              $ref: '#/components/schemas/UpsertStorageRequest'
             examples:
               upsertValue:
                 value:
@@ -101,7 +108,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorldStorageValueResponse'
+                $ref: '#/components/schemas/StorageValueResponse'
         '400':
           description: Invalid signed fetch or request body
           content:
@@ -126,6 +133,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     delete:
+      operationId: deleteWorldStorageValue
       tags:
         - World Storage
       summary: Delete a world storage value
@@ -133,6 +141,163 @@ paths:
         Deletes the value stored under `key` for the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
       parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted (or did not exist)
+        '400':
+          description: Signed fetch is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /players/{player_address}/values/{key}:
+    get:
+      operationId: getPlayerStorageValue
+      tags:
+        - Player Storage
+      summary: Get a player storage value
+      description: |
+        Retrieves the value stored under `key` for the specified player within the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+      parameters:
+        - name: player_address
+          in: path
+          required: true
+          description: The player's wallet address
+          schema:
+            type: string
+            example: '0x1234567890abcdef1234567890abcdef12345678'
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Value found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageValueResponse'
+        '400':
+          description: Signed fetch is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+        '404':
+          description: Value not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: upsertPlayerStorageValue
+      tags:
+        - Player Storage
+      summary: Upsert a player storage value
+      description: |
+        Creates or updates the value stored under `key` for the specified player within the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+      parameters:
+        - name: player_address
+          in: path
+          required: true
+          description: The player's wallet address
+          schema:
+            type: string
+            example: '0x1234567890abcdef1234567890abcdef12345678'
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertStorageRequest'
+            examples:
+              upsertValue:
+                value:
+                  value:
+                    score: 100
+                    level: 5
+      responses:
+        '200':
+          description: Value upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageValueResponse'
+        '400':
+          description: Invalid signed fetch or request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidJson:
+                  value:
+                    message: Request body must be valid JSON
+                missingValue:
+                  value:
+                    message: Value is required
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deletePlayerStorageValue
+      tags:
+        - Player Storage
+      summary: Delete a player storage value
+      description: |
+        Deletes the value stored under `key` for the specified player within the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+      parameters:
+        - name: player_address
+          in: path
+          required: true
+          description: The player's wallet address
+          schema:
+            type: string
+            example: '0x1234567890abcdef1234567890abcdef12345678'
         - name: key
           in: path
           required: true
@@ -169,20 +334,20 @@ components:
         Signed fetch authentication using Decentraland's ADR-44 specification.
         Multiple headers are used to provide the authentication chain.
   schemas:
-    WorldStorageValueResponse:
+    StorageValueResponse:
       type: object
       properties:
         value: {}
       required:
         - value
-      description: Stored value for the given world and key.
-    UpsertWorldStorageRequest:
+      description: Stored value response for both world and player storage.
+    UpsertStorageRequest:
       type: object
       properties:
         value: {}
       required:
         - value
-      description: Payload to persist under the provided key.
+      description: Payload to persist under the provided key (used for both world and player storage).
     ErrorResponse:
       type: object
       properties:
