@@ -1,5 +1,5 @@
 import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
-import type { UpsertWorldStorageBody } from './schemas'
+import type { UpsertStorageBody } from './schemas'
 import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
 import type { HTTPResponse } from '../../types/http'
 
@@ -26,7 +26,7 @@ export async function upsertWorldStorageHandler(
       throw new InvalidRequestError('World name and key are required')
     }
 
-    const { value }: UpsertWorldStorageBody = await request.json()
+    const { value }: UpsertStorageBody = await request.json()
 
     logger.info('Upserting world storage value', {
       worldName,

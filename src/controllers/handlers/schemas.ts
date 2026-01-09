@@ -1,11 +1,7 @@
 import type { JSONValue } from '../../types/http'
 import type { Schema } from 'ajv'
 
-export interface UpsertWorldStorageBody {
-  value: JSONValue
-}
-
-export interface UpsertPlayerStorageBody {
+export interface UpsertStorageBody {
   value: JSONValue
 }
 
@@ -20,19 +16,7 @@ const jsonValueSchema: Schema = {
   ]
 }
 
-export const UpsertWorldStorageRequestSchema: Schema = {
-  type: 'object',
-  $defs: {
-    JSONValue: jsonValueSchema
-  },
-  properties: {
-    value: { $ref: '#/$defs/JSONValue' }
-  },
-  required: ['value'],
-  additionalProperties: false
-}
-
-export const UpsertPlayerStorageRequestSchema: Schema = {
+export const UpsertStorageRequestSchema: Schema = {
   type: 'object',
   $defs: {
     JSONValue: jsonValueSchema

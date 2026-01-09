@@ -1,7 +1,6 @@
 import type { AuthIdentity } from '@dcl/crypto'
-import { signedFetchFactory } from 'decentraland-crypto-fetch'
-import { createTestIdentity } from './utils/auth'
-import { createLocalFetchWrapper } from './utils/fetch'
+import type { signedFetchFactory } from 'decentraland-crypto-fetch'
+import { createTestSetup } from './utils/setup'
 import { test } from '../components'
 
 test('Delete World Storage Controller', function ({ components, stubComponents }) {
@@ -15,11 +14,10 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
 
     beforeEach(async () => {
       key = 'my-key'
-      identity = await createTestIdentity()
-      const host = await components.config.requireString('HTTP_SERVER_HOST')
-      const port = await components.config.requireNumber('HTTP_SERVER_PORT')
-      baseUrl = `http://${host}:${port}`
-      signedFetch = signedFetchFactory({ fetch: createLocalFetchWrapper(components.localFetch) })
+      const setup = await createTestSetup(components)
+      signedFetch = setup.signedFetch
+      baseUrl = setup.baseUrl
+      identity = setup.identity
     })
 
     describe('and the request does not include an identity', () => {

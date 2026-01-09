@@ -1,5 +1,5 @@
 import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
-import type { UpsertPlayerStorageBody } from './schemas'
+import type { UpsertStorageBody } from './schemas'
 import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
 import type { HTTPResponse } from '../../types/http'
 
@@ -27,7 +27,7 @@ export async function upsertPlayerStorageHandler(
       throw new InvalidRequestError('World name, player address, and key are required')
     }
 
-    const { value }: UpsertPlayerStorageBody = await request.json()
+    const { value }: UpsertStorageBody = await request.json()
 
     logger.info('Upserting player storage value', {
       worldName,
