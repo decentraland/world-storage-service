@@ -38,6 +38,27 @@ test('Get Player Storage Controller', function ({ components, stubComponents }) 
       })
     })
 
+    describe('and the player address is invalid', () => {
+      let invalidPlayerAddress: string
+      let response: Awaited<ReturnType<typeof signedFetch>>
+
+      beforeEach(async () => {
+        invalidPlayerAddress = 'invalid-address'
+        response = await signedFetch(`${baseUrl}/players/${invalidPlayerAddress}/values/${key}`, {
+          method: 'GET',
+          identity
+        })
+      })
+
+      it('should respond with a 400 and an invalid player address message', async () => {
+        const body = await response.json()
+        expect(response.status).toBe(400)
+        expect(body).toEqual({
+          message: 'Invalid player address'
+        })
+      })
+    })
+
     describe('and the value does not exist', () => {
       beforeEach(async () => {
         await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, { method: 'DELETE', identity })

@@ -1,3 +1,4 @@
+import { EthAddress } from '@dcl/schemas'
 import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
 import type { UpsertStorageBody } from './schemas'
 import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
@@ -20,8 +21,12 @@ export async function upsertPlayerStorageHandler(
   const logger = logs.getLogger('upsert-player-storage-handler')
 
   try {
-    const playerAddress = params.player_address
+    const playerAddress = params.player_address.toLowerCase()
     const key = params.key
+
+    if (!EthAddress.validate(playerAddress)) {
+      throw new InvalidRequestError('Invalid player address')
+    }
 
     if (!worldName || !playerAddress || !key) {
       throw new InvalidRequestError('World name, player address, and key are required')

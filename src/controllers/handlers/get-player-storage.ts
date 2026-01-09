@@ -1,3 +1,4 @@
+import { EthAddress } from '@dcl/schemas'
 import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
 import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
 import type { HTTPResponse } from '../../types/http'
@@ -18,8 +19,12 @@ export async function getPlayerStorageHandler(
   const logger = logs.getLogger('get-player-storage-handler')
 
   try {
-    const playerAddress = params.player_address
+    const playerAddress = params.player_address.toLowerCase()
     const key = params.key
+
+    if (!EthAddress.validate(playerAddress)) {
+      throw new InvalidRequestError('Invalid player address')
+    }
 
     if (!worldName || !playerAddress || !key) {
       throw new InvalidRequestError('World name, player address, and key are required')

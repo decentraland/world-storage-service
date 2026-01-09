@@ -41,6 +41,28 @@ test('Upsert Player Storage Controller', function ({ components, stubComponents 
       })
     })
 
+    describe('and the player address is invalid', () => {
+      let invalidPlayerAddress: string
+
+      beforeEach(async () => {
+        invalidPlayerAddress = 'invalid-address'
+        response = await signedFetch(`${baseUrl}/players/${invalidPlayerAddress}/values/${key}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'payload' }),
+          identity
+        })
+      })
+
+      it('should respond with a 400 and an invalid player address message', async () => {
+        const body = await response.json()
+        expect(response.status).toBe(400)
+        expect(body).toEqual({
+          message: 'Invalid player address'
+        })
+      })
+    })
+
     describe('and the request body is not valid JSON', () => {
       let invalidBody: string
 

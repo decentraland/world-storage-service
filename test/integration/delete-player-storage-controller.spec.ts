@@ -37,6 +37,26 @@ test('Delete Player Storage Controller', function ({ components, stubComponents 
       })
     })
 
+    describe('and the player address is invalid', () => {
+      let invalidPlayerAddress: string
+
+      beforeEach(async () => {
+        invalidPlayerAddress = 'invalid-address'
+        response = await signedFetch(`${baseUrl}/players/${invalidPlayerAddress}/values/${key}`, {
+          method: 'DELETE',
+          identity
+        })
+      })
+
+      it('should respond with a 400 and an invalid player address message', async () => {
+        const body = await response.json()
+        expect(response.status).toBe(400)
+        expect(body).toEqual({
+          message: 'Invalid player address'
+        })
+      })
+    })
+
     describe('and the delete succeeds', () => {
       let storedValue: string
 
