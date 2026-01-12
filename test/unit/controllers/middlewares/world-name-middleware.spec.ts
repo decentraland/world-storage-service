@@ -42,13 +42,13 @@ describe('worldNameMiddleware', () => {
 
   it('sets worldName from realm.serverName and calls next', async () => {
     const ctx = buildCtx({ realm: { serverName: 'example.dcl.eth' } })
-    next.mockResolvedValue({ status: 204 })
+    next.mockResolvedValue({ status: 200 })
 
     const result = await worldNameMiddleware(ctx, next)
 
     expect(ctx.worldName).toBe('example.dcl.eth')
     expect(next).toHaveBeenCalled()
-    expect(result).toEqual({ status: 204 })
+    expect(result).toEqual({ status: 200 })
   })
 
   it('sets worldName from realmName fallback and calls next', async () => {
