@@ -1,4 +1,9 @@
-import { worldNameMiddleware } from '../../../../src/controllers/middlewares/world-name-middleware'
+import {
+  type WorldAuthMetadata,
+  worldNameMiddleware
+} from '../../../../src/controllers/middlewares/world-name-middleware'
+import { buildTestContext } from '../../utils/context'
+import type { TestContext } from '../../utils/context'
 
 describe('worldNameMiddleware', () => {
   const next = jest.fn()
@@ -7,11 +12,8 @@ describe('worldNameMiddleware', () => {
     next.mockReset()
   })
 
-  function buildCtx(metadata?: any) {
-    return {
-      verification: { authMetadata: metadata },
-      worldName: undefined
-    } as any
+  function buildCtx(metadata?: WorldAuthMetadata): TestContext {
+    return buildTestContext({ verification: { auth: 'signature', authMetadata: metadata ?? {} } })
   }
 
   it('returns 400 when world name is missing', async () => {

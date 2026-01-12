@@ -15,6 +15,10 @@ export async function deleteWorldStorageHandler(
   const logger = logs.getLogger('delete-world-storage-handler')
 
   try {
+    if (!worldName) {
+      throw new InvalidRequestError('World name is required')
+    }
+
     const key = params.key
 
     if (!key) {
@@ -22,11 +26,11 @@ export async function deleteWorldStorageHandler(
     }
 
     logger.info('Deleting world storage value', {
-      worldName: worldName!,
+      worldName,
       key
     })
 
-    await worldStorage.deleteValue(worldName!, key)
+    await worldStorage.deleteValue(worldName, key)
     return {
       status: 204
     }

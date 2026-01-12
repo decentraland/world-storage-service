@@ -3,6 +3,11 @@ import type { DecentralandSignatureContext } from '@dcl/platform-crypto-middlewa
 import { InvalidRequestError, isInvalidRequestError } from '../../utils/errors'
 import type { WorldStorageContext } from '../../types'
 
+export interface WorldAuthMetadata {
+  realm?: { serverName?: string | null }
+  realmName?: string | null
+}
+
 /**
  * Middleware that extracts and validates the `worldName` from the signed fetch metadata.
  *
@@ -10,10 +15,10 @@ import type { WorldStorageContext } from '../../types'
  * If the worldName cannot be extracted from the metadata, it returns a 400 error.
  */
 export const worldNameMiddleware: IHttpServerComponent.IRequestHandler<
-  IHttpServerComponent.PathAwareContext<WorldStorageContext, string> & DecentralandSignatureContext<any>
+  IHttpServerComponent.PathAwareContext<WorldStorageContext, string> & DecentralandSignatureContext<WorldAuthMetadata>
 > = async (ctx, next) => {
   try {
-    const metadata = ctx.verification!.authMetadata
+    const metadata = ctx.verification?.authMetadata
     const worldName = metadata?.realm?.serverName ?? metadata?.realmName
 
     if (!worldName) {

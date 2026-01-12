@@ -12,7 +12,7 @@ import type { GlobalContext } from '../../types'
  * If no authorized addresses are configured, all signed requests are allowed.
  */
 export const writeAuthorizationMiddleware: IHttpServerComponent.IRequestHandler<
-  IHttpServerComponent.PathAwareContext<GlobalContext, string> & DecentralandSignatureContext<any>
+  IHttpServerComponent.PathAwareContext<GlobalContext, string> & DecentralandSignatureContext<unknown>
 > = async (ctx, next) => {
   const {
     components: { config, logs }

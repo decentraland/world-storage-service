@@ -1,4 +1,7 @@
 import { writeAuthorizationMiddleware } from '../../../../src/controllers/middlewares/write-authorization-middleware'
+import { buildTestContext } from '../../utils/context'
+import type { BaseComponents } from '../../../../src/types'
+import type { TestContext } from '../../utils/context'
 
 describe('writeAuthorizationMiddleware', () => {
   const next = jest.fn()
@@ -11,14 +14,14 @@ describe('writeAuthorizationMiddleware', () => {
     next.mockReset()
   })
 
-  function buildCtx(auth?: string) {
-    return {
+  function buildCtx(auth?: string): TestContext {
+    return buildTestContext({
+      verification: { auth: auth ?? '', authMetadata: {} },
       components: {
         config: { getString: configGetString },
         logs: { getLogger: () => ({ warn }) }
-      },
-      verification: { auth }
-    } as any
+      } as unknown as BaseComponents
+    })
   }
 
   it('allows when no authorized addresses configured', async () => {

@@ -15,6 +15,10 @@ export async function getWorldStorageHandler(
   const logger = logs.getLogger('get-world-storage-handler')
 
   try {
+    if (!worldName) {
+      throw new InvalidRequestError('World name is required')
+    }
+
     const key = params.key
 
     if (!key) {
@@ -22,11 +26,11 @@ export async function getWorldStorageHandler(
     }
 
     logger.info('Getting world storage value', {
-      worldName: worldName!,
+      worldName,
       key
     })
 
-    const value = await worldStorage.getValue(worldName!, key)
+    const value = await worldStorage.getValue(worldName, key)
 
     if (value === null) {
       return {

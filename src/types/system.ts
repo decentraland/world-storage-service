@@ -16,7 +16,7 @@ export interface GlobalContext {
   components: BaseComponents
 }
 
-export interface WorldStorageContext {
+export interface WorldStorageContext extends GlobalContext {
   worldName?: string
 }
 
