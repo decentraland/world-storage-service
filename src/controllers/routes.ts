@@ -38,6 +38,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   router.put(
     '/values/:key',
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
+    writeAuthorizationMiddleware,
     upsertWorldStorageHandler
   )
   router.delete('/values/:key', writeAuthorizationMiddleware, deleteWorldStorageHandler)
@@ -47,9 +48,10 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   router.put(
     '/players/:player_address/values/:key',
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
+    writeAuthorizationMiddleware,
     upsertPlayerStorageHandler
   )
-  router.delete('/players/:player_address/values/:key', deletePlayerStorageHandler)
+  router.delete('/players/:player_address/values/:key', writeAuthorizationMiddleware, deletePlayerStorageHandler)
 
   return router
 }
