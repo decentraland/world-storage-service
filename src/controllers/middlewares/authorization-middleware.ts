@@ -4,24 +4,24 @@ import { NotAuthorizedError, isNotAuthorizedError } from '../../utils/errors'
 import type { GlobalContext } from '../../types'
 
 /**
- * Middleware that validates if the signer of the request is authorized to perform write operations.
+ * Middleware that validates if the signer of the request is authorized to perform operations.
  *
- * It reads the WRITE_AUTHORIZED_ADDRESSES environment variable (comma-separated list of addresses)
+ * It reads the AUTHORIZED_ADDRESSES environment variable (comma-separated list of addresses)
  * and checks if the signer's address is included in that list.
  *
  * If no authorized addresses are configured, all signed requests are allowed.
  */
-export const writeAuthorizationMiddleware: IHttpServerComponent.IRequestHandler<
+export const authorizationMiddleware: IHttpServerComponent.IRequestHandler<
   IHttpServerComponent.PathAwareContext<GlobalContext, string> & DecentralandSignatureContext<unknown>
 > = async (ctx, next) => {
   const {
     components: { config, logs }
   } = ctx
 
-  const logger = logs.getLogger('write-authorization-middleware')
+  const logger = logs.getLogger('authorization-middleware')
 
   try {
-    const authorizedAddressesConfig = await config.getString('WRITE_AUTHORIZED_ADDRESSES')
+    const authorizedAddressesConfig = await config.getString('AUTHORIZED_ADDRESSES')
 
     // If no authorized addresses are configured, allow all signed requests
     if (!authorizedAddressesConfig) {
@@ -46,10 +46,10 @@ export const writeAuthorizationMiddleware: IHttpServerComponent.IRequestHandler<
     }
 
     if (!authorizedAddresses.includes(signerAddress)) {
-      logger.warn('Signer address is not authorized for write operations', {
+      logger.warn('Signer address is not authorized for operations', {
         signerAddress
       })
-      throw new NotAuthorizedError('Unauthorized: Signer is not authorized to perform write operations')
+      throw new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations')
     }
 
     return await next()

@@ -8,8 +8,8 @@ import { getWorldStorageHandler } from './handlers/get-world-storage'
 import { UpsertStorageRequestSchema } from './handlers/schemas'
 import { upsertPlayerStorageHandler } from './handlers/upsert-player-storage'
 import { upsertWorldStorageHandler } from './handlers/upsert-world-storage'
+import { authorizationMiddleware } from './middlewares/authorization-middleware'
 import { worldNameMiddleware } from './middlewares/world-name-middleware'
-import { writeAuthorizationMiddleware } from './middlewares/write-authorization-middleware'
 import type { GlobalContext } from '../types'
 
 // We return the entire router because it will be easier to test than a whole server
@@ -38,20 +38,20 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   router.put(
     '/values/:key',
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
-    writeAuthorizationMiddleware,
+    authorizationMiddleware,
     upsertWorldStorageHandler
   )
-  router.delete('/values/:key', writeAuthorizationMiddleware, deleteWorldStorageHandler)
+  router.delete('/values/:key', authorizationMiddleware, deleteWorldStorageHandler)
 
   // Player storage endpoints
   router.get('/players/:player_address/values/:key', getPlayerStorageHandler)
   router.put(
     '/players/:player_address/values/:key',
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
-    writeAuthorizationMiddleware,
+    authorizationMiddleware,
     upsertPlayerStorageHandler
   )
-  router.delete('/players/:player_address/values/:key', writeAuthorizationMiddleware, deletePlayerStorageHandler)
+  router.delete('/players/:player_address/values/:key', authorizationMiddleware, deletePlayerStorageHandler)
 
   return router
 }
