@@ -1,0 +1,15 @@
+name: CI/CD on main branch
+
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  world-storage-service-deployment:
+    uses: decentraland/platform-actions/.github/workflows/apps-docker-next.yml@main
+    with:
+      service-name: world-storage-service
+      image-name: world-storage-service
+      deployment-environment: dev
+    secrets: inherit
