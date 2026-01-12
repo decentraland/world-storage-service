@@ -1,5 +1,6 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
+import { TEST_REALM_METADATA } from './utils/auth'
 import { createTestSetup } from './utils/setup'
 import { test } from '../components'
 
@@ -44,7 +45,8 @@ test('Delete Player Storage Controller', function ({ components, stubComponents 
         invalidPlayerAddress = 'invalid-address'
         response = await signedFetch(`${baseUrl}/players/${invalidPlayerAddress}/values/${key}`, {
           method: 'DELETE',
-          identity
+          identity,
+          metadata: TEST_REALM_METADATA
         })
       })
 
@@ -66,18 +68,21 @@ test('Delete Player Storage Controller', function ({ components, stubComponents 
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
-          identity
+          identity,
+          metadata: TEST_REALM_METADATA
         })
         response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'DELETE',
-          identity
+          identity,
+          metadata: TEST_REALM_METADATA
         })
       })
 
       it('should delete the value and respond with a 204', async () => {
         const getResponse = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'GET',
-          identity
+          identity,
+          metadata: TEST_REALM_METADATA
         })
         const body = await getResponse.json()
         expect(response.status).toBe(204)
@@ -93,7 +98,8 @@ test('Delete Player Storage Controller', function ({ components, stubComponents 
         stubComponents.playerStorage.deleteValue.rejects(new Error('boom'))
         response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'DELETE',
-          identity
+          identity,
+          metadata: TEST_REALM_METADATA
         })
       })
 

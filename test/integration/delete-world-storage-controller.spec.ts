@@ -1,5 +1,6 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
+import { TEST_REALM_METADATA } from './utils/auth'
 import { createTestSetup } from './utils/setup'
 import { test } from '../components'
 
