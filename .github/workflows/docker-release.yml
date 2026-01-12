@@ -1,0 +1,15 @@
+name: Publish 'latest' image
+
+on:
+  release:
+    types:
+      - 'created'
+
+jobs:
+  world-storage-service-deployment:
+    uses: decentraland/platform-actions/.github/workflows/apps-docker-release.yml@main
+    with:
+      service-name: world-storage-service
+      image-name: world-storage-service
+      deployment-environment: prd
+    secrets: inherit
