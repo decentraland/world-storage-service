@@ -1,5 +1,6 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
+import { TEST_REALM_METADATA } from './utils/auth'
 import { createTestSetup } from './utils/setup'
 import { test } from '../components'
 
@@ -48,7 +49,8 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: invalidBody,
-          identity
+          identity,
+          metadata: TEST_REALM_METADATA
         })
       })
 
@@ -65,7 +67,8 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
-          identity
+          identity,
+          metadata: TEST_REALM_METADATA
         })
       })
 
@@ -85,17 +88,22 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
-          identity
+          identity,
+          metadata: TEST_REALM_METADATA
         })
       })
 
       afterEach(async () => {
-        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity })
+        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
       })
 
       it('should store the value and respond with a 200', async () => {
         const body = await response.json()
-        const getResponse = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET', identity })
+        const getResponse = await signedFetch(`${baseUrl}/values/${key}`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
         const getBody = await getResponse.json()
         expect(response.status).toBe(200)
         expect(body).toEqual({
@@ -115,7 +123,8 @@ test('Upsert World Storage Controller', function ({ components, stubComponents }
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: 'payload' }),
-          identity
+          identity,
+          metadata: TEST_REALM_METADATA
         })
       })
 

@@ -20,10 +20,14 @@ export async function upsertWorldStorageHandler(
   const logger = logs.getLogger('upsert-world-storage-handler')
 
   try {
+    if (!worldName) {
+      throw new InvalidRequestError('World name is required')
+    }
+
     const key = params.key
 
-    if (!worldName || !key) {
-      throw new InvalidRequestError('World name and key are required')
+    if (!key) {
+      throw new InvalidRequestError('Key is required')
     }
 
     const { value }: UpsertStorageBody = await request.json()
