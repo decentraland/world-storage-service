@@ -6,10 +6,13 @@ import type { GlobalContext } from '../../types'
 /**
  * Middleware that validates if the signer of the request is authorized to perform operations.
  *
- * It reads the AUTHORIZED_ADDRESSES environment variable (comma-separated list of addresses)
- * and checks if the signer's address is included in that list.
+ * It reads the AUTHORITATIVE_SERVER_ADDRESS environment variable
+ * and checks if the signer's address matches. Additionally, it reads the optional
+ * AUTHORIZED_ADDRESSES environment variable (comma-separated list of addresses) to
+ * allow additional addresses to perform operations.
  *
- * If no authorized addresses are configured, all signed requests are allowed.
+ * If both AUTHORITATIVE_SERVER_ADDRESS and AUTHORIZED_ADDRESSES are not configured,
+ * all signed requests are allowed.
  */
 export const authorizationMiddleware: IHttpServerComponent.IRequestHandler<
   IHttpServerComponent.PathAwareContext<GlobalContext, string> & DecentralandSignatureContext<unknown>
@@ -21,20 +24,15 @@ export const authorizationMiddleware: IHttpServerComponent.IRequestHandler<
   const logger = logs.getLogger('authorization-middleware')
 
   try {
+    const authoritativeServerAddress = await config.getString('AUTHORITATIVE_SERVER_ADDRESS')
     const authorizedAddressesConfig = await config.getString('AUTHORIZED_ADDRESSES')
 
-    // If no authorized addresses are configured, allow all signed requests
-    if (!authorizedAddressesConfig) {
-      return await next()
-    }
+    const allowedAddresses = [authoritativeServerAddress, ...(authorizedAddressesConfig?.split(',') || [])]
+      .map((addr) => addr?.trim().toLowerCase())
+      .filter((addr): addr is string => !!addr && addr.length > 0)
 
-    const authorizedAddresses = authorizedAddressesConfig
-      .split(',')
-      .map((addr) => addr.trim().toLowerCase())
-      .filter((addr) => addr.length > 0)
-
-    // If the list is empty after parsing, allow all signed requests
-    if (authorizedAddresses.length === 0) {
+    // If no allowed addresses are configured, allow all signed requests
+    if (allowedAddresses.length === 0) {
       return await next()
     }
 
@@ -45,7 +43,7 @@ export const authorizationMiddleware: IHttpServerComponent.IRequestHandler<
       throw new NotAuthorizedError('Unauthorized: No signer address found')
     }
 
-    if (!authorizedAddresses.includes(signerAddress)) {
+    if (!allowedAddresses.includes(signerAddress)) {
       logger.warn('Signer address is not authorized for operations', {
         signerAddress
       })
