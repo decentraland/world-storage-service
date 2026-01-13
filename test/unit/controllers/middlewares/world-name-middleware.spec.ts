@@ -6,59 +6,82 @@ import { buildTestContext } from '../../utils/context'
 import type { TestContext } from '../../utils/context'
 
 describe('worldNameMiddleware', () => {
-  const next = jest.fn()
+  let ctx: TestContext
+  let next: jest.Mock
+  let result: { status: number; body?: { message: string } }
 
   beforeEach(() => {
-    next.mockReset()
+    next = jest.fn()
   })
 
-  function buildCtx(metadata?: WorldAuthMetadata): TestContext {
-    return buildTestContext({ verification: { auth: 'signature', authMetadata: metadata ?? {} } })
-  }
+  afterEach(() => {
+    jest.resetAllMocks()
+  })
 
-  it('returns 400 when world name is missing', async () => {
-    const ctx = buildCtx({})
+  describe('when the world name is missing', () => {
+    beforeEach(async () => {
+      ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: {} } })
+      result = (await worldNameMiddleware(ctx, next)) as { status: number; body: { message: string } }
+    })
 
-    const result = await worldNameMiddleware(ctx, next)
-
-    expect(next).not.toHaveBeenCalled()
-    expect(result).toEqual({
-      status: 400,
-      body: { message: 'World name is required' }
+    it('should respond with a 400 status and an error message', () => {
+      expect(next).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        status: 400,
+        body: { message: 'World name is required' }
+      })
     })
   })
 
-  it('returns 400 when world name is empty', async () => {
-    const ctx = buildCtx({ realm: { serverName: '' } })
+  describe('when the world name is empty', () => {
+    let metadata: WorldAuthMetadata
 
-    const result = await worldNameMiddleware(ctx, next)
+    beforeEach(async () => {
+      metadata = { realm: { serverName: '' } }
+      ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: metadata } })
+      result = (await worldNameMiddleware(ctx, next)) as { status: number; body: { message: string } }
+    })
 
-    expect(next).not.toHaveBeenCalled()
-    expect(result).toEqual({
-      status: 400,
-      body: { message: 'World name is required' }
+    it('should respond with a 400 status and an error message', () => {
+      expect(next).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        status: 400,
+        body: { message: 'World name is required' }
+      })
     })
   })
 
-  it('sets worldName from realm.serverName and calls next', async () => {
-    const ctx = buildCtx({ realm: { serverName: 'example.dcl.eth' } })
-    next.mockResolvedValue({ status: 200 })
+  describe('when the world name is provided via realm.serverName', () => {
+    let metadata: WorldAuthMetadata
 
-    const result = await worldNameMiddleware(ctx, next)
+    beforeEach(async () => {
+      next.mockResolvedValue({ status: 200 })
+      metadata = { realm: { serverName: 'example.dcl.eth' } }
+      ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: metadata } })
+      result = (await worldNameMiddleware(ctx, next)) as { status: number }
+    })
 
-    expect(ctx.worldName).toBe('example.dcl.eth')
-    expect(next).toHaveBeenCalled()
-    expect(result).toEqual({ status: 200 })
+    it('should set worldName on the context and call next', () => {
+      expect(ctx.worldName).toBe('example.dcl.eth')
+      expect(next).toHaveBeenCalled()
+      expect(result).toEqual({ status: 200 })
+    })
   })
 
-  it('sets worldName from realmName fallback and calls next', async () => {
-    const ctx = buildCtx({ realmName: 'fallback.dcl.eth' })
-    next.mockResolvedValue({ status: 200 })
+  describe('when the world name is provided via realmName fallback', () => {
+    let metadata: WorldAuthMetadata
 
-    const result = await worldNameMiddleware(ctx, next)
+    beforeEach(async () => {
+      next.mockResolvedValue({ status: 200 })
+      metadata = { realmName: 'fallback.dcl.eth' }
+      ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: metadata } })
+      result = (await worldNameMiddleware(ctx, next)) as { status: number }
+    })
 
-    expect(ctx.worldName).toBe('fallback.dcl.eth')
-    expect(next).toHaveBeenCalled()
-    expect(result).toEqual({ status: 200 })
+    it('should set worldName on the context and call next', () => {
+      expect(ctx.worldName).toBe('fallback.dcl.eth')
+      expect(next).toHaveBeenCalled()
+      expect(result).toEqual({ status: 200 })
+    })
   })
 })
