@@ -1,22 +1,20 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
-import { TEST_REALM_METADATA } from './utils/auth'
-import { createTestSetup } from './utils/setup'
-import { test } from '../components'
+import { test } from '../../components'
+import { TEST_REALM_METADATA } from '../utils/auth'
+import { createTestSetup } from '../utils/setup'
 
-test('Upsert Player Storage Controller', function ({ components, stubComponents }) {
+test('Upsert Env Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
 
-  describe('when upserting a player storage value', () => {
+  describe('when upserting an env storage value', () => {
     let key: string
-    let playerAddress: string
     let identity: AuthIdentity
     let response: Awaited<ReturnType<typeof signedFetch>>
 
     beforeEach(async () => {
-      key = 'my-key'
-      playerAddress = '0x1234567890abcdef1234567890abcdef12345678'
+      key = 'MY_ENV_VAR'
       const setup = await createTestSetup(components)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
@@ -25,7 +23,7 @@ test('Upsert Player Storage Controller', function ({ components, stubComponents 
 
     describe('and the request does not include an identity', () => {
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+        response = await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: 'payload' })
@@ -42,35 +40,12 @@ test('Upsert Player Storage Controller', function ({ components, stubComponents 
       })
     })
 
-    describe('and the player address is invalid', () => {
-      let invalidPlayerAddress: string
-
-      beforeEach(async () => {
-        invalidPlayerAddress = 'invalid-address'
-        response = await signedFetch(`${baseUrl}/players/${invalidPlayerAddress}/values/${key}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ value: 'payload' }),
-          identity,
-          metadata: TEST_REALM_METADATA
-        })
-      })
-
-      it('should respond with a 400 and an invalid player address message', async () => {
-        const body = await response.json()
-        expect(response.status).toBe(400)
-        expect(body).toEqual({
-          message: 'Invalid player address'
-        })
-      })
-    })
-
     describe('and the request body is not valid JSON', () => {
       let invalidBody: string
 
       beforeEach(async () => {
         invalidBody = '{ "value": '
-        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+        response = await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: invalidBody,
@@ -88,7 +63,7 @@ test('Upsert Player Storage Controller', function ({ components, stubComponents 
 
     describe('and the request body does not include a value', () => {
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+        response = await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
@@ -104,12 +79,30 @@ test('Upsert Player Storage Controller', function ({ components, stubComponents 
       })
     })
 
+    describe('and the value is not a string', () => {
+      beforeEach(async () => {
+        response = await signedFetch(`${baseUrl}/env/${key}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 12345 }),
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+      })
+
+      it('should respond with a 400 and an invalid value type message', async () => {
+        const body = await response.json()
+        expect(response.status).toBe(400)
+        expect(body.message).toEqual('Invalid JSON body')
+      })
+    })
+
     describe('and the value is provided', () => {
-      let storedValue: unknown
+      let storedValue: string
 
       beforeEach(async () => {
-        storedValue = { foo: 'bar' }
-        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+        storedValue = 'secret-api-key-12345'
+        response = await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
@@ -119,16 +112,12 @@ test('Upsert Player Storage Controller', function ({ components, stubComponents 
       })
 
       afterEach(async () => {
-        await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
-          method: 'DELETE',
-          identity,
-          metadata: TEST_REALM_METADATA
-        })
+        await signedFetch(`${baseUrl}/env/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
       })
 
       it('should store the value and respond with a 200', async () => {
         const body = await response.json()
-        const getResponse = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+        const getResponse = await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
@@ -147,8 +136,8 @@ test('Upsert Player Storage Controller', function ({ components, stubComponents 
 
     describe('and the database throws an error', () => {
       beforeEach(async () => {
-        stubComponents.playerStorage.setValue.rejects(new Error('boom'))
-        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+        stubComponents.envStorage.setValue.rejects(new Error('boom'))
+        response = await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: 'payload' }),
@@ -158,7 +147,7 @@ test('Upsert Player Storage Controller', function ({ components, stubComponents 
       })
 
       afterEach(() => {
-        stubComponents.playerStorage.setValue.reset()
+        stubComponents.envStorage.setValue.reset()
       })
 
       it('should respond with a 500 and the error message', async () => {

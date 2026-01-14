@@ -1,11 +1,11 @@
-import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
-import type { UpsertEnvStorageBody } from './schemas'
-import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
-import type { HTTPResponse } from '../../types/http'
+import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../../utils/errors'
+import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
+import type { HTTPResponse } from '../../../types/http'
+import type { UpsertStorageBody } from '../schemas'
 
-export async function upsertEnvStorageHandler(
+export async function upsertWorldStorageHandler(
   context: Pick<
-    HandlerContextWithPath<'logs' | 'envStorage', '/env/:key'>,
+    HandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>,
     'url' | 'components' | 'params' | 'request'
   > &
     WorldStorageContext
@@ -14,10 +14,10 @@ export async function upsertEnvStorageHandler(
     request,
     params,
     worldName,
-    components: { logs, envStorage }
+    components: { logs, worldStorage }
   } = context
 
-  const logger = logs.getLogger('upsert-env-storage-handler')
+  const logger = logs.getLogger('upsert-world-storage-handler')
 
   try {
     if (!worldName) {
@@ -30,14 +30,14 @@ export async function upsertEnvStorageHandler(
       throw new InvalidRequestError('Key is required')
     }
 
-    const { value }: UpsertEnvStorageBody = await request.json()
+    const { value }: UpsertStorageBody = await request.json()
 
-    logger.info('Upserting env storage value', {
+    logger.info('Upserting world storage value', {
       worldName,
       key
     })
 
-    const item = await envStorage.setValue(worldName, key, value)
+    const item = await worldStorage.setValue(worldName, key, value)
     return {
       status: 200,
       body: {
@@ -56,7 +56,7 @@ export async function upsertEnvStorageHandler(
 
     const errorMessage = errorMessageOrDefault(error, 'Unknown error')
 
-    logger.error('Error upserting env storage value', {
+    logger.error('Error upserting world storage value', {
       error: errorMessage
     })
 

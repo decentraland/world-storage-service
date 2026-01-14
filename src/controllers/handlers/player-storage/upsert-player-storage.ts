@@ -1,22 +1,24 @@
 import { EthAddress } from '@dcl/schemas'
-import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
-import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
-import type { HTTPResponse } from '../../types/http'
+import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../../utils/errors'
+import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
+import type { HTTPResponse } from '../../../types/http'
+import type { UpsertStorageBody } from '../schemas'
 
-export async function deletePlayerStorageHandler(
+export async function upsertPlayerStorageHandler(
   context: Pick<
     HandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values/:key'>,
-    'url' | 'components' | 'params'
+    'url' | 'components' | 'params' | 'request'
   > &
     WorldStorageContext
-): Promise<HTTPResponse> {
+): Promise<HTTPResponse<unknown>> {
   const {
+    request,
     params,
     worldName,
     components: { logs, playerStorage }
   } = context
 
-  const logger = logs.getLogger('delete-player-storage-handler')
+  const logger = logs.getLogger('upsert-player-storage-handler')
 
   try {
     const playerAddress = params.player_address.toLowerCase()
@@ -30,15 +32,20 @@ export async function deletePlayerStorageHandler(
       throw new InvalidRequestError('World name, player address, and key are required')
     }
 
-    logger.info('Deleting player storage value', {
+    const { value }: UpsertStorageBody = await request.json()
+
+    logger.info('Upserting player storage value', {
       worldName,
       playerAddress,
       key
     })
 
-    await playerStorage.deleteValue(worldName, playerAddress, key)
+    const item = await playerStorage.setValue(worldName, playerAddress, key, value)
     return {
-      status: 204
+      status: 200,
+      body: {
+        value: item.value
+      }
     }
   } catch (error) {
     if (isInvalidRequestError(error)) {
@@ -52,7 +59,7 @@ export async function deletePlayerStorageHandler(
 
     const errorMessage = errorMessageOrDefault(error, 'Unknown error')
 
-    logger.error('Error deleting player storage value', {
+    logger.error('Error upserting player storage value', {
       error: errorMessage
     })
 

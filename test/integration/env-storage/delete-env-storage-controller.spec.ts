@@ -1,20 +1,20 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
-import { TEST_REALM_METADATA } from './utils/auth'
-import { createTestSetup } from './utils/setup'
-import { test } from '../components'
+import { test } from '../../components'
+import { TEST_REALM_METADATA } from '../utils/auth'
+import { createTestSetup } from '../utils/setup'
 
-test('Delete World Storage Controller', function ({ components, stubComponents }) {
+test('Delete Env Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
 
-  describe('when deleting a world storage value', () => {
+  describe('when deleting an env storage value', () => {
     let key: string
     let identity: AuthIdentity
     let response: Awaited<ReturnType<typeof signedFetch>>
 
     beforeEach(async () => {
-      key = 'my-key'
+      key = 'MY_ENV_VAR'
       const setup = await createTestSetup(components)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
@@ -23,7 +23,7 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
 
     describe('and the request does not include an identity', () => {
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE' })
+        response = await signedFetch(`${baseUrl}/env/${key}`, { method: 'DELETE' })
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
@@ -40,15 +40,15 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
       let storedValue: string
 
       beforeEach(async () => {
-        storedValue = 'to-delete'
-        await signedFetch(`${baseUrl}/values/${key}`, {
+        storedValue = 'to-delete-secret'
+        await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
           identity,
           metadata: TEST_REALM_METADATA
         })
-        response = await signedFetch(`${baseUrl}/values/${key}`, {
+        response = await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'DELETE',
           identity,
           metadata: TEST_REALM_METADATA
@@ -56,7 +56,7 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
       })
 
       it('should delete the value and respond with a 204', async () => {
-        const getResponse = await signedFetch(`${baseUrl}/values/${key}`, {
+        const getResponse = await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
@@ -72,8 +72,8 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
 
     describe('and the storage delete throws an error', () => {
       beforeEach(async () => {
-        stubComponents.worldStorage.deleteValue.rejects(new Error('boom'))
-        response = await signedFetch(`${baseUrl}/values/${key}`, {
+        stubComponents.envStorage.deleteValue.rejects(new Error('boom'))
+        response = await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'DELETE',
           identity,
           metadata: TEST_REALM_METADATA
@@ -81,7 +81,7 @@ test('Delete World Storage Controller', function ({ components, stubComponents }
       })
 
       afterEach(() => {
-        stubComponents.worldStorage.deleteValue.reset()
+        stubComponents.envStorage.deleteValue.reset()
       })
 
       it('should respond with a 500 and the error message', async () => {

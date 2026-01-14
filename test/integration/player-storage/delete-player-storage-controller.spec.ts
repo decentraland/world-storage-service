@@ -1,17 +1,18 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
-import { TEST_REALM_METADATA } from './utils/auth'
-import { createTestSetup } from './utils/setup'
-import { test } from '../components'
+import { test } from '../../components'
+import { TEST_REALM_METADATA } from '../utils/auth'
+import { createTestSetup } from '../utils/setup'
 
-test('Get Player Storage Controller', function ({ components, stubComponents }) {
+test('Delete Player Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
 
-  describe('when getting a player storage value', () => {
+  describe('when deleting a player storage value', () => {
     let key: string
     let playerAddress: string
     let identity: AuthIdentity
+    let response: Awaited<ReturnType<typeof signedFetch>>
 
     beforeEach(async () => {
       key = 'my-key'
@@ -23,10 +24,8 @@ test('Get Player Storage Controller', function ({ components, stubComponents }) 
     })
 
     describe('and the request does not include an identity', () => {
-      let response: Awaited<ReturnType<typeof signedFetch>>
-
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, { method: 'GET' })
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, { method: 'DELETE' })
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
@@ -41,12 +40,11 @@ test('Get Player Storage Controller', function ({ components, stubComponents }) 
 
     describe('and the player address is invalid', () => {
       let invalidPlayerAddress: string
-      let response: Awaited<ReturnType<typeof signedFetch>>
 
       beforeEach(async () => {
         invalidPlayerAddress = 'invalid-address'
         response = await signedFetch(`${baseUrl}/players/${invalidPlayerAddress}/values/${key}`, {
-          method: 'GET',
+          method: 'DELETE',
           identity,
           metadata: TEST_REALM_METADATA
         })
@@ -61,30 +59,11 @@ test('Get Player Storage Controller', function ({ components, stubComponents }) 
       })
     })
 
-    describe('and the value does not exist', () => {
-      beforeEach(async () => {
-        await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, { method: 'DELETE', identity })
-      })
-
-      it('should respond with a 404 and a not found message', async () => {
-        const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
-          method: 'GET',
-          identity,
-          metadata: TEST_REALM_METADATA
-        })
-        const body = await response.json()
-        expect(response.status).toBe(404)
-        expect(body).toEqual({
-          message: 'Value not found'
-        })
-      })
-    })
-
-    describe('and the value exists', () => {
+    describe('and the delete succeeds', () => {
       let storedValue: string
 
       beforeEach(async () => {
-        storedValue = 'stored-value'
+        storedValue = 'to-delete'
         await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -92,45 +71,43 @@ test('Get Player Storage Controller', function ({ components, stubComponents }) 
           identity,
           metadata: TEST_REALM_METADATA
         })
-      })
-
-      afterEach(async () => {
-        await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'DELETE',
           identity,
           metadata: TEST_REALM_METADATA
         })
       })
 
-      it('should respond with a 200 and the stored value', async () => {
-        const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+      it('should delete the value and respond with a 204', async () => {
+        const getResponse = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
         })
-        const body = await response.json()
-        expect(response.status).toBe(200)
+        const body = await getResponse.json()
+        expect(response.status).toBe(204)
+        expect(getResponse.status).toBe(404)
         expect(body).toEqual({
-          value: storedValue
+          message: 'Value not found'
         })
       })
     })
 
-    describe('and the database throws an error', () => {
-      beforeEach(() => {
-        stubComponents.playerStorage.getValue.rejects(new Error('boom'))
-      })
-
-      afterEach(() => {
-        stubComponents.playerStorage.getValue.reset()
-      })
-
-      it('should respond with a 500 and the error message', async () => {
-        const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
-          method: 'GET',
+    describe('and the storage delete throws an error', () => {
+      beforeEach(async () => {
+        stubComponents.playerStorage.deleteValue.rejects(new Error('boom'))
+        response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+          method: 'DELETE',
           identity,
           metadata: TEST_REALM_METADATA
         })
+      })
+
+      afterEach(() => {
+        stubComponents.playerStorage.deleteValue.reset()
+      })
+
+      it('should respond with a 500 and the error message', async () => {
         const body = await response.json()
         expect(response.status).toBe(500)
         expect(body).toEqual({

@@ -1,6 +1,6 @@
-import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
-import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
-import type { HTTPResponse } from '../../types/http'
+import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../../utils/errors'
+import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
+import type { HTTPResponse } from '../../../types/http'
 
 export async function getWorldStorageHandler(
   context: Pick<HandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>, 'url' | 'components' | 'params'> &

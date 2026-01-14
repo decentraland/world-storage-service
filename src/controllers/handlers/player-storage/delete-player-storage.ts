@@ -1,22 +1,22 @@
 import { EthAddress } from '@dcl/schemas'
-import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../utils/errors'
-import type { HandlerContextWithPath, WorldStorageContext } from '../../types'
-import type { HTTPResponse } from '../../types/http'
+import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../../utils/errors'
+import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
+import type { HTTPResponse } from '../../../types/http'
 
-export async function getPlayerStorageHandler(
+export async function deletePlayerStorageHandler(
   context: Pick<
     HandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values/:key'>,
     'url' | 'components' | 'params'
   > &
     WorldStorageContext
-): Promise<HTTPResponse<unknown>> {
+): Promise<HTTPResponse> {
   const {
     params,
     worldName,
     components: { logs, playerStorage }
   } = context
 
-  const logger = logs.getLogger('get-player-storage-handler')
+  const logger = logs.getLogger('delete-player-storage-handler')
 
   try {
     const playerAddress = params.player_address.toLowerCase()
@@ -30,28 +30,15 @@ export async function getPlayerStorageHandler(
       throw new InvalidRequestError('World name, player address, and key are required')
     }
 
-    logger.info('Getting player storage value', {
+    logger.info('Deleting player storage value', {
       worldName,
       playerAddress,
       key
     })
 
-    const value = await playerStorage.getValue(worldName, playerAddress, key)
-
-    if (value === null) {
-      return {
-        status: 404,
-        body: {
-          message: 'Value not found'
-        }
-      }
-    }
-
+    await playerStorage.deleteValue(worldName, playerAddress, key)
     return {
-      status: 200,
-      body: {
-        value
-      }
+      status: 204
     }
   } catch (error) {
     if (isInvalidRequestError(error)) {
@@ -65,7 +52,7 @@ export async function getPlayerStorageHandler(
 
     const errorMessage = errorMessageOrDefault(error, 'Unknown error')
 
-    logger.error('Error getting player storage value', {
+    logger.error('Error deleting player storage value', {
       error: errorMessage
     })
 

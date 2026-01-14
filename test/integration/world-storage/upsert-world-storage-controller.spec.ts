@@ -1,20 +1,20 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
-import { TEST_REALM_METADATA } from './utils/auth'
-import { createTestSetup } from './utils/setup'
-import { test } from '../components'
+import { test } from '../../components'
+import { TEST_REALM_METADATA } from '../utils/auth'
+import { createTestSetup } from '../utils/setup'
 
-test('Upsert Env Storage Controller', function ({ components, stubComponents }) {
+test('Upsert World Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
 
-  describe('when upserting an env storage value', () => {
+  describe('when upserting a world storage value', () => {
     let key: string
     let identity: AuthIdentity
     let response: Awaited<ReturnType<typeof signedFetch>>
 
     beforeEach(async () => {
-      key = 'MY_ENV_VAR'
+      key = 'my-key'
       const setup = await createTestSetup(components)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
@@ -23,7 +23,7 @@ test('Upsert Env Storage Controller', function ({ components, stubComponents }) 
 
     describe('and the request does not include an identity', () => {
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/env/${key}`, {
+        response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: 'payload' })
@@ -45,7 +45,7 @@ test('Upsert Env Storage Controller', function ({ components, stubComponents }) 
 
       beforeEach(async () => {
         invalidBody = '{ "value": '
-        response = await signedFetch(`${baseUrl}/env/${key}`, {
+        response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: invalidBody,
@@ -63,7 +63,7 @@ test('Upsert Env Storage Controller', function ({ components, stubComponents }) 
 
     describe('and the request body does not include a value', () => {
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/env/${key}`, {
+        response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
@@ -79,30 +79,12 @@ test('Upsert Env Storage Controller', function ({ components, stubComponents }) 
       })
     })
 
-    describe('and the value is not a string', () => {
-      beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/env/${key}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ value: 12345 }),
-          identity,
-          metadata: TEST_REALM_METADATA
-        })
-      })
-
-      it('should respond with a 400 and an invalid value type message', async () => {
-        const body = await response.json()
-        expect(response.status).toBe(400)
-        expect(body.message).toEqual('Invalid JSON body')
-      })
-    })
-
     describe('and the value is provided', () => {
-      let storedValue: string
+      let storedValue: unknown
 
       beforeEach(async () => {
-        storedValue = 'secret-api-key-12345'
-        response = await signedFetch(`${baseUrl}/env/${key}`, {
+        storedValue = { foo: 'bar' }
+        response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
@@ -112,12 +94,12 @@ test('Upsert Env Storage Controller', function ({ components, stubComponents }) 
       })
 
       afterEach(async () => {
-        await signedFetch(`${baseUrl}/env/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
+        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
       })
 
       it('should store the value and respond with a 200', async () => {
         const body = await response.json()
-        const getResponse = await signedFetch(`${baseUrl}/env/${key}`, {
+        const getResponse = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
@@ -136,8 +118,8 @@ test('Upsert Env Storage Controller', function ({ components, stubComponents }) 
 
     describe('and the database throws an error', () => {
       beforeEach(async () => {
-        stubComponents.envStorage.setValue.rejects(new Error('boom'))
-        response = await signedFetch(`${baseUrl}/env/${key}`, {
+        stubComponents.worldStorage.setValue.rejects(new Error('boom'))
+        response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: 'payload' }),
@@ -147,7 +129,7 @@ test('Upsert Env Storage Controller', function ({ components, stubComponents }) 
       })
 
       afterEach(() => {
-        stubComponents.envStorage.setValue.reset()
+        stubComponents.worldStorage.setValue.reset()
       })
 
       it('should respond with a 500 and the error message', async () => {

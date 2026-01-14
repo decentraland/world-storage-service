@@ -1,19 +1,19 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
-import { TEST_REALM_METADATA } from './utils/auth'
-import { createTestSetup } from './utils/setup'
-import { test } from '../components'
+import { test } from '../../components'
+import { TEST_REALM_METADATA } from '../utils/auth'
+import { createTestSetup } from '../utils/setup'
 
-test('Get Env Storage Controller', function ({ components, stubComponents }) {
+test('Get World Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
 
-  describe('when getting an env storage value', () => {
+  describe('when getting a world storage value', () => {
     let key: string
     let identity: AuthIdentity
 
     beforeEach(async () => {
-      key = 'MY_ENV_VAR'
+      key = 'my-key'
       const setup = await createTestSetup(components)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
@@ -24,7 +24,7 @@ test('Get Env Storage Controller', function ({ components, stubComponents }) {
       let response: Awaited<ReturnType<typeof signedFetch>>
 
       beforeEach(async () => {
-        response = await signedFetch(`${baseUrl}/env/${key}`, { method: 'GET' })
+        response = await signedFetch(`${baseUrl}/values/${key}`, { method: 'GET' })
       })
 
       it('should respond with a 400 and a signed fetch required message', async () => {
@@ -39,11 +39,11 @@ test('Get Env Storage Controller', function ({ components, stubComponents }) {
 
     describe('and the value does not exist', () => {
       beforeEach(async () => {
-        await signedFetch(`${baseUrl}/env/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
+        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
       })
 
       it('should respond with a 404 and a not found message', async () => {
-        const response = await signedFetch(`${baseUrl}/env/${key}`, {
+        const response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
@@ -60,8 +60,8 @@ test('Get Env Storage Controller', function ({ components, stubComponents }) {
       let storedValue: string
 
       beforeEach(async () => {
-        storedValue = 'secret-api-key-12345'
-        await signedFetch(`${baseUrl}/env/${key}`, {
+        storedValue = 'stored-value'
+        await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue }),
@@ -71,11 +71,11 @@ test('Get Env Storage Controller', function ({ components, stubComponents }) {
       })
 
       afterEach(async () => {
-        await signedFetch(`${baseUrl}/env/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
+        await signedFetch(`${baseUrl}/values/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
       })
 
       it('should respond with a 200 and the stored value', async () => {
-        const response = await signedFetch(`${baseUrl}/env/${key}`, {
+        const response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
@@ -90,15 +90,15 @@ test('Get Env Storage Controller', function ({ components, stubComponents }) {
 
     describe('and the database throws an error', () => {
       beforeEach(() => {
-        stubComponents.envStorage.getValue.rejects(new Error('boom'))
+        stubComponents.worldStorage.getValue.rejects(new Error('boom'))
       })
 
       afterEach(() => {
-        stubComponents.envStorage.getValue.reset()
+        stubComponents.worldStorage.getValue.reset()
       })
 
       it('should respond with a 500 and the error message', async () => {
-        const response = await signedFetch(`${baseUrl}/env/${key}`, {
+        const response = await signedFetch(`${baseUrl}/values/${key}`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
