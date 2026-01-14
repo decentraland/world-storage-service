@@ -1,6 +1,7 @@
 import type { IWorldsContentServerComponent, WorldPermissions } from './types'
 import type { AppComponents } from '../../types'
 
+// TODO: Add a cache layer to the component to avoid making unnecessary requests to the worlds content server.
 export async function createWorldsContentServerComponent(
   components: Pick<AppComponents, 'fetcher' | 'config'>
 ): Promise<IWorldsContentServerComponent> {
