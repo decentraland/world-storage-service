@@ -13,6 +13,7 @@ import { createPgComponent } from '@well-known-components/pg-component'
 import { createTracerComponent } from '@well-known-components/tracer-component'
 import { createSchemaValidatorComponent } from '@dcl/schema-validator-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
+import { createEnvStorageComponent } from './adapters/env-storage/component'
 import { createPlayerStorageComponent } from './adapters/player-storage/component'
 import { createWorldStorageComponent } from './adapters/world-storage/component'
 import { getDbConnectionString } from './logic/utils'
@@ -54,6 +55,7 @@ export async function initComponents(): Promise<AppComponents> {
 
   const worldStorage = createWorldStorageComponent({ pg })
   const playerStorage = createPlayerStorageComponent({ pg })
+  const envStorage = createEnvStorageComponent({ pg })
 
   return {
     fetcher,
@@ -65,6 +67,7 @@ export async function initComponents(): Promise<AppComponents> {
     pg,
     worldStorage,
     playerStorage,
+    envStorage,
     schemaValidator
   }
 }

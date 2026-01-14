@@ -1,11 +1,14 @@
 import { Router } from '@well-known-components/http-server'
 import { wellKnownComponents } from '@dcl/platform-crypto-middleware'
 import { errorHandler } from '@dcl/platform-server-commons'
+import { deleteEnvStorageHandler } from './handlers/delete-env-storage'
 import { deletePlayerStorageHandler } from './handlers/delete-player-storage'
 import { deleteWorldStorageHandler } from './handlers/delete-world-storage'
+import { getEnvStorageHandler } from './handlers/get-env-storage'
 import { getPlayerStorageHandler } from './handlers/get-player-storage'
 import { getWorldStorageHandler } from './handlers/get-world-storage'
-import { UpsertStorageRequestSchema } from './handlers/schemas'
+import { UpsertEnvStorageRequestSchema, UpsertStorageRequestSchema } from './handlers/schemas'
+import { upsertEnvStorageHandler } from './handlers/upsert-env-storage'
 import { upsertPlayerStorageHandler } from './handlers/upsert-player-storage'
 import { upsertWorldStorageHandler } from './handlers/upsert-world-storage'
 import { authorizationMiddleware } from './middlewares/authorization-middleware'
@@ -52,6 +55,16 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
     upsertPlayerStorageHandler
   )
   router.delete('/players/:player_address/values/:key', authorizationMiddleware, deletePlayerStorageHandler)
+
+  // Env storage endpoints
+  router.get('/env/:key', authorizationMiddleware, getEnvStorageHandler)
+  router.put(
+    '/env/:key',
+    schemaValidator.withSchemaValidatorMiddleware(UpsertEnvStorageRequestSchema),
+    authorizationMiddleware,
+    upsertEnvStorageHandler
+  )
+  router.delete('/env/:key', authorizationMiddleware, deleteEnvStorageHandler)
 
   return router
 }

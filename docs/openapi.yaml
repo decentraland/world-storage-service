@@ -5,9 +5,10 @@ info:
   description: |
     ## Overview
 
-    World Storage Service provides world-isolated key-value storage with two namespaces:
+    World Storage Service provides world-isolated key-value storage with three namespaces:
     - **World Storage**: Global key-value storage scoped to a world (`/values/:key`)
     - **Player Storage**: Per-player key-value storage scoped to both world and player address (`/players/:player_address/values/:key`)
+    - **Env Storage**: Encrypted environment variable storage scoped to a world (`/env/:key`)
 
     All requests must be signed using Decentraland's Signed Fetch (ADR-44); the calling world
     is derived from the signed fetch metadata.
@@ -27,6 +28,8 @@ tags:
     description: Endpoints for world-scoped storage
   - name: Player Storage
     description: Endpoints for player-scoped storage (scoped by world and player address)
+  - name: Env Storage
+    description: Endpoints for encrypted environment variable storage (scoped by world)
 
 security:
   - SignedFetch: []
@@ -324,6 +327,184 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /env/{key}:
+    get:
+      operationId: getEnvStorageValue
+      tags:
+        - Env Storage
+      summary: Get an environment variable value
+      description: |
+        Retrieves the environment variable stored under `key` for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+        Values are stored encrypted at rest (encryption to be implemented).
+        Only authorized addresses can access this endpoint.
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The environment variable key
+          schema:
+            type: string
+            example: 'API_SECRET'
+      responses:
+        '200':
+          description: Value found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvStorageValueResponse'
+        '400':
+          description: Signed fetch is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '404':
+          description: Value not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: upsertEnvStorageValue
+      tags:
+        - Env Storage
+      summary: Upsert an environment variable value
+      description: |
+        Creates or updates the environment variable stored under `key` for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+        Values are stored encrypted at rest (encryption to be implemented).
+        Only authorized addresses can access this endpoint.
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The environment variable key
+          schema:
+            type: string
+            example: 'API_SECRET'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertEnvStorageRequest'
+            examples:
+              upsertValue:
+                value:
+                  value: 'sk-secret-api-key-12345'
+      responses:
+        '200':
+          description: Value upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvStorageValueResponse'
+        '400':
+          description: Invalid signed fetch or request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidJson:
+                  value:
+                    message: Request body must be valid JSON
+                missingValue:
+                  value:
+                    message: Value is required
+                invalidValueType:
+                  value:
+                    message: Invalid JSON body
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteEnvStorageValue
+      tags:
+        - Env Storage
+      summary: Delete an environment variable value
+      description: |
+        Deletes the environment variable stored under `key` for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+        Only authorized addresses can access this endpoint.
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The environment variable key
+          schema:
+            type: string
+            example: 'API_SECRET'
+      responses:
+        '204':
+          description: Deleted (or did not exist)
+        '400':
+          description: Signed fetch is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     SignedFetch:
@@ -348,6 +529,22 @@ components:
       required:
         - value
       description: Payload to persist under the provided key (used for both world and player storage).
+    EnvStorageValueResponse:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+      description: Stored environment variable value response.
+    UpsertEnvStorageRequest:
+      type: object
+      properties:
+        value:
+          type: string
+      required:
+        - value
+      description: Payload to persist an environment variable under the provided key. Value must be a string.
     ErrorResponse:
       type: object
       properties:

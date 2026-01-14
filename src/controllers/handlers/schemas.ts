@@ -5,6 +5,10 @@ export interface UpsertStorageBody {
   value: JSONValue
 }
 
+export interface UpsertEnvStorageBody {
+  value: string
+}
+
 const jsonValueSchema: Schema = {
   anyOf: [
     { type: 'string' },
@@ -23,6 +27,15 @@ export const UpsertStorageRequestSchema: Schema = {
   },
   properties: {
     value: { $ref: '#/$defs/JSONValue' }
+  },
+  required: ['value'],
+  additionalProperties: false
+}
+
+export const UpsertEnvStorageRequestSchema: Schema = {
+  type: 'object',
+  properties: {
+    value: { type: 'string' }
   },
   required: ['value'],
   additionalProperties: false
