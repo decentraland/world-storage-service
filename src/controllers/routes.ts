@@ -11,7 +11,7 @@ import { UpsertEnvStorageRequestSchema, UpsertStorageRequestSchema } from './han
 import { deleteWorldStorageHandler } from './handlers/world-storage/delete-world-storage'
 import { getWorldStorageHandler } from './handlers/world-storage/get-world-storage'
 import { upsertWorldStorageHandler } from './handlers/world-storage/upsert-world-storage'
-import { authorizationMiddleware } from './middlewares/authorization-middleware'
+import { authorizationMiddleware, ownerAndDeployerOnlyMiddleware } from './middlewares/authorization-middleware'
 import { worldNameMiddleware } from './middlewares/world-name-middleware'
 import type { GlobalContext } from '../types'
 
@@ -61,10 +61,10 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   router.put(
     '/env/:key',
     schemaValidator.withSchemaValidatorMiddleware(UpsertEnvStorageRequestSchema),
-    authorizationMiddleware,
+    ownerAndDeployerOnlyMiddleware,
     upsertEnvStorageHandler
   )
-  router.delete('/env/:key', authorizationMiddleware, deleteEnvStorageHandler)
+  router.delete('/env/:key', ownerAndDeployerOnlyMiddleware, deleteEnvStorageHandler)
 
   return router
 }

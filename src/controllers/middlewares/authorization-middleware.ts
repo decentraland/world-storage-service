@@ -111,7 +111,13 @@ export function createAuthorizationMiddleware(
 }
 
 /**
- * Default authorization middleware instance.
- * Does not allow authorized addresses by default.
+ * Authorization middleware that allows only owners and deployers.
+ * Use this for sensitive operations like env storage management.
  */
-export const authorizationMiddleware = createAuthorizationMiddleware()
+export const ownerAndDeployerOnlyMiddleware = createAuthorizationMiddleware({ allowAuthorizedAddresses: false })
+
+/**
+ * Authorization middleware that allows owners, deployers, and authorized addresses.
+ * Use this for general operations where authorized addresses should have access.
+ */
+export const authorizationMiddleware = createAuthorizationMiddleware({ allowAuthorizedAddresses: true })
