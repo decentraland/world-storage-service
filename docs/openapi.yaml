@@ -20,8 +20,10 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 
 servers:
-  - url: http://localhost:3000
-    description: Local development server
+  - url: https://storage.decentraland.zone
+    description: Development server
+  - url: https://storage.decentraland.org
+    description: Production server
 
 tags:
   - name: World Storage
@@ -336,7 +338,7 @@ paths:
       description: |
         Retrieves the environment variable stored under `key` for the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
-        Values are stored encrypted at rest (encryption to be implemented).
+        Values are stored encrypted at rest.
         Only authorized addresses can access this endpoint.
       parameters:
         - name: key
@@ -394,7 +396,7 @@ paths:
       description: |
         Creates or updates the environment variable stored under `key` for the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
-        Values are stored encrypted at rest (encryption to be implemented).
+        Values are stored encrypted at rest.
         Only authorized addresses can access this endpoint.
       parameters:
         - name: key
