@@ -37,12 +37,10 @@ export async function upsertEnvStorageHandler(
       key
     })
 
-    const item = await envStorage.setValue(worldName, key, value)
+    await envStorage.setValue(worldName, key, value)
     return {
-      status: 200,
-      body: {
-        value: item.value
-      }
+      status: 204,
+      body: {}
     }
   } catch (error) {
     if (isInvalidRequestError(error)) {

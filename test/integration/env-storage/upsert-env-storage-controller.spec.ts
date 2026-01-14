@@ -121,22 +121,16 @@ test('Upsert Env Storage Controller', function ({ components, stubComponents }) 
         await signedFetch(`${baseUrl}/env/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
       })
 
-      it('should store the value and respond with a 200', async () => {
-        const body = await response.json()
+      it('should store the value and respond with a 204', async () => {
         const getResponse = await signedFetch(`${baseUrl}/env/${key}`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
         })
         const getBody = await getResponse.json()
-        expect(response.status).toBe(200)
-        expect(body).toEqual({
-          value: storedValue
-        })
+        expect(response.status).toBe(204)
         expect(getResponse.status).toBe(200)
-        expect(getBody).toEqual({
-          value: storedValue
-        })
+        expect(getBody).toEqual({ value: storedValue })
       })
     })
 
