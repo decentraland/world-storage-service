@@ -1,17 +1,17 @@
-import { createWorldContentServerComponent } from '../../../src/adapters/world-content-server'
+import { createWorldsContentServerComponent } from '../../../src/adapters/worlds-content-server'
 import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
-import type { IWorldContentServerComponent, WorldPermissions } from '../../../src/adapters/world-content-server'
+import type { IWorldsContentServerComponent, WorldPermissions } from '../../../src/adapters/worlds-content-server'
 import type { AppComponents } from '../../../src/types'
 
-describe('createWorldContentServerComponent', () => {
-  const WORLD_CONTENT_SERVER_URL = 'https://worlds-content-server.decentraland.org'
+describe('createWorldsContentServerComponent', () => {
+  const WORLDS_CONTENT_SERVER_URL = 'https://worlds-content-server.decentraland.org'
 
   let fetchMock: jest.Mock
   let configRequireString: jest.Mock
 
   beforeEach(() => {
     fetchMock = jest.fn()
-    configRequireString = jest.fn().mockResolvedValue(WORLD_CONTENT_SERVER_URL)
+    configRequireString = jest.fn().mockResolvedValue(WORLDS_CONTENT_SERVER_URL)
   })
 
   afterEach(() => {
@@ -29,8 +29,8 @@ describe('createWorldContentServerComponent', () => {
     }
   }
 
-  async function createComponent(): Promise<IWorldContentServerComponent> {
-    return createWorldContentServerComponent({
+  async function createComponent(): Promise<IWorldsContentServerComponent> {
+    return createWorldsContentServerComponent({
       fetcher: { fetch: fetchMock },
       config: { requireString: configRequireString }
     } as unknown as AppComponents)
@@ -38,7 +38,7 @@ describe('createWorldContentServerComponent', () => {
 
   describe('getPermissions', () => {
     describe('when the fetch is successful', () => {
-      let component: IWorldContentServerComponent
+      let component: IWorldsContentServerComponent
       let mockPermissions: WorldPermissions
 
       beforeEach(async () => {
@@ -58,7 +58,7 @@ describe('createWorldContentServerComponent', () => {
     })
 
     describe('when the world name contains special characters', () => {
-      let component: IWorldContentServerComponent
+      let component: IWorldsContentServerComponent
       const specialWorldName = WORLD_NAMES.WITH_SPECIAL_CHARS
 
       beforeEach(async () => {
@@ -73,13 +73,13 @@ describe('createWorldContentServerComponent', () => {
         await component.getPermissions(specialWorldName)
 
         expect(fetchMock).toHaveBeenCalledWith(
-          `${WORLD_CONTENT_SERVER_URL}/world/${encodeURIComponent(specialWorldName)}/permissions`
+          `${WORLDS_CONTENT_SERVER_URL}/world/${encodeURIComponent(specialWorldName)}/permissions`
         )
       })
     })
 
     describe('when the fetch fails', () => {
-      let component: IWorldContentServerComponent
+      let component: IWorldsContentServerComponent
 
       beforeEach(async () => {
         fetchMock.mockResolvedValueOnce({
@@ -97,7 +97,7 @@ describe('createWorldContentServerComponent', () => {
     })
 
     describe('when the fetch throws a network error', () => {
-      let component: IWorldContentServerComponent
+      let component: IWorldsContentServerComponent
 
       beforeEach(async () => {
         fetchMock.mockRejectedValueOnce(new Error('Network error'))

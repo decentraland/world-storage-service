@@ -16,6 +16,6 @@ export interface WorldPermissions {
   owner: string
 }
 
-export interface IWorldContentServerComponent {
+export interface IWorldsContentServerComponent {
   getPermissions(worldName: string): Promise<WorldPermissions>
 }

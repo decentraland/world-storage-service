@@ -10,8 +10,8 @@ import type { IPgComponent } from '@well-known-components/pg-component'
 import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'
 import type { IPlayerStorageComponent } from '../adapters/player-storage/types'
-import type { IWorldContentServerComponent } from '../adapters/world-content-server/types'
 import type { IWorldStorageComponent } from '../adapters/world-storage/types'
+import type { IWorldsContentServerComponent } from '../adapters/worlds-content-server/types'
 import type { metricDeclarations } from '../metrics'
 
 export interface GlobalContext {
@@ -32,7 +32,7 @@ export interface BaseComponents {
   worldStorage: IWorldStorageComponent
   playerStorage: IPlayerStorageComponent
   envStorage: IEnvStorageComponent
-  worldContentServer: IWorldContentServerComponent
+  worldsContentServer: IWorldsContentServerComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
 }
 

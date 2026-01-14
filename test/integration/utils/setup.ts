@@ -13,7 +13,7 @@ export interface TestSetup {
 }
 
 interface StubComponents {
-  worldContentServer: {
+  worldsContentServer: {
     getPermissions: {
       resolves: (value: unknown) => void
       reset: () => void
@@ -28,7 +28,7 @@ export async function createTestSetup(components: TestComponents, stubComponents
   const baseUrl = `http://${host}:${port}`
   const signedFetch = signedFetchFactory({ fetch: createLocalFetchWrapper(components.localFetch) })
 
-  stubComponents.worldContentServer.getPermissions.resolves({
+  stubComponents.worldsContentServer.getPermissions.resolves({
     owner: address,
     permissions: {
       deployment: { type: 'allow-list', wallets: [] },
@@ -38,7 +38,7 @@ export async function createTestSetup(components: TestComponents, stubComponents
   })
 
   const resetStubs = () => {
-    stubComponents.worldContentServer.getPermissions.reset()
+    stubComponents.worldsContentServer.getPermissions.reset()
   }
 
   return { signedFetch, baseUrl, identity, address, resetStubs }

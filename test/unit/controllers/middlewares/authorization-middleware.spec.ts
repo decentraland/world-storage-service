@@ -4,7 +4,7 @@ import {
 } from '../../../../src/controllers/middlewares/authorization-middleware'
 import { ADDRESSES, WORLD_NAMES } from '../../../fixtures'
 import { buildTestContext } from '../../utils/context'
-import type { WorldPermissions } from '../../../../src/adapters/world-content-server/types'
+import type { WorldPermissions } from '../../../../src/adapters/worlds-content-server/types'
 import type { BaseComponents } from '../../../../src/types'
 import type { TestContext } from '../../utils/context'
 
@@ -53,7 +53,7 @@ describe('authorizationMiddleware', () => {
       components: {
         config: { getString: configGetString },
         logs: { getLogger: () => ({ warn }) },
-        worldContentServer: { getPermissions: getPermissionsMock }
+        worldsContentServer: { getPermissions: getPermissionsMock }
       } as unknown as BaseComponents
     })
   }

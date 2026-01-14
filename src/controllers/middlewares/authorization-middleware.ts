@@ -31,7 +31,7 @@ export function createAuthorizationMiddleware(
 
   return async (ctx, next) => {
     const {
-      components: { config, logs, worldContentServer }
+      components: { config, logs, worldsContentServer }
     } = ctx
 
     const logger = logs.getLogger('authorization-middleware')
@@ -54,7 +54,7 @@ export function createAuthorizationMiddleware(
       // Fetch world permissions from worlds content server
       let worldPermissions
       try {
-        worldPermissions = await worldContentServer.getPermissions(worldName)
+        worldPermissions = await worldsContentServer.getPermissions(worldName)
       } catch (error) {
         logger.warn('Failed to fetch world permissions', {
           worldName,

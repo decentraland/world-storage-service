@@ -15,8 +15,8 @@ import { createSchemaValidatorComponent } from '@dcl/schema-validator-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
 import { createEnvStorageComponent } from './adapters/env-storage'
 import { createPlayerStorageComponent } from './adapters/player-storage'
-import { createWorldContentServerComponent } from './adapters/world-content-server'
 import { createWorldStorageComponent } from './adapters/world-storage'
+import { createWorldsContentServerComponent } from './adapters/worlds-content-server'
 import { getDbConnectionString } from './logic/utils'
 import { metricDeclarations } from './metrics'
 import type { AppComponents, GlobalContext } from './types'
@@ -57,7 +57,7 @@ export async function initComponents(): Promise<AppComponents> {
   const worldStorage = createWorldStorageComponent({ pg })
   const playerStorage = createPlayerStorageComponent({ pg })
   const envStorage = createEnvStorageComponent({ pg })
-  const worldContentServer = await createWorldContentServerComponent({ fetcher, config })
+  const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config })
 
   return {
     fetcher,
@@ -70,7 +70,7 @@ export async function initComponents(): Promise<AppComponents> {
     worldStorage,
     playerStorage,
     envStorage,
-    worldContentServer,
+    worldsContentServer,
     schemaValidator
   }
 }
