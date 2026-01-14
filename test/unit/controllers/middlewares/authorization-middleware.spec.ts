@@ -2,19 +2,13 @@ import {
   authorizationMiddleware,
   createAuthorizationMiddleware
 } from '../../../../src/controllers/middlewares/authorization-middleware'
+import { ADDRESSES, WORLD_NAMES } from '../../../fixtures'
 import { buildTestContext } from '../../utils/context'
 import type { WorldPermissions } from '../../../../src/adapters/world-content-server/types'
 import type { BaseComponents } from '../../../../src/types'
 import type { TestContext } from '../../utils/context'
 
 describe('authorizationMiddleware', () => {
-  const WORLD_NAME = 'test-world.dcl.eth'
-  const OWNER_ADDRESS = '0x51a514d3f28ea19775e811fc09396e808394bd12'
-  const DEPLOYER_ADDRESS = '0x6a327965be29a7acb83e1d1bbd689b72e188e58d'
-  const AUTHORITATIVE_ADDRESS = '0xabc'
-  const AUTHORIZED_ADDRESS = '0x456'
-  const UNAUTHORIZED_ADDRESS = '0x123'
-
   const next = jest.fn()
   let configGetString: jest.Mock
   let getPermissionsMock: jest.Mock
@@ -47,14 +41,14 @@ describe('authorizationMiddleware', () => {
           wallets: []
         }
       },
-      owner: OWNER_ADDRESS,
+      owner: ADDRESSES.OWNER,
       ...overrides
     }
   }
 
   function buildCtx(auth?: string, worldName?: string): TestContext {
     return buildTestContext({
-      worldName: worldName ?? WORLD_NAME,
+      worldName: worldName ?? WORLD_NAMES.DEFAULT,
       verification: { auth: auth ?? '', authMetadata: {} },
       components: {
         config: { getString: configGetString },
@@ -80,7 +74,7 @@ describe('authorizationMiddleware', () => {
     let ctx: TestContext
 
     beforeEach(() => {
-      ctx = buildCtx(UNAUTHORIZED_ADDRESS, undefined)
+      ctx = buildCtx(ADDRESSES.UNAUTHORIZED, undefined)
       ctx.worldName = undefined
     })
 
@@ -101,7 +95,7 @@ describe('authorizationMiddleware', () => {
     })
 
     it('should respond with 401 and the appropriate error message', async () => {
-      const result = await authorizationMiddleware(buildCtx(UNAUTHORIZED_ADDRESS), next)
+      const result = await authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
 
       expect(next).not.toHaveBeenCalled()
       expect(result).toEqual({
@@ -119,7 +113,7 @@ describe('authorizationMiddleware', () => {
     })
 
     it('should allow the request', async () => {
-      const result = await authorizationMiddleware(buildCtx(OWNER_ADDRESS), next)
+      const result = await authorizationMiddleware(buildCtx(ADDRESSES.OWNER), next)
 
       expect(next).toHaveBeenCalled()
       expect(result).toEqual({ status: 200 })
@@ -128,12 +122,12 @@ describe('authorizationMiddleware', () => {
 
   describe('when the signer is the world owner with different case', () => {
     beforeEach(() => {
-      getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions({ owner: OWNER_ADDRESS.toUpperCase() }))
+      getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions({ owner: ADDRESSES.OWNER.toUpperCase() }))
       next.mockResolvedValueOnce({ status: 200 })
     })
 
     it('should allow the request (case-insensitive)', async () => {
-      const result = await authorizationMiddleware(buildCtx(OWNER_ADDRESS), next)
+      const result = await authorizationMiddleware(buildCtx(ADDRESSES.OWNER), next)
 
       expect(next).toHaveBeenCalled()
       expect(result).toEqual({ status: 200 })
@@ -147,7 +141,7 @@ describe('authorizationMiddleware', () => {
           permissions: {
             deployment: {
               type: 'allow-list',
-              wallets: [DEPLOYER_ADDRESS]
+              wallets: [ADDRESSES.DEPLOYER]
             },
             access: { type: 'allow-list', wallets: [] },
             streaming: { type: 'allow-list', wallets: [] }
@@ -158,7 +152,7 @@ describe('authorizationMiddleware', () => {
     })
 
     it('should allow the request', async () => {
-      const result = await authorizationMiddleware(buildCtx(DEPLOYER_ADDRESS), next)
+      const result = await authorizationMiddleware(buildCtx(ADDRESSES.DEPLOYER), next)
 
       expect(next).toHaveBeenCalled()
       expect(result).toEqual({ status: 200 })
@@ -172,7 +166,7 @@ describe('authorizationMiddleware', () => {
           permissions: {
             deployment: {
               type: 'allow-list',
-              wallets: [DEPLOYER_ADDRESS.toUpperCase()]
+              wallets: [ADDRESSES.DEPLOYER.toUpperCase()]
             },
             access: { type: 'allow-list', wallets: [] },
             streaming: { type: 'allow-list', wallets: [] }
@@ -183,7 +177,7 @@ describe('authorizationMiddleware', () => {
     })
 
     it('should allow the request (case-insensitive)', async () => {
-      const result = await authorizationMiddleware(buildCtx(DEPLOYER_ADDRESS), next)
+      const result = await authorizationMiddleware(buildCtx(ADDRESSES.DEPLOYER), next)
 
       expect(next).toHaveBeenCalled()
       expect(result).toEqual({ status: 200 })
@@ -197,7 +191,7 @@ describe('authorizationMiddleware', () => {
       })
 
       it('should respond with 401 and the appropriate error message', async () => {
-        const result = await authorizationMiddleware(buildCtx(UNAUTHORIZED_ADDRESS), next)
+        const result = await authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
 
         expect(next).not.toHaveBeenCalled()
         expect(result).toEqual({
@@ -220,7 +214,7 @@ describe('authorizationMiddleware', () => {
           getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
           configGetString.mockImplementation((key: string) => {
             if (key === 'AUTHORITATIVE_SERVER_ADDRESS') {
-              return Promise.resolve(AUTHORITATIVE_ADDRESS)
+              return Promise.resolve(ADDRESSES.AUTHORITATIVE)
             }
             return Promise.resolve(undefined)
           })
@@ -228,7 +222,7 @@ describe('authorizationMiddleware', () => {
         })
 
         it('should allow the request', async () => {
-          const result = await middleware(buildCtx(AUTHORITATIVE_ADDRESS), next)
+          const result = await middleware(buildCtx(ADDRESSES.AUTHORITATIVE), next)
 
           expect(next).toHaveBeenCalled()
           expect(result).toEqual({ status: 200 })
@@ -243,7 +237,7 @@ describe('authorizationMiddleware', () => {
               return Promise.resolve(undefined)
             }
             if (key === 'AUTHORIZED_ADDRESSES') {
-              return Promise.resolve(`${AUTHORIZED_ADDRESS}, 0x789`)
+              return Promise.resolve(`${ADDRESSES.AUTHORIZED}, ${ADDRESSES.ANOTHER_AUTHORIZED}`)
             }
             return Promise.resolve(undefined)
           })
@@ -251,7 +245,7 @@ describe('authorizationMiddleware', () => {
         })
 
         it('should allow the request', async () => {
-          const result = await middleware(buildCtx(AUTHORIZED_ADDRESS), next)
+          const result = await middleware(buildCtx(ADDRESSES.AUTHORIZED), next)
 
           expect(next).toHaveBeenCalled()
           expect(result).toEqual({ status: 200 })
@@ -263,17 +257,17 @@ describe('authorizationMiddleware', () => {
           getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
           configGetString.mockImplementation((key: string) => {
             if (key === 'AUTHORITATIVE_SERVER_ADDRESS') {
-              return Promise.resolve('0xdef')
+              return Promise.resolve(ADDRESSES.OTHER)
             }
             if (key === 'AUTHORIZED_ADDRESSES') {
-              return Promise.resolve('0x789, 0xghi')
+              return Promise.resolve(`${ADDRESSES.ANOTHER_AUTHORIZED}, 0xghi`)
             }
             return Promise.resolve(undefined)
           })
         })
 
         it('should respond with 401 and the appropriate error message', async () => {
-          const result = await middleware(buildCtx(UNAUTHORIZED_ADDRESS), next)
+          const result = await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
 
           expect(next).not.toHaveBeenCalled()
           expect(result).toEqual({
@@ -291,7 +285,7 @@ describe('authorizationMiddleware', () => {
         })
 
         it('should respond with 401 and the appropriate error message', async () => {
-          const result = await middleware(buildCtx(UNAUTHORIZED_ADDRESS), next)
+          const result = await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
 
           expect(next).not.toHaveBeenCalled()
           expect(result).toEqual({

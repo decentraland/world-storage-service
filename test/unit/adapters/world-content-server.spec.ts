@@ -1,10 +1,10 @@
 import { createWorldContentServerComponent } from '../../../src/adapters/world-content-server'
+import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
 import type { IWorldContentServerComponent, WorldPermissions } from '../../../src/adapters/world-content-server'
 import type { AppComponents } from '../../../src/types'
 
 describe('createWorldContentServerComponent', () => {
   const WORLD_CONTENT_SERVER_URL = 'https://worlds-content-server.decentraland.org'
-  const WORLD_NAME = 'test-world.dcl.eth'
 
   let fetchMock: jest.Mock
   let configRequireString: jest.Mock
@@ -20,11 +20,11 @@ describe('createWorldContentServerComponent', () => {
 
   function buildMockPermissions(): WorldPermissions {
     return {
-      owner: '0x51a514d3f28ea19775e811fc09396e808394bd12',
+      owner: ADDRESSES.OWNER,
       permissions: {
-        deployment: { type: 'allow-list', wallets: ['0x123'] },
-        access: { type: 'allow-list', wallets: ['0x456'] },
-        streaming: { type: 'allow-list', wallets: ['0x789'] }
+        deployment: { type: 'allow-list', wallets: [ADDRESSES.UNAUTHORIZED] },
+        access: { type: 'allow-list', wallets: [ADDRESSES.AUTHORIZED] },
+        streaming: { type: 'allow-list', wallets: [ADDRESSES.ANOTHER_AUTHORIZED] }
       }
     }
   }
@@ -51,7 +51,7 @@ describe('createWorldContentServerComponent', () => {
       })
 
       it('should return the world permissions', async () => {
-        const result = await component.getPermissions(WORLD_NAME)
+        const result = await component.getPermissions(WORLD_NAMES.DEFAULT)
 
         expect(result).toEqual(mockPermissions)
       })
@@ -59,7 +59,7 @@ describe('createWorldContentServerComponent', () => {
 
     describe('when the world name contains special characters', () => {
       let component: IWorldContentServerComponent
-      const specialWorldName = 'test world/name'
+      const specialWorldName = WORLD_NAMES.WITH_SPECIAL_CHARS
 
       beforeEach(async () => {
         fetchMock.mockResolvedValueOnce({
@@ -90,8 +90,8 @@ describe('createWorldContentServerComponent', () => {
       })
 
       it('should throw an error with the world name', async () => {
-        await expect(component.getPermissions(WORLD_NAME)).rejects.toThrow(
-          `Failed to fetch world permissions for ${WORLD_NAME}`
+        await expect(component.getPermissions(WORLD_NAMES.DEFAULT)).rejects.toThrow(
+          `Failed to fetch world permissions for ${WORLD_NAMES.DEFAULT}`
         )
       })
     })
@@ -105,7 +105,7 @@ describe('createWorldContentServerComponent', () => {
       })
 
       it('should propagate the error', async () => {
-        await expect(component.getPermissions(WORLD_NAME)).rejects.toThrow('Network error')
+        await expect(component.getPermissions(WORLD_NAMES.DEFAULT)).rejects.toThrow('Network error')
       })
     })
   })

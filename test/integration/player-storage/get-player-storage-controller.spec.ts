@@ -1,6 +1,7 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { test } from '../../components'
+import { ADDRESSES } from '../../fixtures'
 import { TEST_REALM_METADATA } from '../utils/auth'
 import { createTestSetup } from '../utils/setup'
 
@@ -16,7 +17,7 @@ test('Get Player Storage Controller', function ({ components, stubComponents }) 
 
     beforeEach(async () => {
       key = 'my-key'
-      playerAddress = '0x1234567890abcdef1234567890abcdef12345678'
+      playerAddress = ADDRESSES.PLAYER
       const setup = await createTestSetup(components, stubComponents)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
@@ -50,7 +51,7 @@ test('Get Player Storage Controller', function ({ components, stubComponents }) 
       let response: Awaited<ReturnType<typeof signedFetch>>
 
       beforeEach(async () => {
-        invalidPlayerAddress = 'invalid-address'
+        invalidPlayerAddress = ADDRESSES.INVALID
         response = await signedFetch(`${baseUrl}/players/${invalidPlayerAddress}/values/${key}`, {
           method: 'GET',
           identity,

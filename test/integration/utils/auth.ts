@@ -1,6 +1,7 @@
 import { createUnsafeIdentity } from '@dcl/crypto/dist/crypto'
 import type { AuthIdentity } from '@dcl/crypto'
 import { Authenticator } from '@dcl/crypto'
+import { WORLD_NAMES } from '../../fixtures'
 
 export interface TestIdentityWithAddress {
   identity: AuthIdentity
@@ -13,7 +14,7 @@ export interface TestIdentityWithAddress {
  */
 export const TEST_REALM_METADATA = {
   realm: {
-    serverName: 'test-world.dcl.eth'
+    serverName: WORLD_NAMES.DEFAULT
   }
 }
 
