@@ -7,6 +7,7 @@ import { createTestSetup } from '../utils/setup'
 test('Get Player Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
+  let resetStubs: () => void
 
   describe('when getting a player storage value', () => {
     let key: string
@@ -16,10 +17,15 @@ test('Get Player Storage Controller', function ({ components, stubComponents }) 
     beforeEach(async () => {
       key = 'my-key'
       playerAddress = '0x1234567890abcdef1234567890abcdef12345678'
-      const setup = await createTestSetup(components)
+      const setup = await createTestSetup(components, stubComponents)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
       identity = setup.identity
+      resetStubs = setup.resetStubs
+    })
+
+    afterEach(() => {
+      resetStubs()
     })
 
     describe('and the request does not include an identity', () => {

@@ -7,6 +7,7 @@ import { createTestSetup } from '../utils/setup'
 test('Upsert Env Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
+  let resetStubs: () => void
 
   describe('when upserting an env storage value', () => {
     let key: string
@@ -15,10 +16,15 @@ test('Upsert Env Storage Controller', function ({ components, stubComponents }) 
 
     beforeEach(async () => {
       key = 'MY_ENV_VAR'
-      const setup = await createTestSetup(components)
+      const setup = await createTestSetup(components, stubComponents)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
       identity = setup.identity
+      resetStubs = setup.resetStubs
+    })
+
+    afterEach(() => {
+      resetStubs()
     })
 
     describe('and the request does not include an identity', () => {

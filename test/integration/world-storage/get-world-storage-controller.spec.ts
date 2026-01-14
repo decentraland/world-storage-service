@@ -7,6 +7,7 @@ import { createTestSetup } from '../utils/setup'
 test('Get World Storage Controller', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
+  let resetStubs: () => void
 
   describe('when getting a world storage value', () => {
     let key: string
@@ -14,10 +15,15 @@ test('Get World Storage Controller', function ({ components, stubComponents }) {
 
     beforeEach(async () => {
       key = 'my-key'
-      const setup = await createTestSetup(components)
+      const setup = await createTestSetup(components, stubComponents)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
       identity = setup.identity
+      resetStubs = setup.resetStubs
+    })
+
+    afterEach(() => {
+      resetStubs()
     })
 
     describe('and the request does not include an identity', () => {
