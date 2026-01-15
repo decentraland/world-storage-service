@@ -4,18 +4,46 @@ import type { IEncryptionComponent } from './types'
 import type { AppComponents } from '../../types'
 
 /**
- * AES-256-GCM encryption constants
+ * AES-256-GCM encryption constants.
  *
+ * @remarks
  * - Algorithm: AES-256 in GCM mode (authenticated encryption)
- * - IV size: 12 bytes (96 bits) - recommended for GCM
+ * - IV size: 12 bytes (96 bits) - recommended for GCM per NIST SP 800-38D
  * - Auth tag size: 16 bytes (128 bits) - maximum security
- * - Key size: 32 bytes (256 bits)
+ * - Key size: 32 bytes (256 bits) - required for AES-256
  */
+
+/** The encryption algorithm used (AES-256 in Galois/Counter Mode) */
 const ALGORITHM = 'aes-256-gcm'
+
+/** Length of the Initialization Vector in bytes (96 bits, recommended for GCM) */
 const IV_LENGTH = 12
+
+/** Length of the authentication tag in bytes (128 bits, maximum security) */
 const AUTH_TAG_LENGTH = 16
+
+/** Required length of the encryption key in bytes (256 bits for AES-256) */
 const KEY_LENGTH = 32
 
+/**
+ * Creates an encryption component that provides AES-256-GCM encryption/decryption.
+ *
+ * This factory function initializes the encryption component with a secret key
+ * from the configuration. The key must be exactly 32 bytes (64 hex characters).
+ *
+ * @param components - The application components containing the config
+ * @param components.config - Configuration component to retrieve the ENCRYPTION_KEY
+ * @returns A promise that resolves to the encryption component
+ * @throws {Error} If ENCRYPTION_KEY is not set or has invalid length
+ *
+ * @example
+ * ```typescript
+ * // Generate a valid key: openssl rand -hex 32
+ * const encryption = await createEncryptionComponent({ config })
+ * ```
+ *
+ * @see {@link IEncryptionComponent} for the interface definition
+ */
 export async function createEncryptionComponent(
   components: Pick<AppComponents, 'config'>
 ): Promise<IEncryptionComponent> {
@@ -31,6 +59,15 @@ export async function createEncryptionComponent(
   }
 
   return {
+    /**
+     * Encrypts a plaintext string using AES-256-GCM.
+     *
+     * Generates a random IV for each encryption operation to ensure
+     * semantic security. The output format is: IV + ciphertext + authTag.
+     *
+     * @param plaintext - The UTF-8 string to encrypt
+     * @returns Buffer containing IV (12 bytes) + ciphertext + authTag (16 bytes)
+     */
     encrypt(plaintext: string): Buffer {
       const iv = randomBytes(IV_LENGTH)
       const cipher = createCipheriv(ALGORITHM, key, iv)
@@ -43,6 +80,16 @@ export async function createEncryptionComponent(
       return Buffer.concat([iv, encrypted, authTag])
     },
 
+    /**
+     * Decrypts an encrypted buffer back to the original plaintext string.
+     *
+     * Extracts the IV and authentication tag from the buffer, verifies
+     * integrity via GCM authentication, and decrypts the ciphertext.
+     *
+     * @param encrypted - Buffer in format: IV (12 bytes) + ciphertext + authTag (16 bytes)
+     * @returns The decrypted UTF-8 string
+     * @throws {DecryptionError} If buffer is too short, tampered with, or key is incorrect
+     */
     decrypt(encrypted: Buffer): string {
       const minLength = IV_LENGTH + AUTH_TAG_LENGTH
       if (encrypted.length < minLength) {
