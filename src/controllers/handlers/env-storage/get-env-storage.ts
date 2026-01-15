@@ -1,11 +1,13 @@
-import { InvalidRequestError, NotFoundError } from '@dcl/platform-server-commons'
+import { NotFoundError } from '@dcl/platform-server-commons'
 import { errorMessageOrDefault } from '../../../utils/errors'
-import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
+import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 
 export async function getEnvStorageHandler(
-  context: Pick<HandlerContextWithPath<'logs' | 'envStorage', '/env/:key'>, 'url' | 'components' | 'params'> &
-    WorldStorageContext
+  context: Pick<
+    WorldHandlerContextWithPath<'logs' | 'envStorage', '/env/:key'>,
+    'url' | 'components' | 'params' | 'worldName'
+  >
 ): Promise<HTTPResponse<unknown>> {
   const {
     params,
@@ -14,10 +16,6 @@ export async function getEnvStorageHandler(
   } = context
 
   const logger = logs.getLogger('get-env-storage-handler')
-
-  if (!worldName) {
-    throw new InvalidRequestError('World name is required')
-  }
 
   const key = params.key
 

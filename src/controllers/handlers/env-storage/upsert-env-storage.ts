@@ -1,15 +1,13 @@
-import { InvalidRequestError } from '@dcl/platform-server-commons'
 import { errorMessageOrDefault } from '../../../utils/errors'
-import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
+import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 import type { UpsertEnvStorageBody } from '../schemas'
 
 export async function upsertEnvStorageHandler(
   context: Pick<
-    HandlerContextWithPath<'logs' | 'envStorage', '/env/:key'>,
-    'url' | 'components' | 'params' | 'request'
-  > &
-    WorldStorageContext
+    WorldHandlerContextWithPath<'logs' | 'envStorage', '/env/:key'>,
+    'url' | 'components' | 'params' | 'request' | 'worldName'
+  >
 ): Promise<HTTPResponse<unknown>> {
   const {
     request,
@@ -19,10 +17,6 @@ export async function upsertEnvStorageHandler(
   } = context
 
   const logger = logs.getLogger('upsert-env-storage-handler')
-
-  if (!worldName) {
-    throw new InvalidRequestError('World name is required')
-  }
 
   const key = params.key
 

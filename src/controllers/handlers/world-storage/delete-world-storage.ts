@@ -1,11 +1,12 @@
-import { InvalidRequestError } from '@dcl/platform-server-commons'
 import { errorMessageOrDefault } from '../../../utils/errors'
-import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
+import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 
 export async function deleteWorldStorageHandler(
-  context: Pick<HandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>, 'url' | 'components' | 'params'> &
-    WorldStorageContext
+  context: Pick<
+    WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>,
+    'url' | 'components' | 'params' | 'worldName'
+  >
 ): Promise<HTTPResponse> {
   const {
     params,
@@ -14,10 +15,6 @@ export async function deleteWorldStorageHandler(
   } = context
 
   const logger = logs.getLogger('delete-world-storage-handler')
-
-  if (!worldName) {
-    throw new InvalidRequestError('World name is required')
-  }
 
   const key = params.key
 

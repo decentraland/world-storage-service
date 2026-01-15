@@ -1,15 +1,14 @@
 import { InvalidRequestError, NotFoundError } from '@dcl/platform-server-commons'
 import { EthAddress } from '@dcl/schemas'
 import { errorMessageOrDefault } from '../../../utils/errors'
-import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
+import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 
 export async function getPlayerStorageHandler(
   context: Pick<
-    HandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values/:key'>,
-    'url' | 'components' | 'params'
-  > &
-    WorldStorageContext
+    WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values/:key'>,
+    'url' | 'components' | 'params' | 'worldName'
+  >
 ): Promise<HTTPResponse<unknown>> {
   const {
     params,
@@ -24,10 +23,6 @@ export async function getPlayerStorageHandler(
 
   if (!EthAddress.validate(playerAddress)) {
     throw new InvalidRequestError('Invalid player address')
-  }
-
-  if (!worldName || !playerAddress) {
-    throw new InvalidRequestError('World name and player address are required')
   }
 
   logger.info('Getting player storage value', {

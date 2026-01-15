@@ -19,7 +19,7 @@ export interface GlobalContext {
 }
 
 export interface WorldStorageContext extends GlobalContext {
-  worldName?: string
+  worldName: string
 }
 
 // components used in every environment
@@ -56,6 +56,18 @@ export type HandlerContextWithPath<
   IHttpServerComponent.DefaultContext<{
     components: Pick<AppComponents, ComponentNames>
   }>,
+  Path
+>
+
+// this type simplifies the typings of http handlers that run after worldNameMiddleware
+// and guarantees worldName is present
+export type WorldHandlerContextWithPath<
+  ComponentNames extends keyof AppComponents,
+  Path extends string = string
+> = IHttpServerComponent.PathAwareContext<
+  IHttpServerComponent.DefaultContext<{
+    components: Pick<AppComponents, ComponentNames>
+  }> & { worldName: string },
   Path
 >
 

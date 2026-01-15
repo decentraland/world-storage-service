@@ -1,7 +1,7 @@
 import type { IHttpServerComponent } from '@well-known-components/interfaces'
 import type { DecentralandSignatureContext } from '@dcl/platform-crypto-middleware'
 import { InvalidRequestError } from '@dcl/platform-server-commons'
-import type { WorldStorageContext } from '../../types'
+import type { GlobalContext } from '../../types'
 
 export interface WorldAuthMetadata {
   realm?: { serverName?: string | null }
@@ -13,9 +13,14 @@ export interface WorldAuthMetadata {
  *
  * It attaches it to the request context so handlers can read it as `context.worldName`.
  * If the worldName cannot be extracted from the metadata, it returns a 400 error.
+ *
+ * After this middleware runs, `worldName` is guaranteed to be present in the context.
+ * Handlers that run after this middleware should use `WorldHandlerContextWithPath` type
+ * to indicate they expect `worldName` to be available.
  */
 export const worldNameMiddleware: IHttpServerComponent.IRequestHandler<
-  IHttpServerComponent.PathAwareContext<WorldStorageContext, string> & DecentralandSignatureContext<WorldAuthMetadata>
+  IHttpServerComponent.PathAwareContext<GlobalContext & { worldName?: string }, string> &
+    DecentralandSignatureContext<WorldAuthMetadata>
 > = async (ctx, next) => {
   const metadata = ctx.verification?.authMetadata
   const worldName = metadata?.realm?.serverName ?? metadata?.realmName

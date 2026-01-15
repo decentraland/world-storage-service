@@ -60,22 +60,6 @@ describe('authorizationMiddleware', () => {
     })
   })
 
-  describe('when the world name is missing', () => {
-    let ctx: TestContext
-
-    beforeEach(() => {
-      ctx = buildCtx(ADDRESSES.UNAUTHORIZED, undefined)
-      ctx.worldName = undefined
-    })
-
-    it('should throw a NotAuthorizedError', async () => {
-      await expect(authorizationMiddleware(ctx, next)).rejects.toThrow(
-        new NotAuthorizedError('Unauthorized: No world name found')
-      )
-      expect(next).not.toHaveBeenCalled()
-    })
-  })
-
   describe('when the world permissions fetch fails', () => {
     beforeEach(() => {
       getPermissionsMock.mockRejectedValueOnce(new Error('Failed to fetch world permissions'))

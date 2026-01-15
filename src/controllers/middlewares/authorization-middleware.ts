@@ -44,12 +44,8 @@ export function createAuthorizationMiddleware(
       throw new NotAuthorizedError('Unauthorized: No signer address found')
     }
 
-    const worldName = ctx.worldName
-
-    if (!worldName) {
-      logger.warn('No world name found in context')
-      throw new NotAuthorizedError('Unauthorized: No world name found')
-    }
+    // worldName is guaranteed to be present by worldNameMiddleware (enforced by WorldStorageContext type)
+    const { worldName } = ctx
 
     // Fetch world permissions from worlds content server
     let worldPermissions
