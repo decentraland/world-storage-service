@@ -5,19 +5,18 @@ import {
 } from '../../../../src/controllers/middlewares/authorization-middleware'
 import { ADDRESSES, WORLD_NAMES } from '../../../fixtures'
 import { buildTestContext } from '../../utils/context'
-import type { WorldPermissions } from '../../../../src/adapters/worlds-content-server/types'
 import type { BaseComponents } from '../../../../src/types'
 import type { TestContext } from '../../utils/context'
 
 describe('authorizationMiddleware', () => {
   const next = jest.fn()
   let configGetString: jest.Mock
-  let getPermissionsMock: jest.Mock
+  let hasWorldPermissionMock: jest.Mock
   let warn: jest.Mock
 
   beforeEach(() => {
     configGetString = jest.fn()
-    getPermissionsMock = jest.fn()
+    hasWorldPermissionMock = jest.fn()
     warn = jest.fn()
     next.mockReset()
   })
@@ -26,19 +25,6 @@ describe('authorizationMiddleware', () => {
     jest.resetAllMocks()
   })
 
-  function buildWorldPermissions(overrides: Partial<WorldPermissions> = {}): WorldPermissions {
-    return {
-      permissions: {
-        deployment: {
-          type: 'allow-list',
-          wallets: []
-        }
-      },
-      owner: ADDRESSES.OWNER,
-      ...overrides
-    }
-  }
-
   function buildCtx(auth?: string, worldName?: string): TestContext {
     return buildTestContext({
       worldName: worldName ?? WORLD_NAMES.DEFAULT,
@@ -46,7 +32,7 @@ describe('authorizationMiddleware', () => {
       components: {
         config: { getString: configGetString },
         logs: { getLogger: () => ({ warn }) },
-        worldsContentServer: { getPermissions: getPermissionsMock }
+        worldPermission: { hasWorldPermission: hasWorldPermissionMock }
       } as unknown as BaseComponents
     })
   }
@@ -60,9 +46,9 @@ describe('authorizationMiddleware', () => {
     })
   })
 
-  describe('when the world permissions fetch fails', () => {
+  describe('when the world permission check fails', () => {
     beforeEach(() => {
-      getPermissionsMock.mockRejectedValueOnce(new Error('Failed to fetch world permissions'))
+      hasWorldPermissionMock.mockRejectedValueOnce(new Error('Failed to fetch world permissions'))
     })
 
     it('should throw a NotAuthorizedError', async () => {
@@ -74,84 +60,25 @@ describe('authorizationMiddleware', () => {
     })
   })
 
-  describe('when the signer is the world owner', () => {
+  describe('when the signer has world permission', () => {
     beforeEach(() => {
-      getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+      hasWorldPermissionMock.mockResolvedValueOnce(true)
       next.mockResolvedValueOnce({ status: 200 })
     })
 
     it('should allow the request', async () => {
       const result = await authorizationMiddleware(buildCtx(ADDRESSES.OWNER), next)
 
+      expect(hasWorldPermissionMock).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, ADDRESSES.OWNER.toLowerCase())
       expect(next).toHaveBeenCalled()
       expect(result).toEqual({ status: 200 })
     })
   })
 
-  describe('when the signer is the world owner with different case', () => {
-    beforeEach(() => {
-      getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions({ owner: ADDRESSES.OWNER.toUpperCase() }))
-      next.mockResolvedValueOnce({ status: 200 })
-    })
-
-    it('should allow the request (case-insensitive)', async () => {
-      const result = await authorizationMiddleware(buildCtx(ADDRESSES.OWNER), next)
-
-      expect(next).toHaveBeenCalled()
-      expect(result).toEqual({ status: 200 })
-    })
-  })
-
-  describe('when the signer has deployer permissions', () => {
-    beforeEach(() => {
-      getPermissionsMock.mockResolvedValueOnce(
-        buildWorldPermissions({
-          permissions: {
-            deployment: {
-              type: 'allow-list',
-              wallets: [ADDRESSES.DEPLOYER]
-            }
-          }
-        })
-      )
-      next.mockResolvedValueOnce({ status: 200 })
-    })
-
-    it('should allow the request', async () => {
-      const result = await authorizationMiddleware(buildCtx(ADDRESSES.DEPLOYER), next)
-
-      expect(next).toHaveBeenCalled()
-      expect(result).toEqual({ status: 200 })
-    })
-  })
-
-  describe('when the signer has deployer permissions with different case', () => {
-    beforeEach(() => {
-      getPermissionsMock.mockResolvedValueOnce(
-        buildWorldPermissions({
-          permissions: {
-            deployment: {
-              type: 'allow-list',
-              wallets: [ADDRESSES.DEPLOYER.toUpperCase()]
-            }
-          }
-        })
-      )
-      next.mockResolvedValueOnce({ status: 200 })
-    })
-
-    it('should allow the request (case-insensitive)', async () => {
-      const result = await authorizationMiddleware(buildCtx(ADDRESSES.DEPLOYER), next)
-
-      expect(next).toHaveBeenCalled()
-      expect(result).toEqual({ status: 200 })
-    })
-  })
-
-  describe('when the signer is not the owner and has no deployer permissions', () => {
+  describe('when the signer does not have world permission', () => {
     describe('and allowAuthorizedAddresses is false (default)', () => {
       beforeEach(() => {
-        getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+        hasWorldPermissionMock.mockResolvedValueOnce(false)
       })
 
       it('should throw a NotAuthorizedError', async () => {
@@ -172,7 +99,7 @@ describe('authorizationMiddleware', () => {
 
       describe('and the signer matches the authoritative server address', () => {
         beforeEach(() => {
-          getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+          hasWorldPermissionMock.mockResolvedValueOnce(false)
           configGetString.mockImplementation((key: string) => {
             if (key === 'AUTHORITATIVE_SERVER_ADDRESS') {
               return Promise.resolve(ADDRESSES.AUTHORITATIVE)
@@ -192,7 +119,7 @@ describe('authorizationMiddleware', () => {
 
       describe('and the signer is in the authorized addresses list', () => {
         beforeEach(() => {
-          getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+          hasWorldPermissionMock.mockResolvedValueOnce(false)
           configGetString.mockImplementation((key: string) => {
             if (key === 'AUTHORITATIVE_SERVER_ADDRESS') {
               return Promise.resolve(undefined)
@@ -215,7 +142,7 @@ describe('authorizationMiddleware', () => {
 
       describe('and the signer is not in any allowed addresses', () => {
         beforeEach(() => {
-          getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+          hasWorldPermissionMock.mockResolvedValueOnce(false)
           configGetString.mockImplementation((key: string) => {
             if (key === 'AUTHORITATIVE_SERVER_ADDRESS') {
               return Promise.resolve(ADDRESSES.OTHER)
@@ -238,7 +165,7 @@ describe('authorizationMiddleware', () => {
 
       describe('and both authoritative and authorized addresses configs are empty', () => {
         beforeEach(() => {
-          getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+          hasWorldPermissionMock.mockResolvedValueOnce(false)
           configGetString.mockResolvedValue(undefined)
         })
 

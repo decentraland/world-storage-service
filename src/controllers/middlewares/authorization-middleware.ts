@@ -11,8 +11,8 @@ export interface AuthorizationMiddlewareOptions {
 /**
  * Creates a middleware that validates if the signer of the request is authorized to perform operations.
  *
- * It fetches the world permissions from the worlds content server and checks if the signer's address
- * is the owner or has deployer permissions for the world.
+ * It uses the world permission component to check if the signer's address is the owner or has
+ * deployer permissions for the world.
  *
  * If the `allowAuthorizedAddresses` option is enabled, it also checks the AUTHORITATIVE_SERVER_ADDRESS
  * and AUTHORIZED_ADDRESSES environment variables (comma-separated list of addresses) to allow
@@ -32,7 +32,7 @@ export function createAuthorizationMiddleware(
 
   return async (ctx, next) => {
     const {
-      components: { config, logs, worldsContentServer }
+      components: { config, logs, worldPermission }
     } = ctx
 
     const logger = logs.getLogger('authorization-middleware')
@@ -47,28 +47,19 @@ export function createAuthorizationMiddleware(
     // worldName is guaranteed to be present by worldNameMiddleware (enforced by WorldStorageContext type)
     const { worldName } = ctx
 
-    // Fetch world permissions from worlds content server
-    let worldPermissions
+    // 1. Check if signer has world permission (owner or deployer)
+    let hasPermission: boolean
     try {
-      worldPermissions = await worldsContentServer.getPermissions(worldName)
+      hasPermission = await worldPermission.hasWorldPermission(worldName, signerAddress)
     } catch (error) {
-      logger.warn('Failed to fetch world permissions', {
+      logger.warn('Failed to verify world permissions', {
         worldName,
         error: isErrorWithMessage(error) ? error.message : 'Unknown error'
       })
       throw new NotAuthorizedError('Unauthorized: Failed to verify world permissions')
     }
 
-    // Check if signer is the owner
-    const isOwner = worldPermissions.owner?.toLowerCase() === signerAddress
-
-    // Check if signer has deployer permissions
-    const hasDeployerPermissions =
-      worldPermissions.permissions.deployment.type === 'allow-list' &&
-      worldPermissions.permissions.deployment.wallets.map((wallet) => wallet.toLowerCase()).includes(signerAddress)
-
-    // 1. If the signer is the owner or has deployer permissions, allow access
-    if (isOwner || hasDeployerPermissions) {
+    if (hasPermission) {
       return await next()
     }
 
