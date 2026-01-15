@@ -1,6 +1,6 @@
 import type { IHttpServerComponent } from '@well-known-components/interfaces'
 import type { DecentralandSignatureContext } from '@dcl/platform-crypto-middleware'
-import { InvalidRequestError, isInvalidRequestError } from '../../utils/errors'
+import { InvalidRequestError } from '@dcl/platform-server-commons'
 import type { WorldStorageContext } from '../../types'
 
 export interface WorldAuthMetadata {
@@ -17,25 +17,13 @@ export interface WorldAuthMetadata {
 export const worldNameMiddleware: IHttpServerComponent.IRequestHandler<
   IHttpServerComponent.PathAwareContext<WorldStorageContext, string> & DecentralandSignatureContext<WorldAuthMetadata>
 > = async (ctx, next) => {
-  try {
-    const metadata = ctx.verification?.authMetadata
-    const worldName = metadata?.realm?.serverName ?? metadata?.realmName
+  const metadata = ctx.verification?.authMetadata
+  const worldName = metadata?.realm?.serverName ?? metadata?.realmName
 
-    if (!worldName) {
-      throw new InvalidRequestError('World name is required')
-    }
-
-    ctx.worldName = worldName
-    return await next()
-  } catch (error) {
-    if (isInvalidRequestError(error)) {
-      return {
-        status: 400,
-        body: {
-          message: error.message
-        }
-      }
-    }
-    throw error
+  if (!worldName) {
+    throw new InvalidRequestError('World name is required')
   }
+
+  ctx.worldName = worldName
+  return await next()
 }

@@ -1,3 +1,4 @@
+import { NotAuthorizedError } from '@dcl/platform-server-commons'
 import {
   authorizationMiddleware,
   createAuthorizationMiddleware
@@ -51,14 +52,11 @@ describe('authorizationMiddleware', () => {
   }
 
   describe('when the signer address is missing', () => {
-    it('should respond with 401 and the appropriate error message', async () => {
-      const result = await authorizationMiddleware(buildCtx(undefined), next)
-
+    it('should throw a NotAuthorizedError', async () => {
+      await expect(authorizationMiddleware(buildCtx(undefined), next)).rejects.toThrow(
+        new NotAuthorizedError('Unauthorized: No signer address found')
+      )
       expect(next).not.toHaveBeenCalled()
-      expect(result).toEqual({
-        status: 401,
-        body: { message: 'Unauthorized: No signer address found' }
-      })
     })
   })
 
@@ -70,14 +68,11 @@ describe('authorizationMiddleware', () => {
       ctx.worldName = undefined
     })
 
-    it('should respond with 401 and the appropriate error message', async () => {
-      const result = await authorizationMiddleware(ctx, next)
-
+    it('should throw a NotAuthorizedError', async () => {
+      await expect(authorizationMiddleware(ctx, next)).rejects.toThrow(
+        new NotAuthorizedError('Unauthorized: No world name found')
+      )
       expect(next).not.toHaveBeenCalled()
-      expect(result).toEqual({
-        status: 401,
-        body: { message: 'Unauthorized: No world name found' }
-      })
     })
   })
 
@@ -86,14 +81,11 @@ describe('authorizationMiddleware', () => {
       getPermissionsMock.mockRejectedValueOnce(new Error('Failed to fetch world permissions'))
     })
 
-    it('should respond with 401 and the appropriate error message', async () => {
-      const result = await authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
-
+    it('should throw a NotAuthorizedError', async () => {
+      await expect(authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
+        new NotAuthorizedError('Unauthorized: Failed to verify world permissions')
+      )
       expect(next).not.toHaveBeenCalled()
-      expect(result).toEqual({
-        status: 401,
-        body: { message: 'Unauthorized: Failed to verify world permissions' }
-      })
       expect(warn).toHaveBeenCalled()
     })
   })
@@ -178,14 +170,11 @@ describe('authorizationMiddleware', () => {
         getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
       })
 
-      it('should respond with 401 and the appropriate error message', async () => {
-        const result = await authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
-
+      it('should throw a NotAuthorizedError', async () => {
+        await expect(authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
+          new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
+        )
         expect(next).not.toHaveBeenCalled()
-        expect(result).toEqual({
-          status: 401,
-          body: { message: 'Unauthorized: Signer is not authorized to perform operations on this world' }
-        })
         expect(warn).toHaveBeenCalled()
       })
     })
@@ -254,14 +243,11 @@ describe('authorizationMiddleware', () => {
           })
         })
 
-        it('should respond with 401 and the appropriate error message', async () => {
-          const result = await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
-
+        it('should throw a NotAuthorizedError', async () => {
+          await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
+            new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
+          )
           expect(next).not.toHaveBeenCalled()
-          expect(result).toEqual({
-            status: 401,
-            body: { message: 'Unauthorized: Signer is not authorized to perform operations on this world' }
-          })
           expect(warn).toHaveBeenCalled()
         })
       })
@@ -272,14 +258,11 @@ describe('authorizationMiddleware', () => {
           configGetString.mockResolvedValue(undefined)
         })
 
-        it('should respond with 401 and the appropriate error message', async () => {
-          const result = await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
-
+        it('should throw a NotAuthorizedError', async () => {
+          await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
+            new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
+          )
           expect(next).not.toHaveBeenCalled()
-          expect(result).toEqual({
-            status: 401,
-            body: { message: 'Unauthorized: Signer is not authorized to perform operations on this world' }
-          })
           expect(warn).toHaveBeenCalled()
         })
       })

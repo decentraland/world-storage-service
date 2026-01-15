@@ -1,4 +1,5 @@
-import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../../utils/errors'
+import { InvalidRequestError } from '@dcl/platform-server-commons'
+import { errorMessageOrDefault } from '../../../utils/errors'
 import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 import type { UpsertEnvStorageBody } from '../schemas'
@@ -19,20 +20,20 @@ export async function upsertEnvStorageHandler(
 
   const logger = logs.getLogger('upsert-env-storage-handler')
 
+  if (!worldName) {
+    throw new InvalidRequestError('World name is required')
+  }
+
+  const key = params.key
+
+  const { value }: UpsertEnvStorageBody = await request.json()
+
+  logger.info('Upserting env storage value', {
+    worldName,
+    key
+  })
+
   try {
-    if (!worldName) {
-      throw new InvalidRequestError('World name is required')
-    }
-
-    const key = params.key
-
-    const { value }: UpsertEnvStorageBody = await request.json()
-
-    logger.info('Upserting env storage value', {
-      worldName,
-      key
-    })
-
     const item = await envStorage.setValue(worldName, key, value)
     return {
       status: 200,
@@ -41,26 +42,10 @@ export async function upsertEnvStorageHandler(
       }
     }
   } catch (error) {
-    if (isInvalidRequestError(error)) {
-      return {
-        status: 400,
-        body: {
-          message: error.message
-        }
-      }
-    }
-
-    const errorMessage = errorMessageOrDefault(error, 'Unknown error')
-
     logger.error('Error upserting env storage value', {
-      error: errorMessage
+      error: errorMessageOrDefault(error, 'Unknown error')
     })
 
-    return {
-      status: 500,
-      body: {
-        message: errorMessage
-      }
-    }
+    throw error
   }
 }

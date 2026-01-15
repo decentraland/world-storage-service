@@ -1,6 +1,7 @@
 import type { IHttpServerComponent } from '@well-known-components/interfaces'
 import type { DecentralandSignatureContext } from '@dcl/platform-crypto-middleware'
-import { NotAuthorizedError, isErrorWithMessage, isNotAuthorizedError } from '../../utils/errors'
+import { NotAuthorizedError } from '@dcl/platform-server-commons'
+import { isErrorWithMessage } from '../../utils/errors'
 import type { WorldStorageContext } from '../../types'
 
 export interface AuthorizationMiddlewareOptions {
@@ -36,77 +37,65 @@ export function createAuthorizationMiddleware(
 
     const logger = logs.getLogger('authorization-middleware')
 
+    const signerAddress = ctx.verification?.auth?.toLowerCase()
+
+    if (!signerAddress) {
+      logger.warn('No signer address found in verification context')
+      throw new NotAuthorizedError('Unauthorized: No signer address found')
+    }
+
+    const worldName = ctx.worldName
+
+    if (!worldName) {
+      logger.warn('No world name found in context')
+      throw new NotAuthorizedError('Unauthorized: No world name found')
+    }
+
+    // Fetch world permissions from worlds content server
+    let worldPermissions
     try {
-      const signerAddress = ctx.verification?.auth?.toLowerCase()
+      worldPermissions = await worldsContentServer.getPermissions(worldName)
+    } catch (error) {
+      logger.warn('Failed to fetch world permissions', {
+        worldName,
+        error: isErrorWithMessage(error) ? error.message : 'Unknown error'
+      })
+      throw new NotAuthorizedError('Unauthorized: Failed to verify world permissions')
+    }
 
-      if (!signerAddress) {
-        logger.warn('No signer address found in verification context')
-        throw new NotAuthorizedError('Unauthorized: No signer address found')
-      }
+    // Check if signer is the owner
+    const isOwner = worldPermissions.owner?.toLowerCase() === signerAddress
 
-      const worldName = ctx.worldName
+    // Check if signer has deployer permissions
+    const hasDeployerPermissions =
+      worldPermissions.permissions.deployment.type === 'allow-list' &&
+      worldPermissions.permissions.deployment.wallets.map((wallet) => wallet.toLowerCase()).includes(signerAddress)
 
-      if (!worldName) {
-        logger.warn('No world name found in context')
-        throw new NotAuthorizedError('Unauthorized: No world name found')
-      }
+    // 1. If the signer is the owner or has deployer permissions, allow access
+    if (isOwner || hasDeployerPermissions) {
+      return await next()
+    }
 
-      // Fetch world permissions from worlds content server
-      let worldPermissions
-      try {
-        worldPermissions = await worldsContentServer.getPermissions(worldName)
-      } catch (error) {
-        logger.warn('Failed to fetch world permissions', {
-          worldName,
-          error: isErrorWithMessage(error) ? error.message : 'Unknown error'
-        })
-        throw new NotAuthorizedError('Unauthorized: Failed to verify world permissions')
-      }
+    // 2. If allowAuthorizedAddresses is enabled, check if signer is in authorized addresses
+    if (allowAuthorizedAddresses) {
+      const authoritativeServerAddress = await config.getString('AUTHORITATIVE_SERVER_ADDRESS')
+      const authorizedAddressesConfig = await config.getString('AUTHORIZED_ADDRESSES')
 
-      // Check if signer is the owner
-      const isOwner = worldPermissions.owner?.toLowerCase() === signerAddress
+      const allowedAddresses = [authoritativeServerAddress, ...(authorizedAddressesConfig?.split(',') || [])]
+        .map((addr) => addr?.trim().toLowerCase())
+        .filter((addr): addr is string => !!addr && addr.length > 0)
 
-      // Check if signer has deployer permissions
-      const hasDeployerPermissions =
-        worldPermissions.permissions.deployment.type === 'allow-list' &&
-        worldPermissions.permissions.deployment.wallets.map((wallet) => wallet.toLowerCase()).includes(signerAddress)
-
-      // 1. If the signer is the owner or has deployer permissions, allow access
-      if (isOwner || hasDeployerPermissions) {
+      if (allowedAddresses.includes(signerAddress)) {
         return await next()
       }
-
-      // 2. If allowAuthorizedAddresses is enabled, check if signer is in authorized addresses
-      if (allowAuthorizedAddresses) {
-        const authoritativeServerAddress = await config.getString('AUTHORITATIVE_SERVER_ADDRESS')
-        const authorizedAddressesConfig = await config.getString('AUTHORIZED_ADDRESSES')
-
-        const allowedAddresses = [authoritativeServerAddress, ...(authorizedAddressesConfig?.split(',') || [])]
-          .map((addr) => addr?.trim().toLowerCase())
-          .filter((addr): addr is string => !!addr && addr.length > 0)
-
-        if (allowedAddresses.includes(signerAddress)) {
-          return await next()
-        }
-      }
-
-      // 3. Otherwise, deny access
-      logger.warn('Signer address is not authorized for operations', {
-        signerAddress,
-        worldName
-      })
-      throw new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
-    } catch (error) {
-      if (isNotAuthorizedError(error)) {
-        return {
-          status: 401,
-          body: {
-            message: error.message
-          }
-        }
-      }
-      throw error
     }
+
+    // 3. Otherwise, deny access
+    logger.warn('Signer address is not authorized for operations', {
+      signerAddress,
+      worldName
+    })
+    throw new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
   }
 }
 

@@ -1,5 +1,6 @@
+import { InvalidRequestError, NotFoundError } from '@dcl/platform-server-commons'
 import { EthAddress } from '@dcl/schemas'
-import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../../utils/errors'
+import { errorMessageOrDefault } from '../../../utils/errors'
 import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 
@@ -18,33 +19,28 @@ export async function getPlayerStorageHandler(
 
   const logger = logs.getLogger('get-player-storage-handler')
 
+  const playerAddress = params.player_address.toLowerCase()
+  const key = params.key
+
+  if (!EthAddress.validate(playerAddress)) {
+    throw new InvalidRequestError('Invalid player address')
+  }
+
+  if (!worldName || !playerAddress) {
+    throw new InvalidRequestError('World name and player address are required')
+  }
+
+  logger.info('Getting player storage value', {
+    worldName,
+    playerAddress,
+    key
+  })
+
   try {
-    const playerAddress = params.player_address.toLowerCase()
-    const key = params.key
-
-    if (!EthAddress.validate(playerAddress)) {
-      throw new InvalidRequestError('Invalid player address')
-    }
-
-    if (!worldName || !playerAddress) {
-      throw new InvalidRequestError('World name, player address, and key are required')
-    }
-
-    logger.info('Getting player storage value', {
-      worldName,
-      playerAddress,
-      key
-    })
-
     const value = await playerStorage.getValue(worldName, playerAddress, key)
 
-    if (value === null) {
-      return {
-        status: 404,
-        body: {
-          message: 'Value not found'
-        }
-      }
+    if (!value) {
+      throw new NotFoundError('Value not found')
     }
 
     return {
@@ -54,26 +50,10 @@ export async function getPlayerStorageHandler(
       }
     }
   } catch (error) {
-    if (isInvalidRequestError(error)) {
-      return {
-        status: 400,
-        body: {
-          message: error.message
-        }
-      }
-    }
-
-    const errorMessage = errorMessageOrDefault(error, 'Unknown error')
-
     logger.error('Error getting player storage value', {
-      error: errorMessage
+      error: errorMessageOrDefault(error, 'Unknown error')
     })
 
-    return {
-      status: 500,
-      body: {
-        message: errorMessage
-      }
-    }
+    throw error
   }
 }

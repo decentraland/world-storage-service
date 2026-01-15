@@ -1,3 +1,4 @@
+import { InvalidRequestError } from '@dcl/platform-server-commons'
 import {
   type WorldAuthMetadata,
   worldNameMiddleware
@@ -20,35 +21,27 @@ describe('worldNameMiddleware', () => {
   })
 
   describe('when the world name is missing', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: {} } })
-      result = (await worldNameMiddleware(ctx, next)) as { status: number; body: { message: string } }
     })
 
-    it('should respond with a 400 status and an error message', () => {
+    it('should throw an InvalidRequestError', async () => {
+      await expect(worldNameMiddleware(ctx, next)).rejects.toThrow(new InvalidRequestError('World name is required'))
       expect(next).not.toHaveBeenCalled()
-      expect(result).toEqual({
-        status: 400,
-        body: { message: 'World name is required' }
-      })
     })
   })
 
   describe('when the world name is empty', () => {
     let metadata: WorldAuthMetadata
 
-    beforeEach(async () => {
+    beforeEach(() => {
       metadata = { realm: { serverName: '' } }
       ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: metadata } })
-      result = (await worldNameMiddleware(ctx, next)) as { status: number; body: { message: string } }
     })
 
-    it('should respond with a 400 status and an error message', () => {
+    it('should throw an InvalidRequestError', async () => {
+      await expect(worldNameMiddleware(ctx, next)).rejects.toThrow(new InvalidRequestError('World name is required'))
       expect(next).not.toHaveBeenCalled()
-      expect(result).toEqual({
-        status: 400,
-        body: { message: 'World name is required' }
-      })
     })
   })
 

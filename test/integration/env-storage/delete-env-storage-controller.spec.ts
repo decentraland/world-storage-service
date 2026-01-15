@@ -71,6 +71,7 @@ test('Delete Env Storage Controller', function ({ components, stubComponents }) 
         expect(response.status).toBe(204)
         expect(getResponse.status).toBe(404)
         expect(body).toEqual({
+          error: 'Not Found',
           message: 'Value not found'
         })
       })
@@ -94,7 +95,7 @@ test('Delete Env Storage Controller', function ({ components, stubComponents }) 
         const body = await response.json()
         expect(response.status).toBe(500)
         expect(body).toEqual({
-          message: 'boom'
+          error: 'Internal Server Error'
         })
       })
     })

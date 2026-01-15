@@ -160,7 +160,7 @@ test('Upsert Env Storage Controller', function ({ components, stubComponents }) 
         const body = await response.json()
         expect(response.status).toBe(500)
         expect(body).toEqual({
-          message: 'boom'
+          error: 'Internal Server Error'
         })
       })
     })
