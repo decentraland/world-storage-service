@@ -5,9 +5,10 @@ import type { AppComponents } from '../../../src/types'
 
 describe('Encryption Component', () => {
   const VALID_KEY_HEX = randomBytes(32).toString('hex')
+  const VERSION_LENGTH = 1
   const IV_LENGTH = 12
   const AUTH_TAG_LENGTH = 16
-  const MIN_ENCRYPTED_LENGTH = IV_LENGTH + AUTH_TAG_LENGTH
+  const MIN_ENCRYPTED_LENGTH = VERSION_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH
 
   let configRequireString: jest.Mock
   let component: IEncryptionComponent
@@ -65,6 +66,10 @@ describe('Encryption Component', () => {
 
       it('should return a buffer larger than the minimum due to ciphertext', () => {
         expect(encrypted.length).toBeGreaterThan(MIN_ENCRYPTED_LENGTH)
+      })
+
+      it('should include the format version as the first byte', () => {
+        expect(encrypted[0]).toBe(0x01)
       })
     })
 
@@ -177,8 +182,8 @@ describe('Encryption Component', () => {
       beforeEach(() => {
         const encrypted = component.encrypt('original-secret')
         tamperedBuffer = Buffer.from(encrypted)
-        // Tamper with the ciphertext (middle portion)
-        const ciphertextStart = IV_LENGTH
+        // Tamper with the ciphertext (after version + IV)
+        const ciphertextStart = VERSION_LENGTH + IV_LENGTH
         tamperedBuffer[ciphertextStart] = tamperedBuffer[ciphertextStart] ^ 0xff
       })
 
@@ -209,8 +214,8 @@ describe('Encryption Component', () => {
       beforeEach(() => {
         const encrypted = component.encrypt('original-secret')
         tamperedBuffer = Buffer.from(encrypted)
-        // Tamper with the IV (first 12 bytes)
-        tamperedBuffer[0] = tamperedBuffer[0] ^ 0xff
+        // Tamper with the IV (starts at byte 1, after version)
+        tamperedBuffer[VERSION_LENGTH] = tamperedBuffer[VERSION_LENGTH] ^ 0xff
       })
 
       it('should throw a DecryptionError', () => {
@@ -232,6 +237,25 @@ describe('Encryption Component', () => {
 
       it('should throw a DecryptionError', () => {
         expect(() => differentKeyComponent.decrypt(encrypted)).toThrow(DecryptionError)
+      })
+    })
+
+    describe('and the encrypted buffer has an unsupported version', () => {
+      let unsupportedVersionBuffer: Buffer
+
+      beforeEach(() => {
+        const encrypted = component.encrypt('secret-data')
+        unsupportedVersionBuffer = Buffer.from(encrypted)
+        // Change version byte to an unsupported version
+        unsupportedVersionBuffer[0] = 0x99
+      })
+
+      it('should throw a DecryptionError', () => {
+        expect(() => component.decrypt(unsupportedVersionBuffer)).toThrow(DecryptionError)
+      })
+
+      it('should include the unsupported version in the error message', () => {
+        expect(() => component.decrypt(unsupportedVersionBuffer)).toThrow('Unsupported encryption format version: 153')
       })
     })
   })

@@ -11,10 +11,20 @@ import type { AppComponents } from '../../types'
  * - IV size: 12 bytes (96 bits) - recommended for GCM per NIST SP 800-38D
  * - Auth tag size: 16 bytes (128 bits) - maximum security
  * - Key size: 32 bytes (256 bits) - required for AES-256
+ * - Format version: 1 byte prefix for future compatibility
  */
 
 /** The encryption algorithm used (AES-256 in Galois/Counter Mode) */
 const ALGORITHM = 'aes-256-gcm'
+
+/**
+ * Current format version for the encrypted payload.
+ * Allows future changes to algorithm, IV length, or format without breaking existing data.
+ */
+const FORMAT_VERSION = 0x01
+
+/** Length of the format version prefix in bytes */
+const VERSION_LENGTH = 1
 
 /** Length of the Initialization Vector in bytes (96 bits, recommended for GCM) */
 const IV_LENGTH = 12
@@ -63,10 +73,10 @@ export async function createEncryptionComponent(
      * Encrypts a plaintext string using AES-256-GCM.
      *
      * Generates a random IV for each encryption operation to ensure
-     * semantic security. The output format is: IV + ciphertext + authTag.
+     * semantic security.
      *
      * @param plaintext - The UTF-8 string to encrypt
-     * @returns Buffer containing IV (12 bytes) + ciphertext + authTag (16 bytes)
+     * @returns Buffer containing: version (1 byte) + IV (12 bytes) + ciphertext + authTag (16 bytes)
      */
     encrypt(plaintext: string): Buffer {
       const iv = randomBytes(IV_LENGTH)
@@ -76,31 +86,36 @@ export async function createEncryptionComponent(
 
       const authTag = cipher.getAuthTag()
 
-      // Format: IV (12 bytes) + ciphertext + authTag (16 bytes)
-      return Buffer.concat([iv, encrypted, authTag])
+      // Format: version (1 byte) + IV (12 bytes) + ciphertext + authTag (16 bytes)
+      return Buffer.concat([Buffer.from([FORMAT_VERSION]), iv, encrypted, authTag])
     },
 
     /**
      * Decrypts an encrypted buffer back to the original plaintext string.
      *
-     * Extracts the IV and authentication tag from the buffer, verifies
+     * Extracts the version, IV, and authentication tag from the buffer, verifies
      * integrity via GCM authentication, and decrypts the ciphertext.
      *
-     * @param encrypted - Buffer in format: IV (12 bytes) + ciphertext + authTag (16 bytes)
+     * @param encrypted - Buffer in format: version (1 byte) + IV (12 bytes) + ciphertext + authTag (16 bytes)
      * @returns The decrypted UTF-8 string
-     * @throws {DecryptionError} If buffer is too short, tampered with, or key is incorrect
+     * @throws {DecryptionError} If buffer is too short, version is unsupported, data is tampered, or key is incorrect
      */
     decrypt(encrypted: Buffer): string {
-      const minLength = IV_LENGTH + AUTH_TAG_LENGTH
+      const minLength = VERSION_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH
       if (encrypted.length < minLength) {
         throw new DecryptionError(
           `Invalid encrypted data: buffer too short (minimum ${minLength} bytes, got ${encrypted.length})`
         )
       }
 
-      const iv = encrypted.subarray(0, IV_LENGTH)
+      const version = encrypted[0]
+      if (version !== FORMAT_VERSION) {
+        throw new DecryptionError(`Unsupported encryption format version: ${version}`)
+      }
+
+      const iv = encrypted.subarray(VERSION_LENGTH, VERSION_LENGTH + IV_LENGTH)
       const authTag = encrypted.subarray(encrypted.length - AUTH_TAG_LENGTH)
-      const ciphertext = encrypted.subarray(IV_LENGTH, encrypted.length - AUTH_TAG_LENGTH)
+      const ciphertext = encrypted.subarray(VERSION_LENGTH + IV_LENGTH, encrypted.length - AUTH_TAG_LENGTH)
 
       try {
         const decipher = createDecipheriv(ALGORITHM, key, iv)

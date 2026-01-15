@@ -19,11 +19,11 @@ export interface IEncryptionComponent {
   /**
    * Encrypts a plaintext string using AES-256-GCM.
    *
-   * The returned buffer contains the IV, ciphertext, and authentication tag,
+   * The returned buffer contains a version prefix, IV, ciphertext, and authentication tag,
    * all concatenated together for easy storage and transmission.
    *
    * @param plaintext - The string to encrypt
-   * @returns A Buffer containing: IV (12 bytes) + ciphertext + authTag (16 bytes)
+   * @returns A Buffer containing: version (1 byte) + IV (12 bytes) + ciphertext + authTag (16 bytes)
    */
   encrypt(plaintext: string): Buffer
 
@@ -31,11 +31,11 @@ export interface IEncryptionComponent {
    * Decrypts an encrypted buffer back to the original plaintext string.
    *
    * The buffer must be in the format produced by the `encrypt` method:
-   * IV (12 bytes) + ciphertext + authTag (16 bytes).
+   * version (1 byte) + IV (12 bytes) + ciphertext + authTag (16 bytes).
    *
    * @param encrypted - The encrypted buffer to decrypt
    * @returns The original plaintext string
-   * @throws {DecryptionError} If the buffer is too short, tampered with, or the key is incorrect
+   * @throws {DecryptionError} If the buffer is too short, version is unsupported, data is tampered, or key is incorrect
    */
   decrypt(encrypted: Buffer): string
 }
