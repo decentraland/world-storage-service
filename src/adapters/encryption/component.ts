@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
-import { DecryptionError } from './types'
+import { DecryptionError } from './errors'
 import type { IEncryptionComponent } from './types'
 import type { AppComponents } from '../../types'
 

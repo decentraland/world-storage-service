@@ -1,10 +1,9 @@
 import { randomBytes } from 'crypto'
-import { createEncryptionComponent } from '../../../src/adapters/encryption'
-import { DecryptionError } from '../../../src/adapters/encryption/types'
+import { DecryptionError, createEncryptionComponent } from '../../../src/adapters/encryption'
 import type { IEncryptionComponent } from '../../../src/adapters/encryption'
 import type { AppComponents } from '../../../src/types'
 
-describe('createEncryptionComponent', () => {
+describe('Encryption Component', () => {
   const VALID_KEY_HEX = randomBytes(32).toString('hex')
   const IV_LENGTH = 12
   const AUTH_TAG_LENGTH = 16
