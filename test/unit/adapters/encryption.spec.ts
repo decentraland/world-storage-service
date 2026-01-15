@@ -29,7 +29,7 @@ describe('Encryption Component', () => {
   }
 
   describe('when creating the component', () => {
-    describe('and the encryption key has valid length', () => {
+    describe('and the encryption key is valid', () => {
       it('should create the component successfully', () => {
         expect(component).toBeDefined()
         expect(component.encrypt).toBeDefined()
@@ -38,18 +38,68 @@ describe('Encryption Component', () => {
     })
 
     describe('and the encryption key is too short', () => {
-      it('should throw an error with the expected key length', async () => {
+      beforeEach(() => {
         configRequireString.mockResolvedValue(randomBytes(16).toString('hex'))
+      })
 
-        await expect(createComponent()).rejects.toThrow('Invalid ENCRYPTION_KEY length: expected 32 bytes')
+      it('should throw an error with the expected key length', async () => {
+        await expect(createComponent()).rejects.toThrow(
+          'Invalid ENCRYPTION_KEY length: expected 64 hexadecimal characters'
+        )
       })
     })
 
     describe('and the encryption key is too long', () => {
-      it('should throw an error with the expected key length', async () => {
+      beforeEach(() => {
         configRequireString.mockResolvedValue(randomBytes(64).toString('hex'))
+      })
 
-        await expect(createComponent()).rejects.toThrow('Invalid ENCRYPTION_KEY length: expected 32 bytes')
+      it('should throw an error with the expected key length', async () => {
+        await expect(createComponent()).rejects.toThrow(
+          'Invalid ENCRYPTION_KEY length: expected 64 hexadecimal characters'
+        )
+      })
+    })
+
+    describe('and the encryption key contains non-hex characters', () => {
+      beforeEach(() => {
+        // Replace first two characters with non-hex 'zz'
+        configRequireString.mockResolvedValue('zz' + randomBytes(31).toString('hex'))
+      })
+
+      it('should throw an error indicating invalid characters', async () => {
+        await expect(createComponent()).rejects.toThrow('Invalid ENCRYPTION_KEY: contains non-hexadecimal characters')
+      })
+    })
+
+    describe('and the encryption key has a 0x prefix', () => {
+      beforeEach(() => {
+        configRequireString.mockResolvedValue('0x' + randomBytes(32).toString('hex'))
+      })
+
+      it('should throw an error indicating invalid characters', async () => {
+        await expect(createComponent()).rejects.toThrow('Invalid ENCRYPTION_KEY: contains non-hexadecimal characters')
+      })
+    })
+
+    describe('and the encryption key contains spaces', () => {
+      beforeEach(() => {
+        const validHex = randomBytes(32).toString('hex')
+        configRequireString.mockResolvedValue(validHex.slice(0, 32) + ' ' + validHex.slice(33))
+      })
+
+      it('should throw an error indicating invalid characters', async () => {
+        await expect(createComponent()).rejects.toThrow('Invalid ENCRYPTION_KEY: contains non-hexadecimal characters')
+      })
+    })
+
+    describe('and the encryption key is empty', () => {
+      beforeEach(() => {
+        configRequireString.mockResolvedValue('')
+      })
+
+      it('should throw an error indicating invalid characters', async () => {
+        await expect(createComponent()).rejects.toThrow('Invalid ENCRYPTION_KEY: contains non-hexadecimal characters')
       })
     })
   })

@@ -35,6 +35,12 @@ const AUTH_TAG_LENGTH = 16
 /** Required length of the encryption key in bytes (256 bits for AES-256) */
 const KEY_LENGTH = 32
 
+/** Expected length of the hex-encoded encryption key (2 hex chars per byte) */
+const KEY_HEX_LENGTH = KEY_LENGTH * 2
+
+/** Regular expression to validate hexadecimal strings */
+const HEX_REGEX = /^[0-9a-fA-F]+$/
+
 /**
  * Creates an encryption component that provides AES-256-GCM encryption/decryption.
  *
@@ -44,7 +50,7 @@ const KEY_LENGTH = 32
  * @param components - The application components containing the config
  * @param components.config - Configuration component to retrieve the ENCRYPTION_KEY
  * @returns A promise that resolves to the encryption component
- * @throws {Error} If ENCRYPTION_KEY is not set or has invalid length
+ * @throws {Error} If ENCRYPTION_KEY is not set, has invalid length, or contains non-hex characters
  *
  * @example
  * ```typescript
@@ -60,13 +66,19 @@ export async function createEncryptionComponent(
   const { config } = components
 
   const keyHex = await config.requireString('ENCRYPTION_KEY')
-  const key = Buffer.from(keyHex, 'hex')
 
-  if (key.length !== KEY_LENGTH) {
+  // Validate hex format before parsing to provide clear error messages
+  if (!HEX_REGEX.test(keyHex)) {
+    throw new Error('Invalid ENCRYPTION_KEY: contains non-hexadecimal characters')
+  }
+
+  if (keyHex.length !== KEY_HEX_LENGTH) {
     throw new Error(
-      `Invalid ENCRYPTION_KEY length: expected ${KEY_LENGTH} bytes (${KEY_LENGTH * 2} hex characters), got ${key.length} bytes`
+      `Invalid ENCRYPTION_KEY length: expected ${KEY_HEX_LENGTH} hexadecimal characters, got ${keyHex.length}`
     )
   }
+
+  const key = Buffer.from(keyHex, 'hex')
 
   return {
     /**
