@@ -31,14 +31,6 @@ describe('authorizationMiddleware', () => {
         deployment: {
           type: 'allow-list',
           wallets: []
-        },
-        access: {
-          type: 'allow-list',
-          wallets: []
-        },
-        streaming: {
-          type: 'allow-list',
-          wallets: []
         }
       },
       owner: ADDRESSES.OWNER,
@@ -142,9 +134,7 @@ describe('authorizationMiddleware', () => {
             deployment: {
               type: 'allow-list',
               wallets: [ADDRESSES.DEPLOYER]
-            },
-            access: { type: 'allow-list', wallets: [] },
-            streaming: { type: 'allow-list', wallets: [] }
+            }
           }
         })
       )
@@ -167,9 +157,7 @@ describe('authorizationMiddleware', () => {
             deployment: {
               type: 'allow-list',
               wallets: [ADDRESSES.DEPLOYER.toUpperCase()]
-            },
-            access: { type: 'allow-list', wallets: [] },
-            streaming: { type: 'allow-list', wallets: [] }
+            }
           }
         })
       )

@@ -67,9 +67,9 @@ export function createAuthorizationMiddleware(
       const isOwner = worldPermissions.owner?.toLowerCase() === signerAddress
 
       // Check if signer has deployer permissions
-      const hasDeployerPermissions = worldPermissions.permissions.deployment.wallets
-        .map((wallet) => wallet.toLowerCase())
-        .includes(signerAddress)
+      const hasDeployerPermissions =
+        worldPermissions.permissions.deployment.type === 'allow-list' &&
+        worldPermissions.permissions.deployment.wallets.map((wallet) => wallet.toLowerCase()).includes(signerAddress)
 
       // 1. If the signer is the owner or has deployer permissions, allow access
       if (isOwner || hasDeployerPermissions) {

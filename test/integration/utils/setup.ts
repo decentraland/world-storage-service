@@ -31,9 +31,7 @@ export async function createTestSetup(components: TestComponents, stubComponents
   stubComponents.worldsContentServer.getPermissions.resolves({
     owner: address,
     permissions: {
-      deployment: { type: 'allow-list', wallets: [] },
-      access: { type: 'allow-list', wallets: [] },
-      streaming: { type: 'allow-list', wallets: [] }
+      deployment: { type: 'allow-list', wallets: [] }
     }
   })
 

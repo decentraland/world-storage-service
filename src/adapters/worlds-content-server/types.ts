@@ -4,14 +4,6 @@ export interface WorldPermissions {
       type: string
       wallets: string[]
     }
-    access: {
-      type: string
-      wallets: string[]
-    }
-    streaming: {
-      type: string
-      wallets: string[]
-    }
   }
   owner: string
 }

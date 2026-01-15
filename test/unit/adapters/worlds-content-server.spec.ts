@@ -22,9 +22,7 @@ describe('createWorldsContentServerComponent', () => {
     return {
       owner: ADDRESSES.OWNER,
       permissions: {
-        deployment: { type: 'allow-list', wallets: [ADDRESSES.UNAUTHORIZED] },
-        access: { type: 'allow-list', wallets: [ADDRESSES.AUTHORIZED] },
-        streaming: { type: 'allow-list', wallets: [ADDRESSES.ANOTHER_AUTHORIZED] }
+        deployment: { type: 'allow-list', wallets: [ADDRESSES.UNAUTHORIZED] }
       }
     }
   }
