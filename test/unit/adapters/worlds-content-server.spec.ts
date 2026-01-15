@@ -36,8 +36,8 @@ describe('createWorldsContentServerComponent', () => {
     } as unknown as AppComponents)
   }
 
-  describe('getPermissions', () => {
-    describe('when the fetch is successful', () => {
+  describe('when getting world permissions', () => {
+    describe('and the fetch is successful', () => {
       let component: IWorldsContentServerComponent
       let mockPermissions: WorldPermissions
 
@@ -57,7 +57,7 @@ describe('createWorldsContentServerComponent', () => {
       })
     })
 
-    describe('when the world name contains special characters', () => {
+    describe('and the world name contains special characters', () => {
       let component: IWorldsContentServerComponent
       const specialWorldName = WORLD_NAMES.WITH_SPECIAL_CHARS
 
@@ -78,7 +78,7 @@ describe('createWorldsContentServerComponent', () => {
       })
     })
 
-    describe('when the fetch fails', () => {
+    describe('and the fetch fails', () => {
       let component: IWorldsContentServerComponent
 
       beforeEach(async () => {
@@ -96,7 +96,7 @@ describe('createWorldsContentServerComponent', () => {
       })
     })
 
-    describe('when the fetch throws a network error', () => {
+    describe('and the fetch throws a network error', () => {
       let component: IWorldsContentServerComponent
 
       beforeEach(async () => {
