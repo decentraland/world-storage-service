@@ -54,8 +54,8 @@ describe('createEncryptionComponent', () => {
     })
   })
 
-  describe('encrypt', () => {
-    describe('when encrypting a plaintext string', () => {
+  describe('when encrypting', () => {
+    describe('and the encrypted text is a plaintext string', () => {
       let plaintext: string
       let encrypted: Buffer
 
@@ -69,7 +69,7 @@ describe('createEncryptionComponent', () => {
       })
     })
 
-    describe('when encrypting an empty string', () => {
+    describe('and the encrypted text is an empty string', () => {
       let encrypted: Buffer
 
       beforeEach(() => {
@@ -81,7 +81,7 @@ describe('createEncryptionComponent', () => {
       })
     })
 
-    describe('when encrypting the same plaintext twice', () => {
+    describe('and the encrypted text is the same plaintext twice', () => {
       let plaintext: string
       let firstEncryption: Buffer
       let secondEncryption: Buffer
@@ -97,7 +97,7 @@ describe('createEncryptionComponent', () => {
       })
     })
 
-    describe('when encrypting unicode characters', () => {
+    describe('and the encrypted text includes unicode characters', () => {
       let plaintext: string
       let encrypted: Buffer
 
@@ -112,8 +112,8 @@ describe('createEncryptionComponent', () => {
     })
   })
 
-  describe('decrypt', () => {
-    describe('when decrypting a valid encrypted buffer', () => {
+  describe('when decrypting', () => {
+    describe('and the encrypted buffer is valid', () => {
       let plaintext: string
       let decrypted: string
 
@@ -128,7 +128,7 @@ describe('createEncryptionComponent', () => {
       })
     })
 
-    describe('when decrypting an empty string encryption', () => {
+    describe('and the encrypted buffer is an empty string', () => {
       let decrypted: string
 
       beforeEach(() => {
@@ -141,7 +141,7 @@ describe('createEncryptionComponent', () => {
       })
     })
 
-    describe('when decrypting unicode content', () => {
+    describe('and the encrypted buffer includes unicode characters', () => {
       let plaintext: string
       let decrypted: string
 
@@ -156,7 +156,7 @@ describe('createEncryptionComponent', () => {
       })
     })
 
-    describe('when the encrypted buffer is too short', () => {
+    describe('and the encrypted buffer is too short', () => {
       let shortBuffer: Buffer
 
       beforeEach(() => {
@@ -172,7 +172,7 @@ describe('createEncryptionComponent', () => {
       })
     })
 
-    describe('when the ciphertext has been tampered with', () => {
+    describe("and the encrypted buffer's ciphertext has been tampered with", () => {
       let tamperedBuffer: Buffer
 
       beforeEach(() => {
@@ -188,7 +188,7 @@ describe('createEncryptionComponent', () => {
       })
     })
 
-    describe('when the auth tag has been tampered with', () => {
+    describe("and the encrypted buffer's auth tag has been tampered with", () => {
       let tamperedBuffer: Buffer
 
       beforeEach(() => {
@@ -204,7 +204,7 @@ describe('createEncryptionComponent', () => {
       })
     })
 
-    describe('when the IV has been tampered with', () => {
+    describe("and the encrypted buffer's IV has been tampered with", () => {
       let tamperedBuffer: Buffer
 
       beforeEach(() => {
@@ -219,7 +219,7 @@ describe('createEncryptionComponent', () => {
       })
     })
 
-    describe('when using a different encryption key', () => {
+    describe('and the encryption key is different', () => {
       let differentKeyComponent: IEncryptionComponent
       let encrypted: Buffer
 
