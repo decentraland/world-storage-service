@@ -1,10 +1,13 @@
-import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../../utils/errors'
-import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
+import { NotFoundError } from '@dcl/platform-server-commons'
+import { errorMessageOrDefault } from '../../../utils/errors'
+import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 
 export async function getWorldStorageHandler(
-  context: Pick<HandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>, 'url' | 'components' | 'params'> &
-    WorldStorageContext
+  context: Pick<
+    WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>,
+    'url' | 'components' | 'params' | 'worldName'
+  >
 ): Promise<HTTPResponse<unknown>> {
   const {
     params,
@@ -14,31 +17,18 @@ export async function getWorldStorageHandler(
 
   const logger = logs.getLogger('get-world-storage-handler')
 
+  const key = params.key
+
+  logger.info('Getting world storage value', {
+    worldName,
+    key
+  })
+
   try {
-    if (!worldName) {
-      throw new InvalidRequestError('World name is required')
-    }
-
-    const key = params.key
-
-    if (!key) {
-      throw new InvalidRequestError('Key is required')
-    }
-
-    logger.info('Getting world storage value', {
-      worldName,
-      key
-    })
-
     const value = await worldStorage.getValue(worldName, key)
 
-    if (value === null) {
-      return {
-        status: 404,
-        body: {
-          message: 'Value not found'
-        }
-      }
+    if (!value) {
+      throw new NotFoundError('Value not found')
     }
 
     return {
@@ -48,26 +38,10 @@ export async function getWorldStorageHandler(
       }
     }
   } catch (error) {
-    if (isInvalidRequestError(error)) {
-      return {
-        status: 400,
-        body: {
-          message: error.message
-        }
-      }
-    }
-
-    const errorMessage = errorMessageOrDefault(error, 'Unknown error')
-
     logger.error('Error getting world storage value', {
-      error: errorMessage
+      error: errorMessageOrDefault(error, 'Unknown error')
     })
 
-    return {
-      status: 500,
-      body: {
-        message: errorMessage
-      }
-    }
+    throw error
   }
 }

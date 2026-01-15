@@ -13,6 +13,7 @@ import type { IEnvStorageComponent } from '../adapters/env-storage/types'
 import type { IPlayerStorageComponent } from '../adapters/player-storage/types'
 import type { IWorldStorageComponent } from '../adapters/world-storage/types'
 import type { IWorldsContentServerComponent } from '../adapters/worlds-content-server/types'
+import type { IWorldPermissionComponent } from '../logic/world-permission/types'
 import type { metricDeclarations } from '../metrics'
 
 export interface GlobalContext {
@@ -20,7 +21,7 @@ export interface GlobalContext {
 }
 
 export interface WorldStorageContext extends GlobalContext {
-  worldName?: string
+  worldName: string
 }
 
 // components used in every environment
@@ -35,6 +36,7 @@ export interface BaseComponents {
   playerStorage: IPlayerStorageComponent
   envStorage: IEnvStorageComponent
   worldsContentServer: IWorldsContentServerComponent
+  worldPermission: IWorldPermissionComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
 }
 
@@ -58,6 +60,18 @@ export type HandlerContextWithPath<
   IHttpServerComponent.DefaultContext<{
     components: Pick<AppComponents, ComponentNames>
   }>,
+  Path
+>
+
+// this type simplifies the typings of http handlers that run after worldNameMiddleware
+// and guarantees worldName is present
+export type WorldHandlerContextWithPath<
+  ComponentNames extends keyof AppComponents,
+  Path extends string = string
+> = IHttpServerComponent.PathAwareContext<
+  IHttpServerComponent.DefaultContext<{
+    components: Pick<AppComponents, ComponentNames>
+  }> & { worldName: string },
   Path
 >
 

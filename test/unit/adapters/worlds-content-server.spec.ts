@@ -3,7 +3,7 @@ import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
 import type { IWorldsContentServerComponent, WorldPermissions } from '../../../src/adapters/worlds-content-server'
 import type { AppComponents } from '../../../src/types'
 
-describe('createWorldsContentServerComponent', () => {
+describe('Worlds Content Server Component', () => {
   const WORLDS_CONTENT_SERVER_URL = 'https://worlds-content-server.decentraland.org'
 
   let fetchMock: jest.Mock
@@ -22,9 +22,7 @@ describe('createWorldsContentServerComponent', () => {
     return {
       owner: ADDRESSES.OWNER,
       permissions: {
-        deployment: { type: 'allow-list', wallets: [ADDRESSES.UNAUTHORIZED] },
-        access: { type: 'allow-list', wallets: [ADDRESSES.AUTHORIZED] },
-        streaming: { type: 'allow-list', wallets: [ADDRESSES.ANOTHER_AUTHORIZED] }
+        deployment: { type: 'allow-list', wallets: [ADDRESSES.UNAUTHORIZED] }
       }
     }
   }

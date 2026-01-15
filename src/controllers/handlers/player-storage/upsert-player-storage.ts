@@ -1,15 +1,15 @@
+import { InvalidRequestError } from '@dcl/platform-server-commons'
 import { EthAddress } from '@dcl/schemas'
-import { InvalidRequestError, errorMessageOrDefault, isInvalidRequestError } from '../../../utils/errors'
-import type { HandlerContextWithPath, WorldStorageContext } from '../../../types'
+import { errorMessageOrDefault } from '../../../utils/errors'
+import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 import type { UpsertStorageBody } from '../schemas'
 
 export async function upsertPlayerStorageHandler(
   context: Pick<
-    HandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values/:key'>,
-    'url' | 'components' | 'params' | 'request'
-  > &
-    WorldStorageContext
+    WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values/:key'>,
+    'url' | 'components' | 'params' | 'request' | 'worldName'
+  >
 ): Promise<HTTPResponse<unknown>> {
   const {
     request,
@@ -20,26 +20,22 @@ export async function upsertPlayerStorageHandler(
 
   const logger = logs.getLogger('upsert-player-storage-handler')
 
+  const playerAddress = params.player_address.toLowerCase()
+  const key = params.key
+
+  if (!EthAddress.validate(playerAddress)) {
+    throw new InvalidRequestError('Invalid player address')
+  }
+
+  const { value }: UpsertStorageBody = await request.json()
+
+  logger.info('Upserting player storage value', {
+    worldName,
+    playerAddress,
+    key
+  })
+
   try {
-    const playerAddress = params.player_address.toLowerCase()
-    const key = params.key
-
-    if (!EthAddress.validate(playerAddress)) {
-      throw new InvalidRequestError('Invalid player address')
-    }
-
-    if (!worldName || !playerAddress || !key) {
-      throw new InvalidRequestError('World name, player address, and key are required')
-    }
-
-    const { value }: UpsertStorageBody = await request.json()
-
-    logger.info('Upserting player storage value', {
-      worldName,
-      playerAddress,
-      key
-    })
-
     const item = await playerStorage.setValue(worldName, playerAddress, key, value)
     return {
       status: 200,
@@ -48,26 +44,10 @@ export async function upsertPlayerStorageHandler(
       }
     }
   } catch (error) {
-    if (isInvalidRequestError(error)) {
-      return {
-        status: 400,
-        body: {
-          message: error.message
-        }
-      }
-    }
-
-    const errorMessage = errorMessageOrDefault(error, 'Unknown error')
-
     logger.error('Error upserting player storage value', {
-      error: errorMessage
+      error: errorMessageOrDefault(error, 'Unknown error')
     })
 
-    return {
-      status: 500,
-      body: {
-        message: errorMessage
-      }
-    }
+    throw error
   }
 }
