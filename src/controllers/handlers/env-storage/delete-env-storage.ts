@@ -21,10 +21,6 @@ export async function deleteEnvStorageHandler(
 
     const key = params.key
 
-    if (!key) {
-      throw new InvalidRequestError('Key is required')
-    }
-
     logger.info('Deleting env storage value', {
       worldName,
       key

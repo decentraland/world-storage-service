@@ -26,10 +26,6 @@ export async function upsertWorldStorageHandler(
 
     const key = params.key
 
-    if (!key) {
-      throw new InvalidRequestError('Key is required')
-    }
-
     const { value }: UpsertStorageBody = await request.json()
 
     logger.info('Upserting world storage value', {

@@ -26,7 +26,7 @@ export async function deletePlayerStorageHandler(
       throw new InvalidRequestError('Invalid player address')
     }
 
-    if (!worldName || !playerAddress || !key) {
+    if (!worldName || !playerAddress) {
       throw new InvalidRequestError('World name, player address, and key are required')
     }
 

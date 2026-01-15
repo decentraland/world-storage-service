@@ -21,10 +21,6 @@ export async function getWorldStorageHandler(
 
     const key = params.key
 
-    if (!key) {
-      throw new InvalidRequestError('Key is required')
-    }
-
     logger.info('Getting world storage value', {
       worldName,
       key

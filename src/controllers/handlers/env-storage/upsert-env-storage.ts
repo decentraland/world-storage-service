@@ -26,10 +26,6 @@ export async function upsertEnvStorageHandler(
 
     const key = params.key
 
-    if (!key) {
-      throw new InvalidRequestError('Key is required')
-    }
-
     const { value }: UpsertEnvStorageBody = await request.json()
 
     logger.info('Upserting env storage value', {

@@ -21,10 +21,6 @@ export async function getEnvStorageHandler(
 
     const key = params.key
 
-    if (!key) {
-      throw new InvalidRequestError('Key is required')
-    }
-
     logger.info('Getting env storage value', {
       worldName,
       key
