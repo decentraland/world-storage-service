@@ -136,8 +136,9 @@ export async function createEncryptionComponent(
         const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()])
 
         return decrypted.toString('utf8')
-      } catch (error) {
-        throw new DecryptionError(`Decryption failed: ${error instanceof Error ? error.message : 'unknown error'}`)
+      } catch {
+        // Use generic message to avoid leaking internal crypto error details
+        throw new DecryptionError('Decryption failed: data may be corrupted or encrypted with a different key')
       }
     }
   }
