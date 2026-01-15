@@ -3,7 +3,7 @@ import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
 import type { IWorldsContentServerComponent, WorldPermissions } from '../../../src/adapters/worlds-content-server'
 import type { AppComponents } from '../../../src/types'
 
-describe('createWorldsContentServerComponent', () => {
+describe('Worlds Content Server Component', () => {
   const WORLDS_CONTENT_SERVER_URL = 'https://worlds-content-server.decentraland.org'
 
   let fetchMock: jest.Mock
