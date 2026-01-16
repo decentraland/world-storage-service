@@ -1,7 +1,9 @@
+import { InvalidRequestError } from '@dcl/platform-server-commons'
 import {
   type WorldAuthMetadata,
   worldNameMiddleware
 } from '../../../../src/controllers/middlewares/world-name-middleware'
+import { WORLD_NAMES } from '../../../fixtures'
 import { buildTestContext } from '../../utils/context'
 import type { TestContext } from '../../utils/context'
 
@@ -19,35 +21,27 @@ describe('worldNameMiddleware', () => {
   })
 
   describe('when the world name is missing', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: {} } })
-      result = (await worldNameMiddleware(ctx, next)) as { status: number; body: { message: string } }
     })
 
-    it('should respond with a 400 status and an error message', () => {
+    it('should throw an InvalidRequestError', async () => {
+      await expect(worldNameMiddleware(ctx, next)).rejects.toThrow(new InvalidRequestError('World name is required'))
       expect(next).not.toHaveBeenCalled()
-      expect(result).toEqual({
-        status: 400,
-        body: { message: 'World name is required' }
-      })
     })
   })
 
   describe('when the world name is empty', () => {
     let metadata: WorldAuthMetadata
 
-    beforeEach(async () => {
+    beforeEach(() => {
       metadata = { realm: { serverName: '' } }
       ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: metadata } })
-      result = (await worldNameMiddleware(ctx, next)) as { status: number; body: { message: string } }
     })
 
-    it('should respond with a 400 status and an error message', () => {
+    it('should throw an InvalidRequestError', async () => {
+      await expect(worldNameMiddleware(ctx, next)).rejects.toThrow(new InvalidRequestError('World name is required'))
       expect(next).not.toHaveBeenCalled()
-      expect(result).toEqual({
-        status: 400,
-        body: { message: 'World name is required' }
-      })
     })
   })
 
@@ -56,13 +50,13 @@ describe('worldNameMiddleware', () => {
 
     beforeEach(async () => {
       next.mockResolvedValue({ status: 200 })
-      metadata = { realm: { serverName: 'example.dcl.eth' } }
+      metadata = { realm: { serverName: WORLD_NAMES.DEFAULT } }
       ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: metadata } })
       result = (await worldNameMiddleware(ctx, next)) as { status: number }
     })
 
     it('should set worldName on the context and call next', () => {
-      expect(ctx.worldName).toBe('example.dcl.eth')
+      expect(ctx.worldName).toBe(WORLD_NAMES.DEFAULT)
       expect(next).toHaveBeenCalled()
       expect(result).toEqual({ status: 200 })
     })
@@ -73,13 +67,13 @@ describe('worldNameMiddleware', () => {
 
     beforeEach(async () => {
       next.mockResolvedValue({ status: 200 })
-      metadata = { realmName: 'fallback.dcl.eth' }
+      metadata = { realmName: WORLD_NAMES.FALLBACK }
       ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: metadata } })
       result = (await worldNameMiddleware(ctx, next)) as { status: number }
     })
 
     it('should set worldName on the context and call next', () => {
-      expect(ctx.worldName).toBe('fallback.dcl.eth')
+      expect(ctx.worldName).toBe(WORLD_NAMES.FALLBACK)
       expect(next).toHaveBeenCalled()
       expect(result).toEqual({ status: 200 })
     })

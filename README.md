@@ -34,6 +34,7 @@ A standalone service that provides secure, isolated storage and environment vari
 This service interacts with the following services:
 
 - **[Authoritative Server](https://github.com/decentraland/js-sdk-toolchain/wiki/Decentraland-SDK7-Authoritative-Server-Guide)**: Receives signed fetch requests from authoritative servers running server-side scene code. The authoritative server signs requests using its private key tied to its world deployment.
+- **[Worlds Content Server](https://github.com/decentraland/worlds-content-server)**: Fetches world permissions to validate that the signer of a request is authorized (owner or has deployer permissions) to perform operations on a specific world.
 
 ## API Documentation
 
