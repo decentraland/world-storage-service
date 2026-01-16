@@ -417,12 +417,8 @@ paths:
                 value:
                   value: 'sk-secret-api-key-12345'
       responses:
-        '200':
+        '204':
           description: Value upserted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvStorageValueResponse'
         '400':
           description: Invalid signed fetch or request body
           content:

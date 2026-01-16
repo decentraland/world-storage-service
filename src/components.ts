@@ -13,6 +13,7 @@ import { createPgComponent } from '@well-known-components/pg-component'
 import { createTracerComponent } from '@well-known-components/tracer-component'
 import { createSchemaValidatorComponent } from '@dcl/schema-validator-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
+import { createEncryptionComponent } from './adapters/encryption'
 import { createEnvStorageComponent } from './adapters/env-storage'
 import { createPlayerStorageComponent } from './adapters/player-storage'
 import { createWorldStorageComponent } from './adapters/world-storage'
@@ -55,9 +56,11 @@ export async function initComponents(): Promise<AppComponents> {
     }
   )
 
+  const encryption = await createEncryptionComponent({ config })
+
   const worldStorage = createWorldStorageComponent({ pg })
   const playerStorage = createPlayerStorageComponent({ pg })
-  const envStorage = createEnvStorageComponent({ pg })
+  const envStorage = createEnvStorageComponent({ pg, encryption })
   const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config })
   const worldPermission = createWorldPermissionComponent({ worldsContentServer })
 
@@ -69,6 +72,7 @@ export async function initComponents(): Promise<AppComponents> {
     statusChecks,
     metrics,
     pg,
+    encryption,
     worldStorage,
     playerStorage,
     envStorage,

@@ -8,6 +8,7 @@ import type {
 } from '@well-known-components/interfaces'
 import type { IPgComponent } from '@well-known-components/pg-component'
 import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
+import type { IEncryptionComponent } from '../adapters/encryption/types'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'
 import type { IPlayerStorageComponent } from '../adapters/player-storage/types'
 import type { IWorldStorageComponent } from '../adapters/world-storage/types'
@@ -30,6 +31,7 @@ export interface BaseComponents {
   server: IHttpServerComponent<GlobalContext>
   metrics: IMetricsComponent<keyof typeof metricDeclarations>
   fetcher: IFetchComponent
+  encryption: IEncryptionComponent
   worldStorage: IWorldStorageComponent
   playerStorage: IPlayerStorageComponent
   envStorage: IEnvStorageComponent
