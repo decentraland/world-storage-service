@@ -32,7 +32,7 @@ export function createAuthorizationMiddleware(
 
   return async (ctx, next) => {
     const {
-      components: { config, logs, worldPermission }
+      components: { config, logs, worldPermissionsManager }
     } = ctx
 
     const logger = logs.getLogger('authorization-middleware')
@@ -50,7 +50,7 @@ export function createAuthorizationMiddleware(
     // 1. Check if signer has world permission (owner or deployer)
     let hasPermission: boolean
     try {
-      hasPermission = await worldPermission.hasWorldPermission(worldName, signerAddress)
+      hasPermission = await worldPermissionsManager.hasWorldPermission(worldName, signerAddress)
     } catch (error) {
       logger.warn('Failed to verify world permissions', {
         worldName,

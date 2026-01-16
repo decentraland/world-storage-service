@@ -1,9 +1,9 @@
-import { createWorldPermissionComponent } from '../../../src/logic/world-permission'
+import { createWorldPermissionsManagerComponent } from '../../../src/logic/world-permissions-manager'
 import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
 import type { IWorldsContentServerComponent, WorldPermissions } from '../../../src/adapters/worlds-content-server'
-import type { IWorldPermissionComponent } from '../../../src/logic/world-permission'
+import type { IWorldPermissionsManagerComponent } from '../../../src/logic/world-permissions-manager'
 
-describe('World Permission Component', () => {
+describe('World Permissions Manager Component', () => {
   let getPermissionsMock: jest.Mock
   let worldsContentServerMock: IWorldsContentServerComponent
 
@@ -31,13 +31,13 @@ describe('World Permission Component', () => {
     }
   }
 
-  function createComponent(): IWorldPermissionComponent {
-    return createWorldPermissionComponent({ worldsContentServer: worldsContentServerMock })
+  function createComponent(): IWorldPermissionsManagerComponent {
+    return createWorldPermissionsManagerComponent({ worldsContentServer: worldsContentServerMock })
   }
 
   describe('when calling hasWorldPermission', () => {
     describe('and the address is the world owner', () => {
-      let component: IWorldPermissionComponent
+      let component: IWorldPermissionsManagerComponent
 
       beforeEach(() => {
         getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
@@ -52,7 +52,7 @@ describe('World Permission Component', () => {
     })
 
     describe('and the address is the world owner with different case', () => {
-      let component: IWorldPermissionComponent
+      let component: IWorldPermissionsManagerComponent
 
       beforeEach(() => {
         getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions({ owner: ADDRESSES.OWNER.toUpperCase() }))
@@ -67,7 +67,7 @@ describe('World Permission Component', () => {
     })
 
     describe('and the address has deployer permissions', () => {
-      let component: IWorldPermissionComponent
+      let component: IWorldPermissionsManagerComponent
 
       beforeEach(() => {
         getPermissionsMock.mockResolvedValueOnce(
@@ -91,7 +91,7 @@ describe('World Permission Component', () => {
     })
 
     describe('and the address has deployer permissions with different case', () => {
-      let component: IWorldPermissionComponent
+      let component: IWorldPermissionsManagerComponent
 
       beforeEach(() => {
         getPermissionsMock.mockResolvedValueOnce(
@@ -115,7 +115,7 @@ describe('World Permission Component', () => {
     })
 
     describe('and the address is neither owner nor deployer', () => {
-      let component: IWorldPermissionComponent
+      let component: IWorldPermissionsManagerComponent
 
       beforeEach(() => {
         getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
@@ -130,7 +130,7 @@ describe('World Permission Component', () => {
     })
 
     describe('and the deployment type is not allow-list', () => {
-      let component: IWorldPermissionComponent
+      let component: IWorldPermissionsManagerComponent
 
       beforeEach(() => {
         getPermissionsMock.mockResolvedValueOnce(
@@ -154,7 +154,7 @@ describe('World Permission Component', () => {
     })
 
     describe('and the fetch fails', () => {
-      let component: IWorldPermissionComponent
+      let component: IWorldPermissionsManagerComponent
 
       beforeEach(() => {
         getPermissionsMock.mockRejectedValueOnce(new Error('Network error'))

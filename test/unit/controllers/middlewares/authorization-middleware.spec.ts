@@ -32,7 +32,7 @@ describe('authorizationMiddleware', () => {
       components: {
         config: { getString: configGetString },
         logs: { getLogger: () => ({ warn }) },
-        worldPermission: { hasWorldPermission: hasWorldPermissionMock }
+        worldPermissionsManager: { hasWorldPermission: hasWorldPermissionMock }
       } as unknown as BaseComponents
     })
   }

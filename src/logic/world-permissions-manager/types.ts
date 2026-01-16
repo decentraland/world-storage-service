@@ -1,4 +1,4 @@
-export interface IWorldPermissionComponent {
+export interface IWorldPermissionsManagerComponent {
   /**
    * Check if an address has permission over a world (owner OR deployer)
    */

@@ -13,7 +13,7 @@ import type { IEnvStorageComponent } from '../adapters/env-storage/types'
 import type { IPlayerStorageComponent } from '../adapters/player-storage/types'
 import type { IWorldStorageComponent } from '../adapters/world-storage/types'
 import type { IWorldsContentServerComponent } from '../adapters/worlds-content-server/types'
-import type { IWorldPermissionComponent } from '../logic/world-permission/types'
+import type { IWorldPermissionsManagerComponent } from '../logic/world-permissions-manager/types'
 import type { metricDeclarations } from '../metrics'
 
 export interface GlobalContext {
@@ -36,7 +36,7 @@ export interface BaseComponents {
   playerStorage: IPlayerStorageComponent
   envStorage: IEnvStorageComponent
   worldsContentServer: IWorldsContentServerComponent
-  worldPermission: IWorldPermissionComponent
+  worldPermissionsManager: IWorldPermissionsManagerComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
 }
 

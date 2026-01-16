@@ -1,9 +1,9 @@
-import type { IWorldPermissionComponent } from './types'
+import type { IWorldPermissionsManagerComponent } from './types'
 import type { IWorldsContentServerComponent } from '../../adapters/worlds-content-server/types'
 
-export function createWorldPermissionComponent(components: {
+export function createWorldPermissionsManagerComponent(components: {
   worldsContentServer: IWorldsContentServerComponent
-}): IWorldPermissionComponent {
+}): IWorldPermissionsManagerComponent {
   const { worldsContentServer } = components
 
   return {
