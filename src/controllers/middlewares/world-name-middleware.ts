@@ -1,6 +1,6 @@
 import type { IHttpServerComponent } from '@well-known-components/interfaces'
+import { InvalidRequestError } from '@dcl/http-commons'
 import type { DecentralandSignatureContext } from '@dcl/platform-crypto-middleware'
-import { InvalidRequestError } from '@dcl/platform-server-commons'
 import type { GlobalContext } from '../../types'
 
 export interface WorldAuthMetadata {
