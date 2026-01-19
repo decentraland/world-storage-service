@@ -21,11 +21,10 @@ export const createWorldStorageComponent = ({
     const result = await pg.query<Pick<WorldStorageItem, 'value'>>(query)
     const value = result.rows[0]?.value ?? null
 
-    if (value === null) {
-      logger.debug('World storage value not found', { worldName, key })
-    } else {
-      logger.debug('World storage value retrieved successfully', { worldName, key })
-    }
+    logger.debug(value === null ? 'World storage value not found' : 'World storage value retrieved successfully', {
+      worldName,
+      key
+    })
 
     return value
   }

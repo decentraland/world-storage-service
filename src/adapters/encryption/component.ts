@@ -70,8 +70,6 @@ export async function createEncryptionComponent(
   const { config, logs } = components
   const logger = logs.getLogger('encryption')
 
-  logger.info('Initializing encryption component')
-
   const keyHex = await config.requireString('ENCRYPTION_KEY')
 
   // Validate hex format before parsing to provide clear error messages
@@ -91,8 +89,6 @@ export async function createEncryptionComponent(
   }
 
   const key = Buffer.from(keyHex, 'hex')
-
-  logger.info('Encryption component initialized successfully')
 
   return {
     /**

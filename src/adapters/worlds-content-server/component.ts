@@ -20,10 +20,6 @@ export async function createWorldsContentServerComponent(
 
   const worldsContentServerUrl = await config.requireString('WORLDS_CONTENT_SERVER_URL')
 
-  logger.info('Worlds content server component initialized', {
-    serverUrl: worldsContentServerUrl
-  })
-
   return {
     getPermissions: async (worldName: string): Promise<WorldPermissions> => {
       const url = `${worldsContentServerUrl}/world/${encodeURIComponent(worldName)}/permissions`

@@ -21,11 +21,11 @@ export const createPlayerStorageComponent = ({
     const result = await pg.query<Pick<PlayerStorageItem, 'value'>>(query)
     const value = result.rows[0]?.value ?? null
 
-    if (value === null) {
-      logger.debug('Player storage value not found', { worldName, playerAddress, key })
-    } else {
-      logger.debug('Player storage value retrieved successfully', { worldName, playerAddress, key })
-    }
+    logger.debug(value === null ? 'Player storage value not found' : 'Player storage value retrieved successfully', {
+      worldName,
+      playerAddress,
+      key
+    })
 
     return value
   }

@@ -28,11 +28,6 @@ export async function deletePlayerStorageHandler(
   })
 
   if (!EthAddress.validate(playerAddress)) {
-    logger.warn('Invalid player address in request', {
-      worldName,
-      playerAddress,
-      key
-    })
     throw new InvalidRequestError('Invalid player address')
   }
 

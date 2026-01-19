@@ -40,10 +40,6 @@ export function createAuthorizationMiddleware(
     const signerAddress = ctx.verification?.auth?.toLowerCase()
 
     if (!signerAddress) {
-      logger.warn('Authorization failed: no signer address found in verification context', {
-        path: ctx.url?.pathname,
-        method: ctx.request?.method
-      })
       throw new NotAuthorizedError('Unauthorized: No signer address found')
     }
 
