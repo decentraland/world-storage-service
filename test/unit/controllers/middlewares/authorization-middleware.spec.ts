@@ -1,32 +1,33 @@
 import { NotAuthorizedError } from '@dcl/http-commons'
-import {
-  authorizationMiddleware,
-  createAuthorizationMiddleware
-} from '../../../../src/controllers/middlewares/authorization-middleware'
+import { createAuthorizationMiddleware } from '../../../../src/controllers/middlewares/authorization-middleware'
 import { ADDRESSES, WORLD_NAMES } from '../../../fixtures'
 import { createLogsMockedComponent } from '../../../mocks/components'
 import { buildTestContext } from '../../utils/context'
 import type { BaseComponents } from '../../../../src/types'
 import type { TestContext } from '../../utils/context'
 
-describe('authorizationMiddleware', () => {
+describe('Authorization Middleware', () => {
   const next = jest.fn()
+  let middleware: ReturnType<typeof createAuthorizationMiddleware>
   let configGetString: jest.Mock
   let hasWorldPermissionMock: jest.Mock
 
   beforeEach(() => {
     configGetString = jest.fn()
     hasWorldPermissionMock = jest.fn()
-    next.mockReset()
   })
 
   afterEach(() => {
     jest.resetAllMocks()
   })
 
-  function buildCtx(auth?: string, worldName?: string): TestContext {
+  function mockConfig(values: Partial<Record<string, string>>) {
+    configGetString.mockImplementation((key: string) => Promise.resolve(values[key]))
+  }
+
+  function buildCtx(auth?: string): TestContext {
     return buildTestContext({
-      worldName: worldName ?? WORLD_NAMES.DEFAULT,
+      worldName: WORLD_NAMES.DEFAULT,
       verification: { auth: auth ?? '', authMetadata: {} },
       components: {
         config: { getString: configGetString },
@@ -37,118 +38,126 @@ describe('authorizationMiddleware', () => {
   }
 
   describe('when the signer address is missing', () => {
+    beforeEach(() => {
+      middleware = createAuthorizationMiddleware({ allowAuthorizedAddresses: true })
+    })
+
     it('should throw a NotAuthorizedError', async () => {
-      await expect(authorizationMiddleware(buildCtx(undefined), next)).rejects.toThrow(
+      await expect(middleware(buildCtx(undefined), next)).rejects.toThrow(
         new NotAuthorizedError('Unauthorized: No signer address found')
       )
       expect(next).not.toHaveBeenCalled()
     })
   })
 
-  describe('when the world permission check fails', () => {
+  describe('when allowAuthorizedAddresses is false', () => {
     beforeEach(() => {
-      hasWorldPermissionMock.mockRejectedValueOnce(new Error('Failed to fetch world permissions'))
+      middleware = createAuthorizationMiddleware({ allowAuthorizedAddresses: false })
     })
 
-    it('should throw a NotAuthorizedError', async () => {
-      await expect(authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
-        new NotAuthorizedError('Unauthorized: Failed to verify world permissions')
-      )
-      expect(next).not.toHaveBeenCalled()
+    describe('and the signer has world permission', () => {
+      beforeEach(() => {
+        hasWorldPermissionMock.mockResolvedValueOnce(true)
+        next.mockResolvedValueOnce({ status: 200 })
+      })
+
+      it('should allow the request', async () => {
+        const result = await middleware(buildCtx(ADDRESSES.OWNER), next)
+
+        expect(hasWorldPermissionMock).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, ADDRESSES.OWNER.toLowerCase())
+        expect(next).toHaveBeenCalled()
+        expect(result).toEqual({ status: 200 })
+      })
     })
-  })
 
-  describe('when the signer has world permission', () => {
-    beforeEach(() => {
-      hasWorldPermissionMock.mockResolvedValueOnce(true)
-      next.mockResolvedValueOnce({ status: 200 })
-    })
-
-    it('should allow the request', async () => {
-      const result = await authorizationMiddleware(buildCtx(ADDRESSES.OWNER), next)
-
-      expect(hasWorldPermissionMock).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, ADDRESSES.OWNER.toLowerCase())
-      expect(next).toHaveBeenCalled()
-      expect(result).toEqual({ status: 200 })
-    })
-  })
-
-  describe('when the signer does not have world permission', () => {
-    describe('and allowAuthorizedAddresses is false (default)', () => {
+    describe('and the signer does not have world permission', () => {
       beforeEach(() => {
         hasWorldPermissionMock.mockResolvedValueOnce(false)
       })
 
       it('should throw a NotAuthorizedError', async () => {
-        await expect(authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
+        await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
           new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
         )
         expect(next).not.toHaveBeenCalled()
       })
     })
 
-    describe('and allowAuthorizedAddresses is true', () => {
-      let middleware: ReturnType<typeof createAuthorizationMiddleware>
-
+    describe('and the world permission check fails', () => {
       beforeEach(() => {
-        middleware = createAuthorizationMiddleware({ allowAuthorizedAddresses: true })
+        hasWorldPermissionMock.mockRejectedValueOnce(new Error('Failed to fetch world permissions'))
       })
 
-      describe('and the signer matches the authoritative server address', () => {
+      it('should throw a NotAuthorizedError', async () => {
+        await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
+          new NotAuthorizedError('Unauthorized: Failed to verify world permissions')
+        )
+        expect(next).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('when allowAuthorizedAddresses is true', () => {
+    beforeEach(() => {
+      middleware = createAuthorizationMiddleware({ allowAuthorizedAddresses: true })
+    })
+
+    describe('and the signer matches the authoritative server address', () => {
+      beforeEach(() => {
+        mockConfig({ AUTHORITATIVE_SERVER_ADDRESS: ADDRESSES.AUTHORITATIVE })
+        next.mockResolvedValueOnce({ status: 200 })
+      })
+
+      it('should allow the request without checking world permissions', async () => {
+        const result = await middleware(buildCtx(ADDRESSES.AUTHORITATIVE), next)
+
+        expect(hasWorldPermissionMock).not.toHaveBeenCalled()
+        expect(next).toHaveBeenCalled()
+        expect(result).toEqual({ status: 200 })
+      })
+    })
+
+    describe('and the signer is in the authorized addresses list', () => {
+      beforeEach(() => {
+        mockConfig({ AUTHORIZED_ADDRESSES: `${ADDRESSES.AUTHORIZED}, ${ADDRESSES.ANOTHER_AUTHORIZED}` })
+        next.mockResolvedValueOnce({ status: 200 })
+      })
+
+      it('should allow the request without checking world permissions', async () => {
+        const result = await middleware(buildCtx(ADDRESSES.AUTHORIZED), next)
+
+        expect(hasWorldPermissionMock).not.toHaveBeenCalled()
+        expect(next).toHaveBeenCalled()
+        expect(result).toEqual({ status: 200 })
+      })
+    })
+
+    describe('and the signer is not in the authorized addresses list', () => {
+      beforeEach(() => {
+        mockConfig({
+          AUTHORITATIVE_SERVER_ADDRESS: ADDRESSES.OTHER,
+          AUTHORIZED_ADDRESSES: `${ADDRESSES.ANOTHER_AUTHORIZED}, 0xghi`
+        })
+      })
+
+      describe('and the signer has world permission', () => {
         beforeEach(() => {
-          hasWorldPermissionMock.mockResolvedValueOnce(false)
-          configGetString.mockImplementation((key: string) => {
-            if (key === 'AUTHORITATIVE_SERVER_ADDRESS') {
-              return Promise.resolve(ADDRESSES.AUTHORITATIVE)
-            }
-            return Promise.resolve(undefined)
-          })
+          hasWorldPermissionMock.mockResolvedValueOnce(true)
           next.mockResolvedValueOnce({ status: 200 })
         })
 
         it('should allow the request', async () => {
-          const result = await middleware(buildCtx(ADDRESSES.AUTHORITATIVE), next)
+          const result = await middleware(buildCtx(ADDRESSES.OWNER), next)
 
+          expect(hasWorldPermissionMock).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, ADDRESSES.OWNER.toLowerCase())
           expect(next).toHaveBeenCalled()
           expect(result).toEqual({ status: 200 })
         })
       })
 
-      describe('and the signer is in the authorized addresses list', () => {
+      describe('and the signer does not have world permission', () => {
         beforeEach(() => {
           hasWorldPermissionMock.mockResolvedValueOnce(false)
-          configGetString.mockImplementation((key: string) => {
-            if (key === 'AUTHORITATIVE_SERVER_ADDRESS') {
-              return Promise.resolve(undefined)
-            }
-            if (key === 'AUTHORIZED_ADDRESSES') {
-              return Promise.resolve(`${ADDRESSES.AUTHORIZED}, ${ADDRESSES.ANOTHER_AUTHORIZED}`)
-            }
-            return Promise.resolve(undefined)
-          })
-          next.mockResolvedValueOnce({ status: 200 })
-        })
-
-        it('should allow the request', async () => {
-          const result = await middleware(buildCtx(ADDRESSES.AUTHORIZED), next)
-
-          expect(next).toHaveBeenCalled()
-          expect(result).toEqual({ status: 200 })
-        })
-      })
-
-      describe('and the signer is not in any allowed addresses', () => {
-        beforeEach(() => {
-          hasWorldPermissionMock.mockResolvedValueOnce(false)
-          configGetString.mockImplementation((key: string) => {
-            if (key === 'AUTHORITATIVE_SERVER_ADDRESS') {
-              return Promise.resolve(ADDRESSES.OTHER)
-            }
-            if (key === 'AUTHORIZED_ADDRESSES') {
-              return Promise.resolve(`${ADDRESSES.ANOTHER_AUTHORIZED}, 0xghi`)
-            }
-            return Promise.resolve(undefined)
-          })
         })
 
         it('should throw a NotAuthorizedError', async () => {
@@ -159,15 +168,14 @@ describe('authorizationMiddleware', () => {
         })
       })
 
-      describe('and both authoritative and authorized addresses configs are empty', () => {
+      describe('and the world permission check fails', () => {
         beforeEach(() => {
-          hasWorldPermissionMock.mockResolvedValueOnce(false)
-          configGetString.mockResolvedValue(undefined)
+          hasWorldPermissionMock.mockRejectedValueOnce(new Error('Failed to fetch world permissions'))
         })
 
         it('should throw a NotAuthorizedError', async () => {
           await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
-            new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
+            new NotAuthorizedError('Unauthorized: Failed to verify world permissions')
           )
           expect(next).not.toHaveBeenCalled()
         })
