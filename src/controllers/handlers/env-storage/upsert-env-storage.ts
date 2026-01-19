@@ -22,18 +22,26 @@ export async function upsertEnvStorageHandler(
 
   const { value }: UpsertEnvStorageBody = await request.json()
 
-  logger.info('Upserting env storage value', {
+  logger.debug('Processing upsert env storage request', {
     worldName,
     key
   })
 
   try {
     await envStorage.setValue(worldName, key, value)
+
+    logger.info('Env variable upserted successfully', {
+      worldName,
+      key
+    })
+
     return {
       status: 204
     }
   } catch (error) {
-    logger.error('Error upserting env storage value', {
+    logger.error('Error upserting env variable', {
+      worldName,
+      key,
       error: errorMessageOrDefault(error, 'Unknown error')
     })
 

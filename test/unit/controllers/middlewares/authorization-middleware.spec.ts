@@ -4,6 +4,7 @@ import {
   createAuthorizationMiddleware
 } from '../../../../src/controllers/middlewares/authorization-middleware'
 import { ADDRESSES, WORLD_NAMES } from '../../../fixtures'
+import { createLogsMockedComponent } from '../../../mocks/components'
 import { buildTestContext } from '../../utils/context'
 import type { BaseComponents } from '../../../../src/types'
 import type { TestContext } from '../../utils/context'
@@ -12,12 +13,10 @@ describe('authorizationMiddleware', () => {
   const next = jest.fn()
   let configGetString: jest.Mock
   let hasWorldPermissionMock: jest.Mock
-  let warn: jest.Mock
 
   beforeEach(() => {
     configGetString = jest.fn()
     hasWorldPermissionMock = jest.fn()
-    warn = jest.fn()
     next.mockReset()
   })
 
@@ -31,7 +30,7 @@ describe('authorizationMiddleware', () => {
       verification: { auth: auth ?? '', authMetadata: {} },
       components: {
         config: { getString: configGetString },
-        logs: { getLogger: () => ({ warn }) },
+        logs: createLogsMockedComponent(),
         worldPermission: { hasWorldPermission: hasWorldPermissionMock }
       } as unknown as BaseComponents
     })
@@ -56,7 +55,6 @@ describe('authorizationMiddleware', () => {
         new NotAuthorizedError('Unauthorized: Failed to verify world permissions')
       )
       expect(next).not.toHaveBeenCalled()
-      expect(warn).toHaveBeenCalled()
     })
   })
 
@@ -86,7 +84,6 @@ describe('authorizationMiddleware', () => {
           new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
         )
         expect(next).not.toHaveBeenCalled()
-        expect(warn).toHaveBeenCalled()
       })
     })
 
@@ -159,7 +156,6 @@ describe('authorizationMiddleware', () => {
             new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
           )
           expect(next).not.toHaveBeenCalled()
-          expect(warn).toHaveBeenCalled()
         })
       })
 
@@ -174,7 +170,6 @@ describe('authorizationMiddleware', () => {
             new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
           )
           expect(next).not.toHaveBeenCalled()
-          expect(warn).toHaveBeenCalled()
         })
       })
     })

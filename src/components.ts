@@ -56,13 +56,12 @@ export async function initComponents(): Promise<AppComponents> {
     }
   )
 
-  const encryption = await createEncryptionComponent({ config })
-
-  const worldStorage = createWorldStorageComponent({ pg })
-  const playerStorage = createPlayerStorageComponent({ pg })
-  const envStorage = createEnvStorageComponent({ pg, encryption })
-  const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config })
-  const worldPermission = createWorldPermissionComponent({ worldsContentServer })
+  const encryption = await createEncryptionComponent({ config, logs })
+  const worldStorage = createWorldStorageComponent({ pg, logs })
+  const playerStorage = createPlayerStorageComponent({ pg, logs })
+  const envStorage = createEnvStorageComponent({ pg, encryption, logs })
+  const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config, logs })
+  const worldPermission = createWorldPermissionComponent({ worldsContentServer, logs })
 
   return {
     fetcher,

@@ -20,15 +20,21 @@ export async function upsertWorldStorageHandler(
 
   const key = params.key
 
-  const { value }: UpsertStorageBody = await request.json()
-
-  logger.info('Upserting world storage value', {
+  logger.debug('Processing upsert world storage request', {
     worldName,
     key
   })
 
+  const { value }: UpsertStorageBody = await request.json()
+
   try {
     const item = await worldStorage.setValue(worldName, key, value)
+
+    logger.info('World storage value upserted successfully', {
+      worldName,
+      key
+    })
+
     return {
       status: 200,
       body: {
@@ -37,6 +43,8 @@ export async function upsertWorldStorageHandler(
     }
   } catch (error) {
     logger.error('Error upserting world storage value', {
+      worldName,
+      key,
       error: errorMessageOrDefault(error, 'Unknown error')
     })
 

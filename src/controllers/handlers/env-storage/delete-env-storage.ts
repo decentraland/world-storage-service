@@ -18,18 +18,26 @@ export async function deleteEnvStorageHandler(
 
   const key = params.key
 
-  logger.info('Deleting env storage value', {
+  logger.debug('Processing delete env storage request', {
     worldName,
     key
   })
 
   try {
     await envStorage.deleteValue(worldName, key)
+
+    logger.info('Env variable deleted successfully', {
+      worldName,
+      key
+    })
+
     return {
       status: 204
     }
   } catch (error) {
-    logger.error('Error deleting env storage value', {
+    logger.error('Error deleting env variable', {
+      worldName,
+      key,
       error: errorMessageOrDefault(error, 'Unknown error')
     })
 

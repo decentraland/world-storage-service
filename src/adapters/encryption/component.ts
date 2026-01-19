@@ -47,32 +47,42 @@ const HEX_REGEX = /^[0-9a-fA-F]+$/
  * This factory function initializes the encryption component with a secret key
  * from the configuration. The key must be exactly 32 bytes (64 hex characters).
  *
- * @param components - The application components containing the config
+ * SECURITY NOTE: This component handles sensitive cryptographic operations.
+ * Logging is intentionally minimal to avoid exposing key material or plaintext data.
+ *
+ * @param components - The application components containing the config and logs
  * @param components.config - Configuration component to retrieve the ENCRYPTION_KEY
+ * @param components.logs - Logger component for operational logging
  * @returns A promise that resolves to the encryption component
  * @throws {Error} If ENCRYPTION_KEY is not set, has invalid length, or contains non-hex characters
  *
  * @example
  * ```typescript
  * // Generate a valid key: openssl rand -hex 32
- * const encryption = await createEncryptionComponent({ config })
+ * const encryption = await createEncryptionComponent({ config, logs })
  * ```
  *
  * @see {@link IEncryptionComponent} for the interface definition
  */
 export async function createEncryptionComponent(
-  components: Pick<AppComponents, 'config'>
+  components: Pick<AppComponents, 'config' | 'logs'>
 ): Promise<IEncryptionComponent> {
-  const { config } = components
+  const { config, logs } = components
+  const logger = logs.getLogger('encryption')
 
   const keyHex = await config.requireString('ENCRYPTION_KEY')
 
   // Validate hex format before parsing to provide clear error messages
   if (!HEX_REGEX.test(keyHex)) {
+    logger.error('Encryption key validation failed: contains non-hexadecimal characters')
     throw new Error('Invalid ENCRYPTION_KEY: contains non-hexadecimal characters')
   }
 
   if (keyHex.length !== KEY_HEX_LENGTH) {
+    logger.error('Encryption key validation failed: invalid length', {
+      expectedLength: KEY_HEX_LENGTH,
+      actualLength: keyHex.length
+    })
     throw new Error(
       `Invalid ENCRYPTION_KEY length: expected ${KEY_HEX_LENGTH} hexadecimal characters, got ${keyHex.length}`
     )
@@ -122,6 +132,7 @@ export async function createEncryptionComponent(
 
       const version = encrypted[0]
       if (version !== FORMAT_VERSION) {
+        logger.warn('Decryption failed: unsupported format version', { version })
         throw new DecryptionError(`Unsupported encryption format version: ${version}`)
       }
 
@@ -138,6 +149,7 @@ export async function createEncryptionComponent(
         return decrypted.toString('utf8')
       } catch {
         // Use generic message to avoid leaking internal crypto error details
+        logger.warn('Decryption failed: authentication or key mismatch')
         throw new DecryptionError('Decryption failed: data may be corrupted or encrypted with a different key')
       }
     }

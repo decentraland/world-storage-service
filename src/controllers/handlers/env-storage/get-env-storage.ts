@@ -19,7 +19,7 @@ export async function getEnvStorageHandler(
 
   const key = params.key
 
-  logger.info('Getting env storage value', {
+  logger.debug('Processing get env storage request', {
     worldName,
     key
   })
@@ -28,8 +28,17 @@ export async function getEnvStorageHandler(
     const value = await envStorage.getValue(worldName, key)
 
     if (!value) {
+      logger.info('Env variable not found', {
+        worldName,
+        key
+      })
       throw new NotFoundError('Value not found')
     }
+
+    logger.info('Env variable retrieved successfully', {
+      worldName,
+      key
+    })
 
     return {
       status: 200,
@@ -38,7 +47,14 @@ export async function getEnvStorageHandler(
       }
     }
   } catch (error) {
-    logger.error('Error getting env storage value', {
+    // Only log as error if it's not a NotFoundError (which is expected behavior)
+    if (error instanceof NotFoundError) {
+      throw error
+    }
+
+    logger.error('Error getting env variable', {
+      worldName,
+      key,
       error: errorMessageOrDefault(error, 'Unknown error')
     })
 

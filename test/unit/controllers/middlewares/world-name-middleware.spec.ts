@@ -4,7 +4,9 @@ import {
   worldNameMiddleware
 } from '../../../../src/controllers/middlewares/world-name-middleware'
 import { WORLD_NAMES } from '../../../fixtures'
+import { createLogsMockedComponent } from '../../../mocks/components'
 import { buildTestContext } from '../../utils/context'
+import type { BaseComponents } from '../../../../src/types'
 import type { TestContext } from '../../utils/context'
 
 describe('worldNameMiddleware', () => {
@@ -20,9 +22,18 @@ describe('worldNameMiddleware', () => {
     jest.resetAllMocks()
   })
 
+  function buildCtx(verification: { auth: string; authMetadata: WorldAuthMetadata }): TestContext {
+    return buildTestContext({
+      verification,
+      components: {
+        logs: createLogsMockedComponent()
+      } as unknown as BaseComponents
+    })
+  }
+
   describe('when the world name is missing', () => {
     beforeEach(() => {
-      ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: {} } })
+      ctx = buildCtx({ auth: 'signature', authMetadata: {} })
     })
 
     it('should throw an InvalidRequestError', async () => {
@@ -36,7 +47,7 @@ describe('worldNameMiddleware', () => {
 
     beforeEach(() => {
       metadata = { realm: { serverName: '' } }
-      ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: metadata } })
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
     })
 
     it('should throw an InvalidRequestError', async () => {
@@ -51,7 +62,7 @@ describe('worldNameMiddleware', () => {
     beforeEach(async () => {
       next.mockResolvedValue({ status: 200 })
       metadata = { realm: { serverName: WORLD_NAMES.DEFAULT } }
-      ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: metadata } })
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
       result = (await worldNameMiddleware(ctx, next)) as { status: number }
     })
 
@@ -68,7 +79,7 @@ describe('worldNameMiddleware', () => {
     beforeEach(async () => {
       next.mockResolvedValue({ status: 200 })
       metadata = { realmName: WORLD_NAMES.FALLBACK }
-      ctx = buildTestContext({ verification: { auth: 'signature', authMetadata: metadata } })
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
       result = (await worldNameMiddleware(ctx, next)) as { status: number }
     })
 

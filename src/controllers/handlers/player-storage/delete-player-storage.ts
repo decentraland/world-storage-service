@@ -21,23 +21,33 @@ export async function deletePlayerStorageHandler(
   const playerAddress = params.player_address.toLowerCase()
   const key = params.key
 
-  if (!EthAddress.validate(playerAddress)) {
-    throw new InvalidRequestError('Invalid player address')
-  }
-
-  logger.info('Deleting player storage value', {
+  logger.debug('Processing delete player storage request', {
     worldName,
     playerAddress,
     key
   })
 
+  if (!EthAddress.validate(playerAddress)) {
+    throw new InvalidRequestError('Invalid player address')
+  }
+
   try {
     await playerStorage.deleteValue(worldName, playerAddress, key)
+
+    logger.info('Player storage value deleted successfully', {
+      worldName,
+      playerAddress,
+      key
+    })
+
     return {
       status: 204
     }
   } catch (error) {
     logger.error('Error deleting player storage value', {
+      worldName,
+      playerAddress,
+      key,
       error: errorMessageOrDefault(error, 'Unknown error')
     })
 
