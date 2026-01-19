@@ -40,26 +40,40 @@ export function createAuthorizationMiddleware(
     const signerAddress = ctx.verification?.auth?.toLowerCase()
 
     if (!signerAddress) {
-      logger.warn('No signer address found in verification context')
+      logger.warn('Authorization failed: no signer address found in verification context', {
+        path: ctx.url?.pathname,
+        method: ctx.request?.method
+      })
       throw new NotAuthorizedError('Unauthorized: No signer address found')
     }
 
     // worldName is guaranteed to be present by worldNameMiddleware (enforced by WorldStorageContext type)
     const { worldName } = ctx
 
+    logger.debug('Checking authorization', {
+      signerAddress,
+      worldName,
+      allowAuthorizedAddresses: allowAuthorizedAddresses ? 'true' : 'false'
+    })
+
     // 1. Check if signer has world permission (owner or deployer)
     let hasPermission: boolean
     try {
       hasPermission = await worldPermission.hasWorldPermission(worldName, signerAddress)
     } catch (error) {
-      logger.warn('Failed to verify world permissions', {
+      logger.warn('Authorization check failed: unable to verify world permissions', {
         worldName,
+        signerAddress,
         error: isErrorWithMessage(error) ? error.message : 'Unknown error'
       })
       throw new NotAuthorizedError('Unauthorized: Failed to verify world permissions')
     }
 
     if (hasPermission) {
+      logger.debug('Authorization granted via world permission', {
+        signerAddress,
+        worldName
+      })
       return await next()
     }
 
@@ -73,14 +87,19 @@ export function createAuthorizationMiddleware(
         .filter((addr): addr is string => !!addr && addr.length > 0)
 
       if (allowedAddresses.includes(signerAddress)) {
+        logger.debug('Authorization granted via authorized addresses list', {
+          signerAddress,
+          worldName
+        })
         return await next()
       }
     }
 
     // 3. Otherwise, deny access
-    logger.warn('Signer address is not authorized for operations', {
+    logger.warn('Authorization denied: signer has no permission for this world', {
       signerAddress,
-      worldName
+      worldName,
+      allowAuthorizedAddresses: allowAuthorizedAddresses ? 'true' : 'false'
     })
     throw new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
   }

@@ -1,5 +1,6 @@
 import { createWorldPermissionComponent } from '../../../src/logic/world-permission'
 import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
+import { createLogsMockedComponent } from '../../mocks/components'
 import type { IWorldsContentServerComponent, WorldPermissions } from '../../../src/adapters/worlds-content-server'
 import type { IWorldPermissionComponent } from '../../../src/logic/world-permission'
 
@@ -32,7 +33,10 @@ describe('World Permission Component', () => {
   }
 
   function createComponent(): IWorldPermissionComponent {
-    return createWorldPermissionComponent({ worldsContentServer: worldsContentServerMock })
+    return createWorldPermissionComponent({
+      worldsContentServer: worldsContentServerMock,
+      logs: createLogsMockedComponent()
+    })
   }
 
   describe('when calling hasWorldPermission', () => {

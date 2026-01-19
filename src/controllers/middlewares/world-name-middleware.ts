@@ -22,12 +22,32 @@ export const worldNameMiddleware: IHttpServerComponent.IRequestHandler<
   IHttpServerComponent.PathAwareContext<GlobalContext & { worldName?: string }, string> &
     DecentralandSignatureContext<WorldAuthMetadata>
 > = async (ctx, next) => {
+  const {
+    components: { logs }
+  } = ctx
+
+  const logger = logs.getLogger('world-name-middleware')
+
   const metadata = ctx.verification?.authMetadata
   const worldName = metadata?.realm?.serverName ?? metadata?.realmName
 
+  logger.debug('Extracting world name from request metadata', {
+    hasRealmServerName: metadata?.realm?.serverName ? 'true' : 'false',
+    hasRealmName: metadata?.realmName ? 'true' : 'false'
+  })
+
   if (!worldName) {
+    logger.warn('World name extraction failed: no world name in metadata', {
+      path: ctx.url?.pathname,
+      method: ctx.request?.method
+    })
     throw new InvalidRequestError('World name is required')
   }
+
+  logger.debug('World name extracted successfully', {
+    worldName,
+    path: ctx.url?.pathname
+  })
 
   ctx.worldName = worldName
   return await next()

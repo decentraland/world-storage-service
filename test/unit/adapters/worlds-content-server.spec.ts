@@ -1,5 +1,6 @@
 import { createWorldsContentServerComponent } from '../../../src/adapters/worlds-content-server'
 import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
+import { createLogsMockedComponent } from '../../mocks/components'
 import type { IWorldsContentServerComponent, WorldPermissions } from '../../../src/adapters/worlds-content-server'
 import type { AppComponents } from '../../../src/types'
 
@@ -30,7 +31,8 @@ describe('Worlds Content Server Component', () => {
   async function createComponent(): Promise<IWorldsContentServerComponent> {
     return createWorldsContentServerComponent({
       fetcher: { fetch: fetchMock },
-      config: { requireString: configRequireString }
+      config: { requireString: configRequireString },
+      logs: createLogsMockedComponent()
     } as unknown as AppComponents)
   }
 
@@ -102,8 +104,10 @@ describe('Worlds Content Server Component', () => {
         component = await createComponent()
       })
 
-      it('should propagate the error', async () => {
-        await expect(component.getPermissions(WORLD_NAMES.DEFAULT)).rejects.toThrow('Network error')
+      it('should throw an error indicating network error', async () => {
+        await expect(component.getPermissions(WORLD_NAMES.DEFAULT)).rejects.toThrow(
+          `Failed to fetch world permissions for ${WORLD_NAMES.DEFAULT}: network error`
+        )
       })
     })
   })

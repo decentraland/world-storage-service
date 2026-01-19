@@ -21,22 +21,38 @@ export async function getPlayerStorageHandler(
   const playerAddress = params.player_address.toLowerCase()
   const key = params.key
 
-  if (!EthAddress.validate(playerAddress)) {
-    throw new InvalidRequestError('Invalid player address')
-  }
-
-  logger.info('Getting player storage value', {
+  logger.debug('Processing get player storage request', {
     worldName,
     playerAddress,
     key
   })
 
+  if (!EthAddress.validate(playerAddress)) {
+    logger.warn('Invalid player address in request', {
+      worldName,
+      playerAddress,
+      key
+    })
+    throw new InvalidRequestError('Invalid player address')
+  }
+
   try {
     const value = await playerStorage.getValue(worldName, playerAddress, key)
 
     if (!value) {
+      logger.info('Player storage value not found', {
+        worldName,
+        playerAddress,
+        key
+      })
       throw new NotFoundError('Value not found')
     }
+
+    logger.info('Player storage value retrieved successfully', {
+      worldName,
+      playerAddress,
+      key
+    })
 
     return {
       status: 200,
@@ -45,7 +61,15 @@ export async function getPlayerStorageHandler(
       }
     }
   } catch (error) {
+    // Only log as error if it's not a NotFoundError (which is expected behavior)
+    if (error instanceof NotFoundError) {
+      throw error
+    }
+
     logger.error('Error getting player storage value', {
+      worldName,
+      playerAddress,
+      key,
       error: errorMessageOrDefault(error, 'Unknown error')
     })
 

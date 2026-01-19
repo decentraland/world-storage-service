@@ -19,7 +19,7 @@ export async function getWorldStorageHandler(
 
   const key = params.key
 
-  logger.info('Getting world storage value', {
+  logger.debug('Processing get world storage request', {
     worldName,
     key
   })
@@ -28,8 +28,17 @@ export async function getWorldStorageHandler(
     const value = await worldStorage.getValue(worldName, key)
 
     if (!value) {
+      logger.info('World storage value not found', {
+        worldName,
+        key
+      })
       throw new NotFoundError('Value not found')
     }
+
+    logger.info('World storage value retrieved successfully', {
+      worldName,
+      key
+    })
 
     return {
       status: 200,
@@ -38,8 +47,15 @@ export async function getWorldStorageHandler(
       }
     }
   } catch (error) {
+    // Only log as error if it's not a NotFoundError (which is expected behavior)
+    if (error instanceof NotFoundError) {
+      throw error
+    }
+
     logger.error('Error getting world storage value', {
-      error: errorMessageOrDefault(error, 'Unknown error')
+      worldName,
+      key,
+      error: errorMessageOrDefault(error)
     })
 
     throw error

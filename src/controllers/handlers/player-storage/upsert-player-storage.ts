@@ -23,20 +23,32 @@ export async function upsertPlayerStorageHandler(
   const playerAddress = params.player_address.toLowerCase()
   const key = params.key
 
-  if (!EthAddress.validate(playerAddress)) {
-    throw new InvalidRequestError('Invalid player address')
-  }
-
-  const { value }: UpsertStorageBody = await request.json()
-
-  logger.info('Upserting player storage value', {
+  logger.debug('Processing upsert player storage request', {
     worldName,
     playerAddress,
     key
   })
 
+  if (!EthAddress.validate(playerAddress)) {
+    logger.warn('Invalid player address in request', {
+      worldName,
+      playerAddress,
+      key
+    })
+    throw new InvalidRequestError('Invalid player address')
+  }
+
+  const { value }: UpsertStorageBody = await request.json()
+
   try {
     const item = await playerStorage.setValue(worldName, playerAddress, key, value)
+
+    logger.info('Player storage value upserted successfully', {
+      worldName,
+      playerAddress,
+      key
+    })
+
     return {
       status: 200,
       body: {
@@ -45,6 +57,9 @@ export async function upsertPlayerStorageHandler(
     }
   } catch (error) {
     logger.error('Error upserting player storage value', {
+      worldName,
+      playerAddress,
+      key,
       error: errorMessageOrDefault(error, 'Unknown error')
     })
 

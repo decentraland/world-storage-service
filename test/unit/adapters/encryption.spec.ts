@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto'
 import { DecryptionError, createEncryptionComponent } from '../../../src/adapters/encryption'
+import { createLogsMockedComponent } from '../../mocks/components'
 import type { IEncryptionComponent } from '../../../src/adapters/encryption'
 import type { AppComponents } from '../../../src/types'
 
@@ -24,8 +25,9 @@ describe('Encryption Component', () => {
 
   async function createComponent(): Promise<IEncryptionComponent> {
     return createEncryptionComponent({
-      config: { requireString: configRequireString }
-    } as unknown as Pick<AppComponents, 'config'>)
+      config: { requireString: configRequireString },
+      logs: createLogsMockedComponent()
+    } as unknown as Pick<AppComponents, 'config' | 'logs'>)
   }
 
   describe('when creating the component', () => {
