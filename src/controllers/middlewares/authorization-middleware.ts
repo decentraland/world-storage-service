@@ -9,6 +9,18 @@ export interface AuthorizationMiddlewareOptions {
 }
 
 /**
+ * Returns a safe representation of the signer address for logging.
+ * If the address matches the authoritative server address, returns 'AUTHORITATIVE_SERVER_ADDRESS'
+ * to avoid exposing it in logs.
+ */
+function safeAddress(signerAddress: string, authoritativeServerAddress: string | undefined): string {
+  if (authoritativeServerAddress && signerAddress.toLowerCase() === authoritativeServerAddress.toLowerCase()) {
+    return 'AUTHORITATIVE_SERVER_ADDRESS'
+  }
+  return signerAddress
+}
+
+/**
  * Creates a middleware that validates if the signer of the request is authorized to perform operations.
  *
  * It uses the world permission component to check if the signer's address is the owner or has
@@ -46,8 +58,11 @@ export function createAuthorizationMiddleware(
     // worldName is guaranteed to be present by worldNameMiddleware (enforced by WorldStorageContext type)
     const { worldName } = ctx
 
+    // Fetch authoritative server address early for safe logging
+    const authoritativeServerAddress = await config.getString('AUTHORITATIVE_SERVER_ADDRESS')
+
     logger.debug('Checking authorization', {
-      signerAddress,
+      signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
       worldName,
       allowAuthorizedAddresses: allowAuthorizedAddresses ? 'true' : 'false'
     })
@@ -59,7 +74,7 @@ export function createAuthorizationMiddleware(
     } catch (error) {
       logger.warn('Authorization check failed: unable to verify world permissions', {
         worldName,
-        signerAddress,
+        signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
         error: isErrorWithMessage(error) ? error.message : 'Unknown error'
       })
       throw new NotAuthorizedError('Unauthorized: Failed to verify world permissions')
@@ -67,7 +82,7 @@ export function createAuthorizationMiddleware(
 
     if (hasPermission) {
       logger.debug('Authorization granted via world permission', {
-        signerAddress,
+        signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
         worldName
       })
       return await next()
@@ -75,7 +90,6 @@ export function createAuthorizationMiddleware(
 
     // 2. If allowAuthorizedAddresses is enabled, check if signer is in authorized addresses
     if (allowAuthorizedAddresses) {
-      const authoritativeServerAddress = await config.getString('AUTHORITATIVE_SERVER_ADDRESS')
       const authorizedAddressesConfig = await config.getString('AUTHORIZED_ADDRESSES')
 
       const allowedAddresses = [authoritativeServerAddress, ...(authorizedAddressesConfig?.split(',') || [])]
@@ -84,7 +98,7 @@ export function createAuthorizationMiddleware(
 
       if (allowedAddresses.includes(signerAddress)) {
         logger.debug('Authorization granted via authorized addresses list', {
-          signerAddress,
+          signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
           worldName
         })
         return await next()
@@ -93,7 +107,7 @@ export function createAuthorizationMiddleware(
 
     // 3. Otherwise, deny access
     logger.warn('Authorization denied: signer has no permission for this world', {
-      signerAddress,
+      signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
       worldName,
       allowAuthorizedAddresses: allowAuthorizedAddresses ? 'true' : 'false'
     })
