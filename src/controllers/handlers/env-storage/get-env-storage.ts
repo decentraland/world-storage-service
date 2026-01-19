@@ -1,4 +1,4 @@
-import { NotFoundError } from '@dcl/platform-server-commons'
+import { NotFoundError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../../utils/errors'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'

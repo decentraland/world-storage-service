@@ -1,4 +1,4 @@
-import { InvalidRequestError } from '@dcl/platform-server-commons'
+import { InvalidRequestError } from '@dcl/http-commons'
 import {
   type WorldAuthMetadata,
   worldNameMiddleware

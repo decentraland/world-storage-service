@@ -319,21 +319,6 @@
     "@well-known-components/interfaces" "^1.4.3"
     node-fetch "^2.7.0"
 
-"@dcl/http-server@^1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/@dcl/http-server/-/http-server-1.0.0.tgz#202fe016e755ac9798668051f466fe496737c232"
-  integrity sha512-Dq7hjrOfwUY2VztmZlk70OwOFkwiLO360BgJw4h2BFfYc0RACmw7TFI/uq/nHMJPNSs2Zi1htzuWQQsPAg1RQw==
-  dependencies:
-    "@types/http-errors" "^2.0.4"
-    destroy "^1.2.0"
-    fp-future "^1.0.1"
-    http-errors "^2.0.0"
-    mitt "^3.0.0"
-    node-fetch "^2.6.9"
-    on-finished "^2.4.1"
-    path-to-regexp "^6.3.0"
-    reflect-metadata "^0.2.2"
-
 "@dcl/platform-crypto-middleware@^1.1.0":
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/@dcl/platform-crypto-middleware/-/platform-crypto-middleware-1.1.0.tgz#11434eb4fc8d461799ab71d28ce869ab330bdb23"
@@ -342,16 +327,6 @@
     "@dcl/crypto" "^3.4.3"
     "@well-known-components/fetch-component" "^2.0.2"
     "@well-known-components/interfaces" "^1.4.2"
-
-"@dcl/platform-server-commons@^1.0.1":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@dcl/platform-server-commons/-/platform-server-commons-1.0.1.tgz#c88e339b83958ca3b3203aca20d64eacff2ac26c"
-  integrity sha512-qXd/UCTxQC2A5uJuE5MiDXGmxNpk+kMPZjdCEFVZsvmFjDEKxg5oonMI26iNoYrjhfnSt9u1We9qf62MbqdlDg==
-  dependencies:
-    "@dcl/http-server" "^1.0.0"
-    "@dcl/schemas" "^18.0.0"
-    "@well-known-components/interfaces" "^1.4.3"
-    node-fetch "^2.7.0"
 
 "@dcl/schema-validator-component@^0.2.2":
   version "0.2.2"
@@ -1161,7 +1136,7 @@
   dependencies:
     "@types/node" "*"
 
-"@types/http-errors@^2.0.1", "@types/http-errors@^2.0.4":
+"@types/http-errors@^2.0.1":
   version "2.0.5"
   resolved "https://registry.yarnpkg.com/@types/http-errors/-/http-errors-2.0.5.tgz#5b749ab2b16ba113423feb1a64a95dcd30398472"
   integrity sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==
@@ -4138,7 +4113,7 @@ path-scurry@^1.11.1:
     lru-cache "^10.2.0"
     minipass "^5.0.0 || ^6.0.2 || ^7.0.0"
 
-path-to-regexp@^6.2.1, path-to-regexp@^6.3.0:
+path-to-regexp@^6.2.1:
   version "6.3.0"
   resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-6.3.0.tgz#2b6a26a337737a8e1416f9272ed0766b1c0389f4"
   integrity sha512-Yhpw4T9C6hPpgPeA28us07OJeqZ5EzQTkbfwuhsUg0c237RomFoETJgmp2sa3F/41gfLE6G5cqcYwznmeEeOlQ==
@@ -4364,11 +4339,6 @@ readdirp@~3.6.0:
   integrity sha512-hOS089on8RduqdbhvQ5Z37A0ESjsqz6qnRcffsMU3495FuTdqSm+7bhJ29JvIOsBDEEnan5DPu9t3To9VRlMzA==
   dependencies:
     picomatch "^2.2.1"
-
-reflect-metadata@^0.2.2:
-  version "0.2.2"
-  resolved "https://registry.yarnpkg.com/reflect-metadata/-/reflect-metadata-0.2.2.tgz#400c845b6cba87a21f2c65c4aeb158f4fa4d9c5b"
-  integrity sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==
 
 require-directory@^2.1.1:
   version "2.1.1"

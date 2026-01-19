@@ -1,6 +1,6 @@
 import type { IHttpServerComponent } from '@well-known-components/interfaces'
+import { NotAuthorizedError } from '@dcl/http-commons'
 import type { DecentralandSignatureContext } from '@dcl/platform-crypto-middleware'
-import { NotAuthorizedError } from '@dcl/platform-server-commons'
 import { isErrorWithMessage } from '../../utils/errors'
 import type { WorldStorageContext } from '../../types'
 
