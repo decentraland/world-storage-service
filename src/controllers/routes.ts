@@ -53,7 +53,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   // The withWorldName helper casts handlers to be compatible with the router's GlobalContext type.
 
   // World storage endpoints
-  router.get('/values/:key', withWorldName(getWorldStorageHandler))
+  router.get('/values/:key', withWorldName(authorizationMiddleware), withWorldName(getWorldStorageHandler))
   router.put(
     '/values/:key',
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
@@ -63,7 +63,11 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   router.delete('/values/:key', withWorldName(authorizationMiddleware), withWorldName(deleteWorldStorageHandler))
 
   // Player storage endpoints
-  router.get('/players/:player_address/values/:key', withWorldName(getPlayerStorageHandler))
+  router.get(
+    '/players/:player_address/values/:key',
+    withWorldName(authorizationMiddleware),
+    withWorldName(getPlayerStorageHandler)
+  )
   router.put(
     '/players/:player_address/values/:key',
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),

@@ -23,16 +23,18 @@ function safeAddress(signerAddress: string, authoritativeServerAddress: string |
 /**
  * Creates a middleware that validates if the signer of the request is authorized to perform operations.
  *
- * It uses the world permission component to check if the signer's address is the owner or has
+ * If the `allowAuthorizedAddresses` option is enabled, it first checks the AUTHORITATIVE_SERVER_ADDRESS
+ * and AUTHORIZED_ADDRESSES environment variables (comma-separated list of addresses) to allow
+ * additional addresses. This is done first to avoid unnecessary world permission checks for
+ * authoritative servers which will never have world permissions.
+ *
+ * If the signer is not in the authorized addresses list (or if `allowAuthorizedAddresses` is false),
+ * it uses the world permission component to check if the signer's address is the owner or has
  * deployer permissions for the world.
  *
- * If the `allowAuthorizedAddresses` option is enabled, it also checks the AUTHORITATIVE_SERVER_ADDRESS
- * and AUTHORIZED_ADDRESSES environment variables (comma-separated list of addresses) to allow
- * additional addresses.
- *
  * Authorization flow:
- * 1. If the signer address is the owner or has deployer permissions → allowed
- * 2. If `allowAuthorizedAddresses` is true and signer is in AUTHORITATIVE_SERVER_ADDRESS or AUTHORIZED_ADDRESSES → allowed
+ * 1. If `allowAuthorizedAddresses` is true and signer is in AUTHORITATIVE_SERVER_ADDRESS or AUTHORIZED_ADDRESSES → allowed
+ * 2. If the signer address is the owner or has deployer permissions → allowed
  * 3. Otherwise → unauthorized error
  */
 export function createAuthorizationMiddleware(
@@ -67,7 +69,24 @@ export function createAuthorizationMiddleware(
       allowAuthorizedAddresses: allowAuthorizedAddresses ? 'true' : 'false'
     })
 
-    // 1. Check if signer has world permission (owner or deployer)
+    // 1. If allowAuthorizedAddresses is enabled, check if signer is in authorized addresses first
+    if (allowAuthorizedAddresses) {
+      const authorizedAddressesConfig = await config.getString('AUTHORIZED_ADDRESSES')
+
+      const allowedAddresses = [authoritativeServerAddress, ...(authorizedAddressesConfig?.split(',') || [])]
+        .map((addr) => addr?.trim().toLowerCase())
+        .filter((addr): addr is string => !!addr && addr.length > 0)
+
+      if (allowedAddresses.includes(signerAddress)) {
+        logger.debug('Authorization granted via authorized addresses list', {
+          signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
+          worldName
+        })
+        return await next()
+      }
+    }
+
+    // 2. Check if signer has world permission (owner or deployer)
     let hasPermission: boolean
     try {
       hasPermission = await worldPermission.hasWorldPermission(worldName, signerAddress)
@@ -86,23 +105,6 @@ export function createAuthorizationMiddleware(
         worldName
       })
       return await next()
-    }
-
-    // 2. If allowAuthorizedAddresses is enabled, check if signer is in authorized addresses
-    if (allowAuthorizedAddresses) {
-      const authorizedAddressesConfig = await config.getString('AUTHORIZED_ADDRESSES')
-
-      const allowedAddresses = [authoritativeServerAddress, ...(authorizedAddressesConfig?.split(',') || [])]
-        .map((addr) => addr?.trim().toLowerCase())
-        .filter((addr): addr is string => !!addr && addr.length > 0)
-
-      if (allowedAddresses.includes(signerAddress)) {
-        logger.debug('Authorization granted via authorized addresses list', {
-          signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
-          worldName
-        })
-        return await next()
-      }
     }
 
     // 3. Otherwise, deny access
