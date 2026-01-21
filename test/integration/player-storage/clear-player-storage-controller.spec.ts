@@ -67,27 +67,29 @@ test('when clearing all player storage values for a specific player', function (
 
   describe('and the clear succeeds', () => {
     beforeEach(async () => {
-      await signedFetch(`${baseUrl}/players/${playerAddress}/values/key1`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'value1' }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      await signedFetch(`${baseUrl}/players/${playerAddress}/values/key2`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'value2' }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      await signedFetch(`${baseUrl}/players/${anotherPlayerAddress}/values/key3`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'value3' }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
+      await Promise.all([
+        signedFetch(`${baseUrl}/players/${playerAddress}/values/key1`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'value1' }),
+          identity,
+          metadata: TEST_REALM_METADATA
+        }),
+        signedFetch(`${baseUrl}/players/${playerAddress}/values/key2`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'value2' }),
+          identity,
+          metadata: TEST_REALM_METADATA
+        }),
+        signedFetch(`${baseUrl}/players/${anotherPlayerAddress}/values/key3`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'value3' }),
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+      ])
       response = await signedFetch(`${baseUrl}/players/${playerAddress}/values`, {
         method: 'DELETE',
         headers: { 'X-Confirm-Delete-All': 'true' },
@@ -99,16 +101,18 @@ test('when clearing all player storage values for a specific player', function (
     it('should delete all values for the player and respond with a 204', async () => {
       expect(response.status).toBe(204)
 
-      const getResponse1 = await signedFetch(`${baseUrl}/players/${playerAddress}/values/key1`, {
-        method: 'GET',
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      const getResponse2 = await signedFetch(`${baseUrl}/players/${playerAddress}/values/key2`, {
-        method: 'GET',
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
+      const [getResponse1, getResponse2] = await Promise.all([
+        signedFetch(`${baseUrl}/players/${playerAddress}/values/key1`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        }),
+        signedFetch(`${baseUrl}/players/${playerAddress}/values/key2`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+      ])
 
       expect(getResponse1.status).toBe(404)
       expect(getResponse2.status).toBe(404)
@@ -211,20 +215,22 @@ test('when clearing all player storage values for all players', function ({ comp
 
   describe('and the clear succeeds', () => {
     beforeEach(async () => {
-      await signedFetch(`${baseUrl}/players/${playerAddress}/values/key1`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'value1' }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      await signedFetch(`${baseUrl}/players/${anotherPlayerAddress}/values/key2`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'value2' }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
+      await Promise.all([
+        signedFetch(`${baseUrl}/players/${playerAddress}/values/key1`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'value1' }),
+          identity,
+          metadata: TEST_REALM_METADATA
+        }),
+        signedFetch(`${baseUrl}/players/${anotherPlayerAddress}/values/key2`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'value2' }),
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+      ])
       response = await signedFetch(`${baseUrl}/players`, {
         method: 'DELETE',
         headers: { 'X-Confirm-Delete-All': 'true' },
@@ -236,16 +242,18 @@ test('when clearing all player storage values for all players', function ({ comp
     it('should delete all values for all players and respond with a 204', async () => {
       expect(response.status).toBe(204)
 
-      const getResponse1 = await signedFetch(`${baseUrl}/players/${playerAddress}/values/key1`, {
-        method: 'GET',
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      const getResponse2 = await signedFetch(`${baseUrl}/players/${anotherPlayerAddress}/values/key2`, {
-        method: 'GET',
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
+      const [getResponse1, getResponse2] = await Promise.all([
+        signedFetch(`${baseUrl}/players/${playerAddress}/values/key1`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        }),
+        signedFetch(`${baseUrl}/players/${anotherPlayerAddress}/values/key2`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+      ])
 
       expect(getResponse1.status).toBe(404)
       expect(getResponse2.status).toBe(404)

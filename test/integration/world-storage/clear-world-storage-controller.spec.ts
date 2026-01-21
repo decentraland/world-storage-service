@@ -62,20 +62,22 @@ test('when clearing all world storage values', function ({ components, stubCompo
 
   describe('and the clear succeeds', () => {
     beforeEach(async () => {
-      await signedFetch(`${baseUrl}/values/key1`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'value1' }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      await signedFetch(`${baseUrl}/values/key2`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'value2' }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
+      await Promise.all([
+        signedFetch(`${baseUrl}/values/key1`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'value1' }),
+          identity,
+          metadata: TEST_REALM_METADATA
+        }),
+        signedFetch(`${baseUrl}/values/key2`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'value2' }),
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+      ])
       response = await signedFetch(`${baseUrl}/values`, {
         method: 'DELETE',
         headers: { 'X-Confirm-Delete-All': 'true' },
@@ -87,16 +89,18 @@ test('when clearing all world storage values', function ({ components, stubCompo
     it('should delete all values and respond with a 204', async () => {
       expect(response.status).toBe(204)
 
-      const getResponse1 = await signedFetch(`${baseUrl}/values/key1`, {
-        method: 'GET',
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      const getResponse2 = await signedFetch(`${baseUrl}/values/key2`, {
-        method: 'GET',
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
+      const [getResponse1, getResponse2] = await Promise.all([
+        signedFetch(`${baseUrl}/values/key1`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        }),
+        signedFetch(`${baseUrl}/values/key2`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+      ])
 
       expect(getResponse1.status).toBe(404)
       expect(getResponse2.status).toBe(404)

@@ -62,20 +62,22 @@ test('when clearing all env storage values', function ({ components, stubCompone
 
   describe('and the clear succeeds', () => {
     beforeEach(async () => {
-      await signedFetch(`${baseUrl}/env/API_KEY`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'secret1' }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      await signedFetch(`${baseUrl}/env/API_SECRET`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 'secret2' }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
+      await Promise.all([
+        signedFetch(`${baseUrl}/env/API_KEY`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'secret1' }),
+          identity,
+          metadata: TEST_REALM_METADATA
+        }),
+        signedFetch(`${baseUrl}/env/API_SECRET`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 'secret2' }),
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+      ])
       response = await signedFetch(`${baseUrl}/env`, {
         method: 'DELETE',
         headers: { 'X-Confirm-Delete-All': 'true' },
@@ -87,16 +89,18 @@ test('when clearing all env storage values', function ({ components, stubCompone
     it('should delete all env values and respond with a 204', async () => {
       expect(response.status).toBe(204)
 
-      const getResponse1 = await signedFetch(`${baseUrl}/env/API_KEY`, {
-        method: 'GET',
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      const getResponse2 = await signedFetch(`${baseUrl}/env/API_SECRET`, {
-        method: 'GET',
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
+      const [getResponse1, getResponse2] = await Promise.all([
+        signedFetch(`${baseUrl}/env/API_KEY`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        }),
+        signedFetch(`${baseUrl}/env/API_SECRET`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+      ])
 
       expect(getResponse1.status).toBe(404)
       expect(getResponse2.status).toBe(404)
