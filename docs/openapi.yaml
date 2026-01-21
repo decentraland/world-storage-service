@@ -172,6 +172,57 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /values:
+    delete:
+      operationId: clearWorldStorage
+      tags:
+        - World Storage
+      summary: Clear all world storage values
+      description: |
+        Deletes all values stored for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+        
+        **Warning**: This is a destructive operation. The `X-Confirm-Delete-All` header
+        is required to prevent accidental data loss.
+        
+        Only world owners and deployers can perform this operation.
+      parameters:
+        - $ref: '#/components/parameters/ConfirmDeleteAllHeader'
+      responses:
+        '204':
+          description: All values deleted successfully
+        '400':
+          description: Signed fetch is missing, invalid, or confirmation header is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                missingHeader:
+                  value:
+                    error: Bad request
+                    message: 'Missing required header: X-Confirm-Delete-All'
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /players/{player_address}/values/{key}:
     get:
       operationId: getPlayerStorageValue
@@ -322,6 +373,115 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /players/{player_address}/values:
+    delete:
+      operationId: clearPlayerStorage
+      tags:
+        - Player Storage
+      summary: Clear all player storage values for a specific player
+      description: |
+        Deletes all values stored for the specified player within the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+        
+        **Warning**: This is a destructive operation. The `X-Confirm-Delete-All` header
+        is required to prevent accidental data loss.
+        
+        Only world owners and deployers can perform this operation.
+      parameters:
+        - name: player_address
+          in: path
+          required: true
+          description: The player's wallet address
+          schema:
+            type: string
+            example: '0x1234567890abcdef1234567890abcdef12345678'
+        - $ref: '#/components/parameters/ConfirmDeleteAllHeader'
+      responses:
+        '204':
+          description: All values for the player deleted successfully
+        '400':
+          description: Signed fetch is missing, invalid, or confirmation header is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                missingHeader:
+                  value:
+                    error: Bad request
+                    message: 'Missing required header: X-Confirm-Delete-All'
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /players:
+    delete:
+      operationId: clearAllPlayersStorage
+      tags:
+        - Player Storage
+      summary: Clear all player storage values for all players
+      description: |
+        Deletes all player storage values for all players within the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+        
+        **Warning**: This is a destructive operation that affects ALL players.
+        The `X-Confirm-Delete-All` header is required to prevent accidental data loss.
+        
+        Only world owners and deployers can perform this operation.
+      parameters:
+        - $ref: '#/components/parameters/ConfirmDeleteAllHeader'
+      responses:
+        '204':
+          description: All player storage values deleted successfully
+        '400':
+          description: Signed fetch is missing, invalid, or confirmation header is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                missingHeader:
+                  value:
+                    error: Bad request
+                    message: 'Missing required header: X-Confirm-Delete-All'
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
         '500':
           description: Unexpected error
           content:
@@ -503,6 +663,57 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /env:
+    delete:
+      operationId: clearEnvStorage
+      tags:
+        - Env Storage
+      summary: Clear all environment variables
+      description: |
+        Deletes all environment variables stored for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+        
+        **Warning**: This is a destructive operation. The `X-Confirm-Delete-All` header
+        is required to prevent accidental data loss.
+        
+        Only world owners and deployers can perform this operation.
+      parameters:
+        - $ref: '#/components/parameters/ConfirmDeleteAllHeader'
+      responses:
+        '204':
+          description: All environment variables deleted successfully
+        '400':
+          description: Signed fetch is missing, invalid, or confirmation header is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                missingHeader:
+                  value:
+                    error: Bad request
+                    message: 'Missing required header: X-Confirm-Delete-All'
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     SignedFetch:
@@ -512,6 +723,18 @@ components:
       description: |
         Signed fetch authentication using Decentraland's ADR-44 specification.
         Multiple headers are used to provide the authentication chain.
+  parameters:
+    ConfirmDeleteAllHeader:
+      name: X-Confirm-Delete-All
+      in: header
+      required: true
+      description: |
+        Required confirmation header for bulk delete operations.
+        This header must be present (with any non-empty value) to confirm the destructive operation.
+        This safety mechanism prevents accidental data loss.
+      schema:
+        type: string
+      example: 'true'
   schemas:
     StorageValueResponse:
       type: object
