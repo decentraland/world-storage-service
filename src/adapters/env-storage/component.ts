@@ -61,9 +61,19 @@ export const createEnvStorageComponent = ({
     logger.debug('Env variable deleted successfully', { worldName, key })
   }
 
+  async function deleteAll(worldName: string): Promise<void> {
+    logger.debug('Deleting all env variables', { worldName })
+
+    const query = SQL`DELETE FROM env_variables WHERE world_name = ${worldName}`
+    await pg.query(query)
+
+    logger.debug('All env variables deleted successfully', { worldName })
+  }
+
   return {
     getValue,
     setValue,
-    deleteValue
+    deleteValue,
+    deleteAll
   }
 }

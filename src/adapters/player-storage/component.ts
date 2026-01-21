@@ -63,9 +63,29 @@ export const createPlayerStorageComponent = ({
     logger.debug('Player storage value deleted successfully', { worldName, playerAddress, key })
   }
 
+  async function deleteAllForPlayer(worldName: string, playerAddress: string): Promise<void> {
+    logger.debug('Deleting all player storage values for player', { worldName, playerAddress })
+
+    const query = SQL`DELETE FROM player_storage WHERE world_name = ${worldName} AND player_address = ${playerAddress}`
+    await pg.query(query)
+
+    logger.debug('All player storage values deleted successfully for player', { worldName, playerAddress })
+  }
+
+  async function deleteAll(worldName: string): Promise<void> {
+    logger.debug('Deleting all player storage values', { worldName })
+
+    const query = SQL`DELETE FROM player_storage WHERE world_name = ${worldName}`
+    await pg.query(query)
+
+    logger.debug('All player storage values deleted successfully', { worldName })
+  }
+
   return {
     getValue,
     setValue,
-    deleteValue
+    deleteValue,
+    deleteAllForPlayer,
+    deleteAll
   }
 }

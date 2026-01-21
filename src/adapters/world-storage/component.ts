@@ -57,9 +57,19 @@ export const createWorldStorageComponent = ({
     logger.debug('World storage value deleted successfully', { worldName, key })
   }
 
+  async function deleteAll(worldName: string): Promise<void> {
+    logger.debug('Deleting all world storage values', { worldName })
+
+    const query = SQL`DELETE FROM world_storage WHERE world_name = ${worldName}`
+    await pg.query(query)
+
+    logger.debug('All world storage values deleted successfully', { worldName })
+  }
+
   return {
     getValue,
     setValue,
-    deleteValue
+    deleteValue,
+    deleteAll
   }
 }
