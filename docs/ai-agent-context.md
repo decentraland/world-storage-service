@@ -12,6 +12,7 @@ The World Storage Service is a standalone service that provides secure, isolated
   - **World storage**: Global key-value storage scoped to a world (`/values/:key`)
   - **Player storage**: Per-player key-value storage scoped to both world and player address (`/players/:player_address/values/:key`)
 - **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time (`/env/:key`). Values are encrypted at rest and only accessible to the authoritative server for that world.
+- **Bulk Delete Operations**: Supports clearing all values in a storage namespace. These operations require a confirmation header (`X-Confirm-Delete-All`) to prevent accidental data loss.
 
 **Communication Pattern:**
 

@@ -3,13 +3,19 @@ import { Router } from '@well-known-components/http-server'
 import type { IHttpServerComponent } from '@well-known-components/interfaces'
 import { errorHandler } from '@dcl/http-commons'
 import { wellKnownComponents } from '@dcl/platform-crypto-middleware'
+import { clearEnvStorageHandler } from './handlers/env-storage/clear-env-storage'
 import { deleteEnvStorageHandler } from './handlers/env-storage/delete-env-storage'
 import { getEnvStorageHandler } from './handlers/env-storage/get-env-storage'
 import { upsertEnvStorageHandler } from './handlers/env-storage/upsert-env-storage'
+import {
+  clearAllPlayersStorageHandler,
+  clearPlayerStorageHandler
+} from './handlers/player-storage/clear-player-storage'
 import { deletePlayerStorageHandler } from './handlers/player-storage/delete-player-storage'
 import { getPlayerStorageHandler } from './handlers/player-storage/get-player-storage'
 import { upsertPlayerStorageHandler } from './handlers/player-storage/upsert-player-storage'
 import { UpsertEnvStorageRequestSchema, UpsertStorageRequestSchema } from './handlers/schemas'
+import { clearWorldStorageHandler } from './handlers/world-storage/clear-world-storage'
 import { deleteWorldStorageHandler } from './handlers/world-storage/delete-world-storage'
 import { getWorldStorageHandler } from './handlers/world-storage/get-world-storage'
 import { upsertWorldStorageHandler } from './handlers/world-storage/upsert-world-storage'
@@ -61,6 +67,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
     withWorldName(upsertWorldStorageHandler)
   )
   router.delete('/values/:key', withWorldName(authorizationMiddleware), withWorldName(deleteWorldStorageHandler))
+  router.delete('/values', withWorldName(ownerAndDeployerOnlyMiddleware), withWorldName(clearWorldStorageHandler))
 
   // Player storage endpoints
   router.get(
@@ -79,6 +86,12 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
     withWorldName(authorizationMiddleware),
     withWorldName(deletePlayerStorageHandler)
   )
+  router.delete(
+    '/players/:player_address/values',
+    withWorldName(ownerAndDeployerOnlyMiddleware),
+    withWorldName(clearPlayerStorageHandler)
+  )
+  router.delete('/players', withWorldName(ownerAndDeployerOnlyMiddleware), withWorldName(clearAllPlayersStorageHandler))
 
   // Env storage endpoints
   router.get('/env/:key', withWorldName(authorizationMiddleware), withWorldName(getEnvStorageHandler))
@@ -89,6 +102,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
     withWorldName(upsertEnvStorageHandler)
   )
   router.delete('/env/:key', withWorldName(ownerAndDeployerOnlyMiddleware), withWorldName(deleteEnvStorageHandler))
+  router.delete('/env', withWorldName(ownerAndDeployerOnlyMiddleware), withWorldName(clearEnvStorageHandler))
 
   return router
 }
