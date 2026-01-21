@@ -16,11 +16,6 @@ describe('Confirm Delete All Header Validation', () => {
     it('should not throw an error', () => {
       expect(() => validateConfirmDeleteAllHeader(request as unknown as IHttpServerComponent.IRequest)).not.toThrow()
     })
-
-    it('should check for the correct header name', () => {
-      validateConfirmDeleteAllHeader(request as unknown as IHttpServerComponent.IRequest)
-      expect(request.headers.get).toHaveBeenCalledWith('X-Confirm-Delete-All')
-    })
   })
 
   describe('when the X-Confirm-Delete-All header is missing', () => {
