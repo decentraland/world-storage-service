@@ -27,7 +27,7 @@ A standalone service that provides secure, isolated storage and environment vari
 - **Signed Fetch Validation**: Validates signed fetch requests from authoritative servers using Decentraland's ADR-44 specification, ensuring only authorized servers can access their world's data.
 - **World Isolation**: Enforces cryptographic world isolation by extracting world name from signed payload metadata, preventing unauthorized access between worlds.
 - **Key-Value Storage API**: Provides persistent storage with two namespaces - world-scoped storage and player-scoped storage for flexible data management.
-- **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time, accessible only to the authoritative server for each world.
+- **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time. GET operations are restricted to authorized addresses (AUTHORITATIVE_SERVER_ADDRESS) only, while write/delete operations are restricted to world owners and deployers only. This ensures sensitive secrets are only readable by the authoritative server while allowing owners to manage them.
 - **Bulk Delete Operations**: Supports clearing all values in a storage namespace with a required confirmation header to prevent accidental data loss.
 
 ## Dependencies & Related Services

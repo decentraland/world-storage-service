@@ -499,7 +499,9 @@ paths:
         Retrieves the environment variable stored under `key` for the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
         Values are stored encrypted at rest.
-        Only authorized addresses can access this endpoint.
+        
+        **Authorization**: Only authorized addresses can access this endpoint.
+        World owners and deployers are explicitly not allowed, even if they have permissions.
       parameters:
         - name: key
           in: path
@@ -557,7 +559,9 @@ paths:
         Creates or updates the environment variable stored under `key` for the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
         Values are stored encrypted at rest.
-        Only authorized addresses can access this endpoint.
+        
+        **Authorization**: Only world owners and deployers can perform this operation.
+        Authorized addresses are not allowed.
       parameters:
         - name: key
           in: path
@@ -623,7 +627,9 @@ paths:
       description: |
         Deletes the environment variable stored under `key` for the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
-        Only authorized addresses can access this endpoint.
+        
+        **Authorization**: Only world owners and deployers can perform this operation.
+        Authorized addresses are not allowed.
       parameters:
         - name: key
           in: path

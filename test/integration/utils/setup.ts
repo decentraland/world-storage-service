@@ -35,8 +35,21 @@ export async function createTestSetup(components: TestComponents, stubComponents
     }
   })
 
+  // Mock config.getString to return the test identity's address as AUTHORITATIVE_SERVER_ADDRESS
+  // This is required for endpoints that use authorizedAddressesOnlyAuthorizationMiddleware
+  const originalGetString = components.config.getString.bind(components.config)
+  const mockedGetString = async (key: string): Promise<string | undefined> => {
+    if (key === 'AUTHORITATIVE_SERVER_ADDRESS') {
+      return address
+    }
+    return originalGetString(key)
+  }
+  components.config.getString = mockedGetString
+
   const resetStubs = () => {
     stubComponents.worldsContentServer.getPermissions.reset()
+    // Restore original getString method
+    components.config.getString = originalGetString
   }
 
   return { signedFetch, baseUrl, identity, address, resetStubs }
