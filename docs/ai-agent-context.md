@@ -6,12 +6,12 @@ The World Storage Service is a standalone service that provides secure, isolated
 
 **Key Capabilities:**
 
-- **Signed Fetch Validation**: Receives and validates signed fetch requests from authoritative servers using Decentraland's ADR-44 specification. Only requests signed by valid authoritative servers with proper private keys are accepted.
+- **Signed Fetch Validation**: Receives and validates signed fetch requests from authoritative servers using Decentraland's ADR-44 specification. Only requests signed by valid authoritative servers with proper private keys are accepted. The service explicitly rejects requests from client-side scenes (signer `decentraland-kernel-scene`) to prevent unauthorized access.
 - **World Isolation Enforcement**: Extracts world name (e.g., "worldname.dcl.eth") from signed payload metadata (`serverName` or `realmName`), never from user-provided query parameters or request body. This ensures cryptographic proof of world ownership.
 - **Key-Value Storage API**: Provides persistent storage with two namespaces:
   - **World storage**: Global key-value storage scoped to a world (`/values/:key`)
   - **Player storage**: Per-player key-value storage scoped to both world and player address (`/players/:player_address/values/:key`)
-- **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time (`/env/:key`). Values are encrypted at rest and only accessible to the authoritative server for that world.
+- **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time (`/env/:key`). Values are encrypted at rest. GET operations are restricted to authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES) only, while write/delete operations (PUT/DELETE) are restricted to world owners and deployers only. This ensures sensitive secrets are only readable by the authoritative server while allowing owners to manage them.
 - **Bulk Delete Operations**: Supports clearing all values in a storage namespace. These operations require a confirmation header (`X-Confirm-Delete-All`) to prevent accidental data loss.
 
 **Communication Pattern:**
@@ -38,12 +38,28 @@ HTTP REST API using signed fetch authentication. The service exposes REST endpoi
 
 **Key Concepts:**
 
-- **Signed Fetch**: All requests from authoritative servers must be signed using their private key. The signature includes metadata with the `serverName` (world name), which is cryptographically verified before processing any request. This ensures that only the authorized server can access its world's data.
+- **Signed Fetch**: All requests from authoritative servers must be signed using their private key. The signature includes metadata with the `serverName` (world name), which is cryptographically verified before processing any request. The signer address is extracted from the signature and used for authorization checks.
+- **Authorization**: The service validates authorization using a two-tier system: (1) checks if the signer address matches AUTHORITATIVE_SERVER_ADDRESS or is in the AUTHORIZED_ADDRESSES environment variable (comma-separated list), and (2) if not authorized via addresses, checks world permissions via Worlds Content Server to verify if the signer is the world owner or has deployer permissions. Different endpoints use different authorization policies based on sensitivity.
 - **World Isolation**: The world name is extracted exclusively from the signed fetch metadata, never from URL parameters or request body. This prevents world name spoofing and ensures data isolation between different worlds.
 - **Storage Namespaces**: Two distinct storage namespaces exist - world storage (global to the world) and player storage (scoped per player address). Both are further isolated by world name extracted from the signature.
-- **Environment Variables**: Secrets and configuration values are stored encrypted at rest and are only accessible to the authoritative server for the specific world. These are set at deployment time via Creator Hub UI or CLI, not at runtime.
+- **Environment Variables**: Secrets and configuration values are stored encrypted at rest. GET operations are restricted to authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES environment variable) only, ensuring only the authoritative server can read sensitive values. Write/delete operations (PUT/DELETE) are restricted to world owners and deployers, allowing them to manage these variables. These are set at deployment time via Creator Hub UI or CLI, not at runtime.
 - **Stateless Service**: The service itself is stateless - all state is stored in PostgreSQL. This allows for horizontal scaling and independent scaling from scene execution.
-- **Request Flow**: Authoritative Server → Signed Fetch Request → World Storage Service → Signature Validation → World Name Extraction → Database Query (with world_name from signature) → Response
+- **Request Flow**: Authoritative Server → Signed Fetch Request → World Storage Service → Signature Validation → World Name Extraction → Authorization Check → Database Query (with world_name from signature) → Response
+
+**Authorization Model:**
+
+The service uses three types of authorization middleware with different access levels:
+
+1. **General Authorization** (`authorizationMiddleware`): Used for most endpoints (GET/PUT/DELETE on `/values/:key` and `/players/:player_address/values/:key`). Allows both:
+   - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES environment variable)
+   - World owners and deployers (verified via Worlds Content Server)
+
+2. **Owner/Deployer Only** (`ownerAndDeployerOnlyAuthorizationMiddleware`): Used for sensitive bulk delete operations (DELETE `/values`, DELETE `/players/:player_address/values`, DELETE `/players`) and env variable write/delete operations (PUT/DELETE `/env/:key`, DELETE `/env`). Only allows:
+   - World owners and deployers (authorized addresses are explicitly blocked)
+
+3. **Authorized Addresses Only** (`authorizedAddressesOnlyAuthorizationMiddleware`): Used exclusively for GET `/env/:key`. Only allows:
+   - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES)
+   - World owners and deployers are explicitly blocked, even if they have permissions
 
 **Database notes:**
 
