@@ -12,13 +12,6 @@
     "test": "jest --forceExit --detectOpenHandles --coverage --verbose",
     "migrate": "node-pg-migrate -j ts --tsconfig tsconfig.json -m src/migrations"
   },
-  "prettier": {
-    "printWidth": 120,
-    "semi": false,
-    "singleQuote": true,
-    "trailingComma": "none",
-    "tabWidth": 2
-  },
   "dependencies": {
     "@dcl/http-commons": "^1.0.0",
     "@dcl/platform-crypto-middleware": "^1.1.0",
@@ -39,7 +32,7 @@
     "sql-template-strings": "2.2.2"
   },
   "devDependencies": {
-    "@dcl/eslint-config": "3.0.1",
+    "@dcl/eslint-config": "3.1.0",
     "@types/node": "25.0.3",
     "@typescript-eslint/eslint-plugin": "8.52.0",
     "@typescript-eslint/parser": "8.52.0",

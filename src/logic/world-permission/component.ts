@@ -54,7 +54,7 @@ export function createWorldPermissionComponent(components: {
 
       const hasDeployerPermission =
         permissions.permissions.deployment.type === 'allow-list' &&
-        permissions.permissions.deployment.wallets.map((wallet) => wallet.toLowerCase()).includes(normalizedAddress)
+        permissions.permissions.deployment.wallets.map(wallet => wallet.toLowerCase()).includes(normalizedAddress)
 
       if (hasDeployerPermission) {
         logger.debug('Permission granted: user has deployer permission', {

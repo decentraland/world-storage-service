@@ -76,7 +76,7 @@ export function createAuthorizationMiddleware(
       const authorizedAddressesConfig = await config.getString('AUTHORIZED_ADDRESSES')
 
       const allowedAddresses = [authoritativeServerAddress, ...(authorizedAddressesConfig?.split(',') || [])]
-        .map((addr) => addr?.trim().toLowerCase())
+        .map(addr => addr?.trim().toLowerCase())
         .filter((addr): addr is string => !!addr && addr.length > 0)
 
       if (allowedAddresses.includes(signerAddress)) {
