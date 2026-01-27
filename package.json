@@ -1,33 +1,16 @@
 {
-  "name": "template-server",
+  "name": "world-storage-service",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node --trace-warnings --abort-on-uncaught-exception --unhandled-rejections=strict dist/index.js",
     "lint": "eslint '{src,test}/**/*.{js,ts}'",
     "lint:check": "eslint '{src,test}/**/*.{js,ts}'",
     "lint:fix": "eslint '{src,test}/**/*.{js,ts}' --fix",
+    "lint:package-json": "npmPkgJsonLint .",
     "docs:check": "npx @redocly/cli@latest lint docs/openapi.yaml",
     "start:dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "test": "jest --forceExit --detectOpenHandles --coverage --verbose",
     "migrate": "node-pg-migrate -j ts --tsconfig tsconfig.json -m src/migrations"
-  },
-  "devDependencies": {
-    "@dcl/eslint-config": "^2.4.3",
-    "@types/node": "25.0.3",
-    "@well-known-components/test-helpers": "1.5.8",
-    "eslint": "8",
-    "jest": "30.2.0",
-    "nodemon": "3.1.11",
-    "ts-jest": "29.4.6",
-    "ts-node": "10.9.2",
-    "typescript": "5.9.3"
-  },
-  "prettier": {
-    "printWidth": 120,
-    "semi": false,
-    "singleQuote": true,
-    "trailingComma": "none",
-    "tabWidth": 2
   },
   "dependencies": {
     "@dcl/http-commons": "^1.0.0",
@@ -47,5 +30,25 @@
     "@well-known-components/tracer-component": "1.2.0",
     "decentraland-crypto-fetch": "^2.0.1",
     "sql-template-strings": "2.2.2"
+  },
+  "devDependencies": {
+    "@dcl/eslint-config": "3.1.0",
+    "@types/node": "25.0.3",
+    "@typescript-eslint/eslint-plugin": "8.52.0",
+    "@typescript-eslint/parser": "8.52.0",
+    "@well-known-components/test-helpers": "1.5.8",
+    "eslint": "9.39.2",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-import-resolver-typescript": "4.4.4",
+    "eslint-plugin-autofix": "2.2.0",
+    "eslint-plugin-import": "2.32.0",
+    "eslint-plugin-prettier": "5.5.5",
+    "jest": "30.2.0",
+    "nodemon": "3.1.11",
+    "npm-package-json-lint": "9.1.0",
+    "prettier": "3.8.1",
+    "ts-jest": "29.4.6",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3"
   }
 }
