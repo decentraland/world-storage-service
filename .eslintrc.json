@@ -1,6 +1,0 @@
-{
-  "extends": "@dcl/eslint-config/core-services",
-  "parserOptions": {
-    "project": ["tsconfig.json", "test/tsconfig.json"]
-  }
-}

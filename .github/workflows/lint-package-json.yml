@@ -1,0 +1,7 @@
+name: Lint Package.json
+
+on: [push]
+
+jobs:
+  lint-pkg:
+    uses: decentraland/platform-actions/.github/workflows/lint-package-json.yml@main

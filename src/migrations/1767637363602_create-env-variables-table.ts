@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import type { ColumnDefinitions, MigrationBuilder } from 'node-pg-migrate'
 
 export const shorthands: ColumnDefinitions | undefined = undefined

@@ -15,7 +15,7 @@ export interface AuthorizationMiddlewareOptions {
  * to avoid exposing it in logs.
  */
 function safeAddress(signerAddress: string, authoritativeServerAddress: string | undefined): string {
-  if (authoritativeServerAddress && signerAddress.toLowerCase() === authoritativeServerAddress.toLowerCase()) {
+  if (signerAddress.toLowerCase() === authoritativeServerAddress?.toLowerCase()) {
     return 'AUTHORITATIVE_SERVER_ADDRESS'
   }
   return signerAddress
