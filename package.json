@@ -16,7 +16,7 @@
     "@dcl/http-commons": "^1.0.0",
     "@dcl/platform-crypto-middleware": "^1.1.0",
     "@dcl/schema-validator-component": "^0.2.2",
-    "@dcl/schemas": "^22.0.0",
+    "@dcl/schemas": "^23.0.0",
     "@dcl/traced-fetch-component": "^1.0.2",
     "@well-known-components/env-config-provider": "1.2.0",
     "@well-known-components/fetch-component": "3.0.0",

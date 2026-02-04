@@ -339,10 +339,10 @@
     ajv-keywords "^5.1.0"
     mitt "^3.0.1"
 
-"@dcl/schemas@^22.0.0":
-  version "22.0.0"
-  resolved "https://registry.yarnpkg.com/@dcl/schemas/-/schemas-22.0.0.tgz#e98db4c0e6126dea7329d6970d8c4cc2046acf5f"
-  integrity sha512-tmg4E+VTTjjZWL/5NTWQ75XcZQUxpFXlE5k/qQOFIRc9hwT1N28ajtKUg/i1/FV1u5o8Fw3G5qncPb6UQgp+2w==
+"@dcl/schemas@^23.0.0":
+  version "23.0.0"
+  resolved "https://registry.yarnpkg.com/@dcl/schemas/-/schemas-23.0.0.tgz#e15486e64b2f19e30a1be7edb3f551ceaf0999b8"
+  integrity sha512-DChEhcQZA3Q5uKsa5Z+5aG+bpIiqTCf8dOdx6dta0XmtCrdqMJgGuzu2ZW//7EmzXH6zlgsI+pUv3JpTFlleOA==
   dependencies:
     ajv "^8.11.0"
     ajv-errors "^3.0.0"
