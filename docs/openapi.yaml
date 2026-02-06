@@ -670,6 +670,83 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /env:
+    get:
+      operationId: listEnvKeys
+      tags:
+        - Env Storage
+      summary: List environment variable keys (names only)
+      description: |
+        Lists all environment variable key names (not values) for the calling world with pagination support.
+        The world identifier is resolved from the Signed Fetch metadata.
+        
+        **Important**: This endpoint returns ONLY key names to protect secrets. Values are never exposed.
+        
+        Results are ordered alphabetically by key (ASC) for deterministic pagination.
+        
+        **Authorization**: Only world owners and deployers can access this endpoint.
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - $ref: '#/components/parameters/PrefixParam'
+      responses:
+        '200':
+          description: Paginated list of key names
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvKeysResponse'
+              examples:
+                withKeys:
+                  value:
+                    data:
+                      - API_SECRET
+                      - SENTRY_DSN
+                    pagination:
+                      limit: 50
+                      offset: 0
+                      total: 2
+                empty:
+                  value:
+                    data: []
+                    pagination:
+                      limit: 50
+                      offset: 0
+                      total: 0
+        '400':
+          description: Signed fetch is missing, invalid, or invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidLimit:
+                  value:
+                    error: Bad request
+                    message: limit must be a positive integer
+                limitExceeded:
+                  value:
+                    error: Bad request
+                    message: limit cannot exceed 500
+        '401':
+          description: Unauthorized - signer is not owner or deployer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: clearEnvStorage
       tags:
@@ -741,6 +818,41 @@ components:
       schema:
         type: string
       example: 'true'
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      description: |
+        Maximum number of items to return per page.
+        Default: 100, Maximum: 1000 (configurable via PAGINATION_DEFAULT_LIMIT and PAGINATION_MAX_LIMIT env vars).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+      example: 100
+    OffsetParam:
+      name: offset
+      in: query
+      required: false
+      description: |
+        Number of items to skip for pagination.
+        Default: 0.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      example: 0
+    PrefixParam:
+      name: prefix
+      in: query
+      required: false
+      description: |
+        Optional case-insensitive prefix filter applied to key names.
+        Only keys starting with the given prefix (case-insensitive) will be returned.
+      schema:
+        type: string
+      example: 'API_'
   schemas:
     StorageValueResponse:
       type: object
@@ -772,6 +884,68 @@ components:
       required:
         - value
       description: Payload to persist an environment variable under the provided key. Value must be a string.
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+          description: Number of items per page
+          example: 50
+        offset:
+          type: integer
+          description: Number of items skipped
+          example: 0
+        total:
+          type: integer
+          description: Total count of matching items
+          example: 100
+      required:
+        - limit
+        - offset
+        - total
+      description: Pagination metadata for paginated list responses.
+    ListEnvKeysResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: string
+          description: Array of environment variable key names (no values)
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - data
+        - pagination
+      description: |
+        Paginated response for listing environment variable keys.
+        Only key names are returned; values are never exposed to protect secrets.
+    StorageEntry:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The storage key name
+        value:
+          description: The stored value (any JSON type)
+      required:
+        - key
+        - value
+      description: A single key-value entry from storage.
+    ListStorageItemsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorageEntry'
+          description: Array of key-value entries
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - data
+        - pagination
+      description: Paginated response for listing storage key-value pairs.
     ErrorResponse:
       type: object
       properties:

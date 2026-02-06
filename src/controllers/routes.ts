@@ -6,6 +6,7 @@ import { wellKnownComponents } from '@dcl/platform-crypto-middleware'
 import { clearEnvStorageHandler } from './handlers/env-storage/clear-env-storage'
 import { deleteEnvStorageHandler } from './handlers/env-storage/delete-env-storage'
 import { getEnvStorageHandler } from './handlers/env-storage/get-env-storage'
+import { listEnvKeysHandler } from './handlers/env-storage/list-env-keys'
 import { upsertEnvStorageHandler } from './handlers/env-storage/upsert-env-storage'
 import {
   clearAllPlayersStorageHandler,
@@ -106,6 +107,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
 
   // Env storage endpoints
+  router.get('/env', withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware), withWorldName(listEnvKeysHandler))
   router.get(
     '/env/:key',
     withWorldName(authorizedAddressesOnlyAuthorizationMiddleware),
