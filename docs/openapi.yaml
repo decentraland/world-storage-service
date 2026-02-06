@@ -37,6 +37,127 @@ security:
   - SignedFetch: []
 
 paths:
+  /values:
+    get:
+      operationId: listWorldStorageValues
+      tags:
+        - World Storage
+      summary: List world storage values with pagination
+      description: |
+        Lists all key-value pairs stored for the calling world with pagination support.
+        The world identifier is resolved from the Signed Fetch metadata.
+        
+        Results are ordered alphabetically by key (ASC) for deterministic pagination.
+        Each item is returned as a single-key object: `{ key: value }`.
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - $ref: '#/components/parameters/PrefixParam'
+      responses:
+        '200':
+          description: Paginated list of key-value pairs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListStorageItemsResponse'
+              examples:
+                withValues:
+                  value:
+                    data:
+                      - key: foo
+                        value: { bar: 1 }
+                      - key: baz
+                        value: 3
+                    pagination:
+                      limit: 100
+                      offset: 0
+                      total: 2
+                empty:
+                  value:
+                    data: []
+                    pagination:
+                      limit: 100
+                      offset: 0
+                      total: 0
+        '400':
+          description: Signed fetch is missing, invalid, or invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidLimit:
+                  value:
+                    error: Bad request
+                    message: limit must be a positive integer
+                limitExceeded:
+                  value:
+                    error: Bad request
+                    message: limit cannot exceed 1000
+                invalidOffset:
+                  value:
+                    error: Bad request
+                    message: offset must be a non-negative integer
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: clearWorldStorage
+      tags:
+        - World Storage
+      summary: Clear all world storage values
+      description: |
+        Deletes all values stored for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+        
+        **Warning**: This is a destructive operation. The `X-Confirm-Delete-All` header
+        is required to prevent accidental data loss.
+        
+        Only world owners and deployers can perform this operation.
+      parameters:
+        - $ref: '#/components/parameters/ConfirmDeleteAllHeader'
+      responses:
+        '204':
+          description: All values deleted successfully
+        '400':
+          description: Signed fetch is missing, invalid, or confirmation header is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                missingHeader:
+                  value:
+                    error: Bad request
+                    message: 'Missing required header: X-Confirm-Delete-All'
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /values/{key}:
     get:
       operationId: getWorldStorageValue

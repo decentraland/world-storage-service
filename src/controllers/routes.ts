@@ -19,6 +19,7 @@ import { UpsertEnvStorageRequestSchema, UpsertStorageRequestSchema } from './han
 import { clearWorldStorageHandler } from './handlers/world-storage/clear-world-storage'
 import { deleteWorldStorageHandler } from './handlers/world-storage/delete-world-storage'
 import { getWorldStorageHandler } from './handlers/world-storage/get-world-storage'
+import { listWorldStorageHandler } from './handlers/world-storage/list-world-storage'
 import { upsertWorldStorageHandler } from './handlers/world-storage/upsert-world-storage'
 import {
   authorizationMiddleware,
@@ -64,6 +65,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   // The withWorldName helper casts handlers to be compatible with the router's GlobalContext type.
 
   // World storage endpoints
+  router.get('/values', withWorldName(authorizationMiddleware), withWorldName(listWorldStorageHandler))
   router.get('/values/:key', withWorldName(authorizationMiddleware), withWorldName(getWorldStorageHandler))
   router.put(
     '/values/:key',
