@@ -16,14 +16,14 @@ import type { HTTPPaginatedResponse } from '../../../types/http'
  */
 export async function listWorldStorageHandler(
   context: Pick<
-    WorldHandlerContextWithPath<'logs' | 'worldStorage' | 'config', '/values'>,
+    WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values'>,
     'url' | 'components' | 'worldName'
   >
 ): Promise<HTTPPaginatedResponse<StorageEntry[]>> {
   const {
     url,
     worldName,
-    components: { logs, worldStorage, config }
+    components: { logs, worldStorage }
   } = context
 
   const logger = logs.getLogger('list-world-storage-handler')
@@ -31,9 +31,7 @@ export async function listWorldStorageHandler(
   logger.debug('Processing list world storage request', { worldName })
 
   try {
-    const defaultLimit = (await config.getNumber('PAGINATION_DEFAULT_LIMIT')) ?? 100
-    const maxLimit = (await config.getNumber('PAGINATION_MAX_LIMIT')) ?? 1000
-    const { limit, offset, prefix } = parsePaginationParams(url, { defaultLimit, maxLimit })
+    const { limit, offset, prefix } = parsePaginationParams(url)
 
     logger.debug('Parsed pagination params', { worldName, limit, offset, prefix: prefix ?? 'none' })
 
