@@ -351,6 +351,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: clearPlayerStorage
+      tags:
+        - Player Storage
+      summary: Clear all player storage values for a specific player
+      description: |
+        Deletes all values stored for the specified player within the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+        
+        **Warning**: This is a destructive operation. The `X-Confirm-Delete-All` header
+        is required to prevent accidental data loss.
+        
+        Only world owners and deployers can perform this operation.
+      parameters:
+        - name: player_address
+          in: path
+          required: true
+          description: The player's wallet address
+          schema:
+            type: string
+            example: '0x1234567890abcdef1234567890abcdef12345678'
+        - $ref: '#/components/parameters/ConfirmDeleteAllHeader'
+      responses:
+        '204':
+          description: All values for the player deleted successfully
+        '400':
+          description: Signed fetch is missing, invalid, or confirmation header is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                missingHeader:
+                  value:
+                    error: Bad request
+                    message: 'Missing required header: X-Confirm-Delete-All'
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /players/{player_address}/values/{key}:
     get:
@@ -509,32 +565,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /players/{player_address}/values:
+  /players:
     delete:
-      operationId: clearPlayerStorage
+      operationId: clearAllPlayersStorage
       tags:
         - Player Storage
-      summary: Clear all player storage values for a specific player
+      summary: Clear all player storage values for all players
       description: |
-        Deletes all values stored for the specified player within the calling world.
+        Deletes all player storage values for all players within the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
         
-        **Warning**: This is a destructive operation. The `X-Confirm-Delete-All` header
-        is required to prevent accidental data loss.
+        **Warning**: This is a destructive operation that affects ALL players.
+        The `X-Confirm-Delete-All` header is required to prevent accidental data loss.
         
         Only world owners and deployers can perform this operation.
       parameters:
-        - name: player_address
-          in: path
-          required: true
-          description: The player's wallet address
-          schema:
-            type: string
-            example: '0x1234567890abcdef1234567890abcdef12345678'
         - $ref: '#/components/parameters/ConfirmDeleteAllHeader'
       responses:
         '204':
-          description: All values for the player deleted successfully
+          description: All player storage values deleted successfully
         '400':
           description: Signed fetch is missing, invalid, or confirmation header is missing
           content:
@@ -567,25 +616,102 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /players:
-    delete:
-      operationId: clearAllPlayersStorage
+  /env:
+    get:
+      operationId: listEnvKeys
       tags:
-        - Player Storage
-      summary: Clear all player storage values for all players
+        - Env Storage
+      summary: List environment variable keys (names only)
       description: |
-        Deletes all player storage values for all players within the calling world.
+        Lists all environment variable key names (not values) for the calling world with pagination support.
         The world identifier is resolved from the Signed Fetch metadata.
         
-        **Warning**: This is a destructive operation that affects ALL players.
-        The `X-Confirm-Delete-All` header is required to prevent accidental data loss.
+        **Important**: This endpoint returns ONLY key names to protect secrets. Values are never exposed.
+        
+        Results are ordered alphabetically by key (ASC) for deterministic pagination.
+        
+        **Authorization**: Only world owners and deployers can access this endpoint.
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - $ref: '#/components/parameters/PrefixParam'
+      responses:
+        '200':
+          description: Paginated list of key names
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvKeysResponse'
+              examples:
+                withKeys:
+                  value:
+                    data:
+                      - API_SECRET
+                      - SENTRY_DSN
+                    pagination:
+                      limit: 50
+                      offset: 0
+                      total: 2
+                empty:
+                  value:
+                    data: []
+                    pagination:
+                      limit: 50
+                      offset: 0
+                      total: 0
+        '400':
+          description: Signed fetch is missing, invalid, or invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidLimit:
+                  value:
+                    error: Bad request
+                    message: limit must be a positive integer
+                limitExceeded:
+                  value:
+                    error: Bad request
+                    message: limit cannot exceed 500
+        '401':
+          description: Unauthorized - signer is not owner or deployer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: clearEnvStorage
+      tags:
+        - Env Storage
+      summary: Clear all environment variables
+      description: |
+        Deletes all environment variables stored for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+        
+        **Warning**: This is a destructive operation. The `X-Confirm-Delete-All` header
+        is required to prevent accidental data loss.
         
         Only world owners and deployers can perform this operation.
       parameters:
         - $ref: '#/components/parameters/ConfirmDeleteAllHeader'
       responses:
         '204':
-          description: All player storage values deleted successfully
+          description: All environment variables deleted successfully
         '400':
           description: Signed fetch is missing, invalid, or confirmation header is missing
           content:
@@ -781,134 +907,6 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
-        '401':
-          description: Unauthorized - signer is not authorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                unauthorized:
-                  value:
-                    message: 'Unauthorized: Signer is not authorized to perform operations'
-        '500':
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /env:
-    get:
-      operationId: listEnvKeys
-      tags:
-        - Env Storage
-      summary: List environment variable keys (names only)
-      description: |
-        Lists all environment variable key names (not values) for the calling world with pagination support.
-        The world identifier is resolved from the Signed Fetch metadata.
-        
-        **Important**: This endpoint returns ONLY key names to protect secrets. Values are never exposed.
-        
-        Results are ordered alphabetically by key (ASC) for deterministic pagination.
-        
-        **Authorization**: Only world owners and deployers can access this endpoint.
-      parameters:
-        - $ref: '#/components/parameters/LimitParam'
-        - $ref: '#/components/parameters/OffsetParam'
-        - $ref: '#/components/parameters/PrefixParam'
-      responses:
-        '200':
-          description: Paginated list of key names
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListEnvKeysResponse'
-              examples:
-                withKeys:
-                  value:
-                    data:
-                      - API_SECRET
-                      - SENTRY_DSN
-                    pagination:
-                      limit: 50
-                      offset: 0
-                      total: 2
-                empty:
-                  value:
-                    data: []
-                    pagination:
-                      limit: 50
-                      offset: 0
-                      total: 0
-        '400':
-          description: Signed fetch is missing, invalid, or invalid pagination parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                signedFetchRequired:
-                  value:
-                    error: Invalid Auth Chain
-                    message: This endpoint requires a signed fetch request. See ADR-44.
-                invalidLimit:
-                  value:
-                    error: Bad request
-                    message: limit must be a positive integer
-                limitExceeded:
-                  value:
-                    error: Bad request
-                    message: limit cannot exceed 500
-        '401':
-          description: Unauthorized - signer is not owner or deployer
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                unauthorized:
-                  value:
-                    message: 'Unauthorized: Signer is not authorized to perform operations'
-        '500':
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      operationId: clearEnvStorage
-      tags:
-        - Env Storage
-      summary: Clear all environment variables
-      description: |
-        Deletes all environment variables stored for the calling world.
-        The world identifier is resolved from the Signed Fetch metadata.
-        
-        **Warning**: This is a destructive operation. The `X-Confirm-Delete-All` header
-        is required to prevent accidental data loss.
-        
-        Only world owners and deployers can perform this operation.
-      parameters:
-        - $ref: '#/components/parameters/ConfirmDeleteAllHeader'
-      responses:
-        '204':
-          description: All environment variables deleted successfully
-        '400':
-          description: Signed fetch is missing, invalid, or confirmation header is missing
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                signedFetchRequired:
-                  value:
-                    error: Invalid Auth Chain
-                    message: This endpoint requires a signed fetch request. See ADR-44.
-                missingHeader:
-                  value:
-                    error: Bad request
-                    message: 'Missing required header: X-Confirm-Delete-All'
         '401':
           description: Unauthorized - signer is not authorized
           content:
