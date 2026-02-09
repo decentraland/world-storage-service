@@ -331,7 +331,7 @@ paths:
                       offset: 0
                       total: 0
         '400':
-          description: Signed fetch is missing, invalid, invalid player address, or invalid pagination parameters
+          description: Signed fetch is missing, invalid, or invalid player address
           content:
             application/json:
               schema:
@@ -345,10 +345,6 @@ paths:
                   value:
                     error: Bad request
                     message: Invalid player address
-                invalidLimit:
-                  value:
-                    error: Bad request
-                    message: limit must be a positive integer
         '500':
           description: Unexpected error
           content:

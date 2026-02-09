@@ -15,10 +15,7 @@ import type { HTTPPaginatedResponse } from '../../../types/http'
  * @returns Paginated list of { key, value } entries
  */
 export async function listWorldStorageHandler(
-  context: Pick<
-    WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values'>,
-    'url' | 'components' | 'worldName'
-  >
+  context: Pick<WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values'>, 'url' | 'components' | 'worldName'>
 ): Promise<HTTPPaginatedResponse<StorageEntry[]>> {
   const {
     url,

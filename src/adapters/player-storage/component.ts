@@ -4,6 +4,7 @@ import type { IPlayerStorageComponent, PlayerStorageItem } from './types'
 import type { AppComponents } from '../../types'
 import type { StorageEntry } from '../../types/commons'
 import type { PaginationOptions } from '../../types/http'
+import type { SQLStatement } from 'sql-template-strings'
 
 /**
  * Creates the player storage component that manages player-level key-value storage within worlds.
@@ -139,15 +140,9 @@ export const createPlayerStorageComponent = ({
 
     logger.debug('Listing player storage values', { worldName, playerAddress, limit, offset, prefix: prefix ?? 'none' })
 
-    const prefixPattern = buildPrefixPattern(prefix)
-
-    const query = SQL`
-      SELECT key, value
-      FROM player_storage
-      WHERE world_name = ${worldName} AND player_address = ${playerAddress}
-        AND (${prefixPattern}::text IS NULL OR lower(key) LIKE ${prefixPattern})
+    const query = SQL`SELECT key, value`.append(buildValuesBaseQuery(worldName, playerAddress, prefix)).append(SQL`
       ORDER BY key ASC
-      LIMIT ${limit} OFFSET ${offset}`
+      LIMIT ${limit} OFFSET ${offset}`)
 
     const result = await pg.query<StorageEntry>(query)
 
@@ -173,13 +168,7 @@ export const createPlayerStorageComponent = ({
 
     logger.debug('Counting player storage keys', { worldName, playerAddress, prefix: prefix ?? 'none' })
 
-    const prefixPattern = buildPrefixPattern(prefix)
-
-    const query = SQL`
-      SELECT COUNT(*)::int as count
-      FROM player_storage
-      WHERE world_name = ${worldName} AND player_address = ${playerAddress}
-        AND (${prefixPattern}::text IS NULL OR lower(key) LIKE ${prefixPattern})`
+    const query = SQL`SELECT COUNT(*)::int as count`.append(buildValuesBaseQuery(worldName, playerAddress, prefix))
 
     const result = await pg.query<{ count: number }>(query)
     const count = result.rows[0]?.count ?? 0
@@ -187,6 +176,25 @@ export const createPlayerStorageComponent = ({
     logger.debug('Player storage keys counted successfully', { worldName, playerAddress, count })
 
     return count
+  }
+
+  /**
+   * Builds the shared FROM + WHERE clause for player_storage queries.
+   *
+   * Both listValues and countKeys filter on the same criteria (world_name + player_address + optional prefix).
+   * This helper centralises that logic so it is defined once.
+   *
+   * @param worldName - The world identifier
+   * @param playerAddress - The player's wallet address
+   * @param prefix - Optional key prefix filter
+   * @returns A SQLStatement containing the FROM and WHERE clauses
+   */
+  function buildValuesBaseQuery(worldName: string, playerAddress: string, prefix?: string): SQLStatement {
+    const prefixPattern = buildPrefixPattern(prefix)
+    return SQL`
+      FROM player_storage
+      WHERE world_name = ${worldName} AND player_address = ${playerAddress}
+        AND (${prefixPattern}::text IS NULL OR key LIKE ${prefixPattern})`
   }
 
   return {

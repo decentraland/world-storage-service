@@ -173,8 +173,8 @@ test('when listing player storage values', function ({ components, stubComponent
     })
 
     describe('and a prefix is provided', () => {
-      it('should respond with items matching the prefix case-insensitively', async () => {
-        const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values?prefix=LEVEL`, {
+      it('should respond with items matching the prefix case-sensitively', async () => {
+        const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values?prefix=level`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
@@ -184,6 +184,20 @@ test('when listing player storage values', function ({ components, stubComponent
         expect(body).toEqual({
           data: [{ key: 'level', value: 5 }],
           pagination: { limit: 100, offset: 0, total: 1 }
+        })
+      })
+
+      it('should not match keys with a different case prefix', async () => {
+        const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values?prefix=LEVEL`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+        const body = await response.json()
+        expect(response.status).toBe(200)
+        expect(body).toEqual({
+          data: [],
+          pagination: { limit: 100, offset: 0, total: 0 }
         })
       })
     })
@@ -206,61 +220,61 @@ test('when listing player storage values', function ({ components, stubComponent
   })
 
   describe('and an invalid limit is provided', () => {
-    it('should respond with a 400 for non-numeric limit', async () => {
+    it('should default to 100 for non-numeric limit', async () => {
       const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values?limit=invalid`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
       })
       const body = await response.json()
-      expect(response.status).toBe(400)
-      expect(body.message).toBe('limit must be a positive integer')
+      expect(response.status).toBe(200)
+      expect(body.pagination.limit).toBe(100)
     })
 
-    it('should respond with a 400 for limit exceeding maximum', async () => {
-      const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values?limit=1001`, {
+    it('should default to 100 for limit exceeding maximum', async () => {
+      const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values?limit=101`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
       })
       const body = await response.json()
-      expect(response.status).toBe(400)
-      expect(body.message).toBe('limit cannot exceed 1000')
+      expect(response.status).toBe(200)
+      expect(body.pagination.limit).toBe(100)
     })
 
-    it('should respond with a 400 for zero limit', async () => {
+    it('should default to 100 for zero limit', async () => {
       const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values?limit=0`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
       })
       const body = await response.json()
-      expect(response.status).toBe(400)
-      expect(body.message).toBe('limit must be a positive integer')
+      expect(response.status).toBe(200)
+      expect(body.pagination.limit).toBe(100)
     })
   })
 
   describe('and an invalid offset is provided', () => {
-    it('should respond with a 400 for non-numeric offset', async () => {
+    it('should default to 0 for non-numeric offset', async () => {
       const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values?offset=invalid`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
       })
       const body = await response.json()
-      expect(response.status).toBe(400)
-      expect(body.message).toBe('offset must be a non-negative integer')
+      expect(response.status).toBe(200)
+      expect(body.pagination.offset).toBe(0)
     })
 
-    it('should respond with a 400 for negative offset', async () => {
+    it('should default to 0 for negative offset', async () => {
       const response = await signedFetch(`${baseUrl}/players/${playerAddress}/values?offset=-1`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
       })
       const body = await response.json()
-      expect(response.status).toBe(400)
-      expect(body.message).toBe('offset must be a non-negative integer')
+      expect(response.status).toBe(200)
+      expect(body.pagination.offset).toBe(0)
     })
   })
 

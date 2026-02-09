@@ -17,7 +17,7 @@ import type { HTTPPaginatedResponse } from '../../../types/http'
  */
 export async function listPlayerStorageHandler(
   context: Pick<
-    WorldHandlerContextWithPath<'logs' | 'playerStorage' | 'config', '/players/:player_address/values'>,
+    WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values'>,
     'url' | 'components' | 'params' | 'worldName'
   >
 ): Promise<HTTPPaginatedResponse<StorageEntry[]>> {
@@ -25,7 +25,7 @@ export async function listPlayerStorageHandler(
     url,
     params,
     worldName,
-    components: { logs, playerStorage, config }
+    components: { logs, playerStorage }
   } = context
 
   const logger = logs.getLogger('list-player-storage-handler')
@@ -39,9 +39,7 @@ export async function listPlayerStorageHandler(
   }
 
   try {
-    const defaultLimit = (await config.getNumber('PAGINATION_DEFAULT_LIMIT')) ?? 100
-    const maxLimit = (await config.getNumber('PAGINATION_MAX_LIMIT')) ?? 1000
-    const { limit, offset, prefix } = parsePaginationParams(url, { defaultLimit, maxLimit })
+    const { limit, offset, prefix } = parsePaginationParams(url)
 
     logger.debug('Parsed pagination params', { worldName, playerAddress, limit, offset, prefix: prefix ?? 'none' })
 
