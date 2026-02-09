@@ -17,7 +17,7 @@ export interface PaginationOptions {
   limit: number
   /** Number of items to skip (default: 0) */
   offset: number
-  /** Optional case-insensitive prefix filter on key name */
+  /** Optional case-sensitive prefix filter on key name */
   prefix?: string
 }
 

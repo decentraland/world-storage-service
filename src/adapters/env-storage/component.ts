@@ -3,6 +3,7 @@ import { buildPrefixPattern } from '../../utils/prefix'
 import type { IEnvStorageComponent } from './types'
 import type { AppComponents } from '../../types'
 import type { PaginationOptions } from '../../types/http'
+import type { SQLStatement } from 'sql-template-strings'
 
 /**
  * Creates the env storage component that manages encrypted environment variables for worlds.
@@ -112,15 +113,9 @@ export const createEnvStorageComponent = ({
 
     logger.debug('Listing env variable keys', { worldName, limit, offset, prefix: prefix ?? 'none' })
 
-    const prefixPattern = buildPrefixPattern(prefix)
-
-    const query = SQL`
-      SELECT key
-      FROM env_variables
-      WHERE world_name = ${worldName}
-        AND (${prefixPattern}::text IS NULL OR lower(key) LIKE ${prefixPattern})
+    const query = SQL`SELECT key`.append(buildKeysBaseQuery(worldName, prefix)).append(SQL`
       ORDER BY key ASC
-      LIMIT ${limit} OFFSET ${offset}`
+      LIMIT ${limit} OFFSET ${offset}`)
 
     const result = await pg.query<{ key: string }>(query)
     const keys = result.rows.map(row => row.key)
@@ -142,13 +137,7 @@ export const createEnvStorageComponent = ({
 
     logger.debug('Counting env variable keys', { worldName, prefix: prefix ?? 'none' })
 
-    const prefixPattern = buildPrefixPattern(prefix)
-
-    const query = SQL`
-      SELECT COUNT(*)::int as count
-      FROM env_variables
-      WHERE world_name = ${worldName}
-        AND (${prefixPattern}::text IS NULL OR lower(key) LIKE ${prefixPattern})`
+    const query = SQL`SELECT COUNT(*)::int as count`.append(buildKeysBaseQuery(worldName, prefix))
 
     const result = await pg.query<{ count: number }>(query)
     const count = result.rows[0]?.count ?? 0
@@ -156,6 +145,24 @@ export const createEnvStorageComponent = ({
     logger.debug('Env variable keys counted successfully', { worldName, count })
 
     return count
+  }
+
+  /**
+   * Builds the shared FROM + WHERE clause for env_variables key queries.
+   *
+   * Both listKeys and countKeys filter on the same criteria (world_name + optional prefix).
+   * This helper centralises that logic so it is defined once.
+   *
+   * @param worldName - The world identifier
+   * @param prefix - Optional key prefix filter
+   * @returns A SQLStatement containing the FROM and WHERE clauses
+   */
+  function buildKeysBaseQuery(worldName: string, prefix?: string): SQLStatement {
+    const prefixPattern = buildPrefixPattern(prefix)
+    return SQL`
+      FROM env_variables
+      WHERE world_name = ${worldName}
+        AND (${prefixPattern}::text IS NULL OR key LIKE ${prefixPattern})`
   }
 
   return {
