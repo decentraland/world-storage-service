@@ -1,5 +1,5 @@
 import { getPaginationParams } from '@dcl/http-commons'
-import { PaginatedParameters } from '@dcl/schemas'
+import type { PaginatedParameters } from '@dcl/schemas'
 
 /**
  * Search parameters parsed from query string
