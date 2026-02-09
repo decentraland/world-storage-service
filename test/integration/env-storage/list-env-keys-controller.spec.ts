@@ -1,4 +1,5 @@
 import type { AuthIdentity } from '@dcl/crypto'
+import { InvalidRequestError } from '@dcl/http-commons'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { test } from '../../components'
 import { TEST_REALM_METADATA } from '../utils/auth'
@@ -259,6 +260,27 @@ test('when listing env keys', function ({ components, stubComponents }) {
       expect(response.status).toBe(200)
       expect(body.pagination.limit).toBe(100)
       expect(body.pagination.offset).toBe(0)
+    })
+  })
+
+  describe('and the storage throws an InvalidRequestError', () => {
+    beforeEach(() => {
+      stubComponents.envStorage.listKeys.rejects(new InvalidRequestError('invalid request'))
+    })
+
+    afterEach(() => {
+      stubComponents.envStorage.listKeys.reset()
+    })
+
+    it('should respond with a 400 and the error message', async () => {
+      const response = await signedFetch(`${baseUrl}/env`, {
+        method: 'GET',
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+      const body = await response.json()
+      expect(response.status).toBe(400)
+      expect(body.message).toBe('invalid request')
     })
   })
 
