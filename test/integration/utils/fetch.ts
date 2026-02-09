@@ -8,14 +8,15 @@ import type { IFetchComponent } from '@well-known-components/interfaces'
  *
  * This wrapper:
  * 1. Accepts full URLs from signedFetchFactory
- * 2. Extracts the pathname using new URL(url).pathname
+ * 2. Extracts the pathname and search (query string) using new URL(url)
  * 3. Properly extracts headers from Request objects (which is how signedFetchFactory passes signed requests)
- * 4. Passes the relative path with headers to localFetch
+ * 4. Passes the relative path (with query string) and headers to localFetch
  */
 export function createLocalFetchWrapper(localFetch: IFetchComponent): typeof fetch {
   return async (input, init) => {
     if (input instanceof Request) {
-      const relativePath = new URL(input.url).pathname
+      const parsedUrl = new URL(input.url)
+      const relativePath = parsedUrl.pathname + parsedUrl.search
       // Clone the request to safely read the body without consuming it
       const body = input.body ? await input.clone().text() : undefined
       return localFetch.fetch(relativePath, {
@@ -24,7 +25,8 @@ export function createLocalFetchWrapper(localFetch: IFetchComponent): typeof fet
         body
       }) as unknown as Response
     }
-    const relativePath = new URL(input as string).pathname
+    const parsedUrl = new URL(input as string)
+    const relativePath = parsedUrl.pathname + parsedUrl.search
     return localFetch.fetch(relativePath, init) as unknown as Response
   }
 }
