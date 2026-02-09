@@ -14,11 +14,13 @@ import {
 } from './handlers/player-storage/clear-player-storage'
 import { deletePlayerStorageHandler } from './handlers/player-storage/delete-player-storage'
 import { getPlayerStorageHandler } from './handlers/player-storage/get-player-storage'
+import { listPlayerStorageHandler } from './handlers/player-storage/list-player-storage'
 import { upsertPlayerStorageHandler } from './handlers/player-storage/upsert-player-storage'
 import { UpsertEnvStorageRequestSchema, UpsertStorageRequestSchema } from './handlers/schemas'
 import { clearWorldStorageHandler } from './handlers/world-storage/clear-world-storage'
 import { deleteWorldStorageHandler } from './handlers/world-storage/delete-world-storage'
 import { getWorldStorageHandler } from './handlers/world-storage/get-world-storage'
+import { listWorldStorageHandler } from './handlers/world-storage/list-world-storage'
 import { upsertWorldStorageHandler } from './handlers/world-storage/upsert-world-storage'
 import {
   authorizationMiddleware,
@@ -64,6 +66,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   // The withWorldName helper casts handlers to be compatible with the router's GlobalContext type.
 
   // World storage endpoints
+  router.get('/values', withWorldName(authorizationMiddleware), withWorldName(listWorldStorageHandler))
   router.get('/values/:key', withWorldName(authorizationMiddleware), withWorldName(getWorldStorageHandler))
   router.put(
     '/values/:key',
@@ -79,6 +82,11 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
 
   // Player storage endpoints
+  router.get(
+    '/players/:player_address/values',
+    withWorldName(authorizationMiddleware),
+    withWorldName(listPlayerStorageHandler)
+  )
   router.get(
     '/players/:player_address/values/:key',
     withWorldName(authorizationMiddleware),
