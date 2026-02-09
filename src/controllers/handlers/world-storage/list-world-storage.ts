@@ -1,6 +1,6 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../../utils/errors'
-import { parsePaginationParams } from '../commons/parsePaginationParams'
+import { parseSearchParams } from '../commons/parseSearchParams'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { StorageEntry } from '../../../types/commons'
 import type { HTTPPaginatedResponse } from '../../../types/http'
@@ -28,7 +28,7 @@ export async function listWorldStorageHandler(
   logger.debug('Processing list world storage request', { worldName })
 
   try {
-    const { limit, offset, prefix } = parsePaginationParams(url)
+    const { limit, offset, prefix } = parseSearchParams(url)
 
     logger.debug('Parsed pagination params', { worldName, limit, offset, prefix: prefix ?? 'none' })
 

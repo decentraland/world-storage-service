@@ -1,12 +1,12 @@
-import { parsePaginationParams } from '../../../../../src/controllers/handlers/commons/parsePaginationParams'
+import { parseSearchParams } from '../../../../../src/controllers/handlers/commons/parseSearchParams'
 
-describe('parsePaginationParams', () => {
+describe('parseSearchParams', () => {
   describe('when valid limit and offset are provided', () => {
-    let result: ReturnType<typeof parsePaginationParams>
+    let result: ReturnType<typeof parseSearchParams>
 
     beforeEach(() => {
       const url = new URL('http://localhost/test?limit=10&offset=5')
-      result = parsePaginationParams(url)
+      result = parseSearchParams(url)
     })
 
     it('should return the parsed limit', () => {
@@ -23,11 +23,11 @@ describe('parsePaginationParams', () => {
   })
 
   describe('when a prefix is provided', () => {
-    let result: ReturnType<typeof parsePaginationParams>
+    let result: ReturnType<typeof parseSearchParams>
 
     beforeEach(() => {
       const url = new URL('http://localhost/test?limit=10&offset=0&prefix=API_')
-      result = parsePaginationParams(url)
+      result = parseSearchParams(url)
     })
 
     it('should return the prefix', () => {
@@ -36,11 +36,11 @@ describe('parsePaginationParams', () => {
   })
 
   describe('when no query params are provided', () => {
-    let result: ReturnType<typeof parsePaginationParams>
+    let result: ReturnType<typeof parseSearchParams>
 
     beforeEach(() => {
       const url = new URL('http://localhost/test')
-      result = parsePaginationParams(url)
+      result = parseSearchParams(url)
     })
 
     it('should return default limit of 100', () => {
@@ -57,11 +57,11 @@ describe('parsePaginationParams', () => {
   })
 
   describe('when prefix is an empty string', () => {
-    let result: ReturnType<typeof parsePaginationParams>
+    let result: ReturnType<typeof parseSearchParams>
 
     beforeEach(() => {
       const url = new URL('http://localhost/test?prefix=')
-      result = parsePaginationParams(url)
+      result = parseSearchParams(url)
     })
 
     it('should return undefined prefix', () => {

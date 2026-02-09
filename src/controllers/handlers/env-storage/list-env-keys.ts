@@ -1,6 +1,6 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../../utils/errors'
-import { parsePaginationParams } from '../commons/parsePaginationParams'
+import { parseSearchParams } from '../commons/parseSearchParams'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPPaginatedResponse } from '../../../types/http'
 
@@ -32,7 +32,7 @@ export async function listEnvKeysHandler(
   logger.debug('Processing list env keys request', { worldName })
 
   try {
-    const { limit, offset, prefix } = parsePaginationParams(url)
+    const { limit, offset, prefix } = parseSearchParams(url)
 
     logger.debug('Parsed pagination params', { worldName, limit, offset, prefix: prefix ?? 'none' })
 
