@@ -143,8 +143,8 @@ test('when listing env keys', function ({ components, stubComponents }) {
     })
 
     describe('and a prefix is provided', () => {
-      it('should respond with keys matching the prefix case-insensitively', async () => {
-        const response = await signedFetch(`${baseUrl}/env?prefix=api`, {
+      it('should respond with keys matching the prefix case-sensitively', async () => {
+        const response = await signedFetch(`${baseUrl}/env?prefix=API`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
@@ -156,65 +156,79 @@ test('when listing env keys', function ({ components, stubComponents }) {
           pagination: { limit: 100, offset: 0, total: 1 }
         })
       })
+
+      it('should not match keys with a different case prefix', async () => {
+        const response = await signedFetch(`${baseUrl}/env?prefix=api`, {
+          method: 'GET',
+          identity,
+          metadata: TEST_REALM_METADATA
+        })
+        const body = await response.json()
+        expect(response.status).toBe(200)
+        expect(body).toEqual({
+          data: [],
+          pagination: { limit: 100, offset: 0, total: 0 }
+        })
+      })
     })
   })
 
   describe('and an invalid limit is provided', () => {
-    it('should respond with a 400 for non-numeric limit', async () => {
+    it('should default to 100 for non-numeric limit', async () => {
       const response = await signedFetch(`${baseUrl}/env?limit=invalid`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
       })
       const body = await response.json()
-      expect(response.status).toBe(400)
-      expect(body.message).toBe('limit must be a positive integer')
+      expect(response.status).toBe(200)
+      expect(body.pagination.limit).toBe(100)
     })
 
-    it('should respond with a 400 for limit exceeding maximum', async () => {
-      const response = await signedFetch(`${baseUrl}/env?limit=1001`, {
+    it('should default to 100 for limit exceeding maximum', async () => {
+      const response = await signedFetch(`${baseUrl}/env?limit=101`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
       })
       const body = await response.json()
-      expect(response.status).toBe(400)
-      expect(body.message).toBe('limit cannot exceed 1000')
+      expect(response.status).toBe(200)
+      expect(body.pagination.limit).toBe(100)
     })
 
-    it('should respond with a 400 for zero limit', async () => {
+    it('should default to 100 for zero limit', async () => {
       const response = await signedFetch(`${baseUrl}/env?limit=0`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
       })
       const body = await response.json()
-      expect(response.status).toBe(400)
-      expect(body.message).toBe('limit must be a positive integer')
+      expect(response.status).toBe(200)
+      expect(body.pagination.limit).toBe(100)
     })
   })
 
   describe('and an invalid offset is provided', () => {
-    it('should respond with a 400 for non-numeric offset', async () => {
+    it('should default to 0 for non-numeric offset', async () => {
       const response = await signedFetch(`${baseUrl}/env?offset=invalid`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
       })
       const body = await response.json()
-      expect(response.status).toBe(400)
-      expect(body.message).toBe('offset must be a non-negative integer')
+      expect(response.status).toBe(200)
+      expect(body.pagination.offset).toBe(0)
     })
 
-    it('should respond with a 400 for negative offset', async () => {
+    it('should default to 0 for negative offset', async () => {
       const response = await signedFetch(`${baseUrl}/env?offset=-1`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
       })
       const body = await response.json()
-      expect(response.status).toBe(400)
-      expect(body.message).toBe('offset must be a non-negative integer')
+      expect(response.status).toBe(200)
+      expect(body.pagination.offset).toBe(0)
     })
   })
 

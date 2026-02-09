@@ -24,7 +24,7 @@ export async function listEnvKeysHandler(
   const {
     url,
     worldName,
-    components: { logs, envStorage, config }
+    components: { logs, envStorage }
   } = context
 
   const logger = logs.getLogger('list-env-keys-handler')
@@ -32,9 +32,7 @@ export async function listEnvKeysHandler(
   logger.debug('Processing list env keys request', { worldName })
 
   try {
-    const defaultLimit = (await config.getNumber('PAGINATION_DEFAULT_LIMIT')) ?? 100
-    const maxLimit = (await config.getNumber('PAGINATION_MAX_LIMIT')) ?? 1000
-    const { limit, offset, prefix } = parsePaginationParams(url, { defaultLimit, maxLimit })
+    const { limit, offset, prefix } = parsePaginationParams(url)
 
     logger.debug('Parsed pagination params', { worldName, limit, offset, prefix: prefix ?? 'none' })
 

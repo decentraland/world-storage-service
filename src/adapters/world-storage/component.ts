@@ -4,6 +4,7 @@ import type { IWorldStorageComponent, WorldStorageItem } from './types'
 import type { AppComponents } from '../../types'
 import type { StorageEntry } from '../../types/commons'
 import type { PaginationOptions } from '../../types/http'
+import type { SQLStatement } from 'sql-template-strings'
 
 /**
  * Creates the world storage component that manages world-level key-value storage.
@@ -110,15 +111,9 @@ export const createWorldStorageComponent = ({
 
     logger.debug('Listing world storage values', { worldName, limit, offset, prefix: prefix ?? 'none' })
 
-    const prefixPattern = buildPrefixPattern(prefix)
-
-    const query = SQL`
-      SELECT key, value
-      FROM world_storage
-      WHERE world_name = ${worldName}
-        AND (${prefixPattern}::text IS NULL OR lower(key) LIKE ${prefixPattern})
+    const query = SQL`SELECT key, value`.append(buildValuesBaseQuery(worldName, prefix)).append(SQL`
       ORDER BY key ASC
-      LIMIT ${limit} OFFSET ${offset}`
+      LIMIT ${limit} OFFSET ${offset}`)
 
     const result = await pg.query<StorageEntry>(query)
 
@@ -139,13 +134,7 @@ export const createWorldStorageComponent = ({
 
     logger.debug('Counting world storage keys', { worldName, prefix: prefix ?? 'none' })
 
-    const prefixPattern = buildPrefixPattern(prefix)
-
-    const query = SQL`
-      SELECT COUNT(*)::int as count
-      FROM world_storage
-      WHERE world_name = ${worldName}
-        AND (${prefixPattern}::text IS NULL OR lower(key) LIKE ${prefixPattern})`
+    const query = SQL`SELECT COUNT(*)::int as count`.append(buildValuesBaseQuery(worldName, prefix))
 
     const result = await pg.query<{ count: number }>(query)
     const count = result.rows[0]?.count ?? 0
@@ -153,6 +142,24 @@ export const createWorldStorageComponent = ({
     logger.debug('World storage keys counted successfully', { worldName, count })
 
     return count
+  }
+
+  /**
+   * Builds the shared FROM + WHERE clause for world_storage queries.
+   *
+   * Both listValues and countKeys filter on the same criteria (world_name + optional prefix).
+   * This helper centralises that logic so it is defined once.
+   *
+   * @param worldName - The world identifier
+   * @param prefix - Optional key prefix filter
+   * @returns A SQLStatement containing the FROM and WHERE clauses
+   */
+  function buildValuesBaseQuery(worldName: string, prefix?: string): SQLStatement {
+    const prefixPattern = buildPrefixPattern(prefix)
+    return SQL`
+      FROM world_storage
+      WHERE world_name = ${worldName}
+        AND (${prefixPattern}::text IS NULL OR key LIKE ${prefixPattern})`
   }
 
   return {

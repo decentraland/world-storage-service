@@ -80,7 +80,7 @@ paths:
                       offset: 0
                       total: 0
         '400':
-          description: Signed fetch is missing, invalid, or invalid pagination parameters
+          description: Signed fetch is missing or invalid
           content:
             application/json:
               schema:
@@ -90,18 +90,6 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
-                invalidLimit:
-                  value:
-                    error: Bad request
-                    message: limit must be a positive integer
-                limitExceeded:
-                  value:
-                    error: Bad request
-                    message: limit cannot exceed 1000
-                invalidOffset:
-                  value:
-                    error: Bad request
-                    message: offset must be a non-negative integer
         '500':
           description: Unexpected error
           content:
@@ -969,11 +957,11 @@ components:
       required: false
       description: |
         Maximum number of items to return per page.
-        Default: 100, Maximum: 1000 (configurable via PAGINATION_DEFAULT_LIMIT and PAGINATION_MAX_LIMIT env vars).
+        Default: 100, Maximum: 100. Invalid values (non-numeric, zero, negative, or exceeding max) fall back to the default.
       schema:
         type: integer
         minimum: 1
-        maximum: 1000
+        maximum: 100
         default: 100
       example: 100
     OffsetParam:
@@ -982,7 +970,7 @@ components:
       required: false
       description: |
         Number of items to skip for pagination.
-        Default: 0.
+        Default: 0. Invalid values (non-numeric or negative) fall back to the default.
       schema:
         type: integer
         minimum: 0
@@ -993,8 +981,8 @@ components:
       in: query
       required: false
       description: |
-        Optional case-insensitive prefix filter applied to key names.
-        Only keys starting with the given prefix (case-insensitive) will be returned.
+        Optional case-sensitive prefix filter applied to key names.
+        Only keys starting with the given prefix (case-sensitive) will be returned.
       schema:
         type: string
       example: 'API_'
