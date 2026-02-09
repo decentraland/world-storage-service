@@ -969,8 +969,8 @@ components:
       in: query
       required: false
       description: |
-        Optional case-insensitive prefix filter applied to key names.
-        Only keys starting with the given prefix (case-insensitive) will be returned.
+        Optional case-sensitive prefix filter applied to key names.
+        Only keys starting with the given prefix (case-sensitive) will be returned.
       schema:
         type: string
       example: 'API_'
