@@ -1,4 +1,5 @@
 import { InvalidRequestError } from '@dcl/http-commons'
+import { EthAddress } from '@dcl/schemas'
 import { errorMessageOrDefault } from '../../../utils/errors'
 import { parsePaginationParams } from '../commons/parsePaginationParams'
 import type { WorldHandlerContextWithPath } from '../../../types'
@@ -6,40 +7,51 @@ import type { StorageEntry } from '../../../types/commons'
 import type { HTTPPaginatedResponse } from '../../../types/http'
 
 /**
- * Handler for listing world storage values with pagination
+ * Handler for listing player storage values with pagination
  *
  * Results are paginated and ordered alphabetically by key (ASC) for deterministic pagination.
  * Each item is returned as { key, value }.
  *
- * @param context - Request context with worldName, components, and URL
+ * @param context - Request context with worldName, params, components, and URL
  * @returns Paginated list of { key, value } entries
  */
-export async function listWorldStorageHandler(
-  context: Pick<WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values'>, 'url' | 'components' | 'worldName'>
+export async function listPlayerStorageHandler(
+  context: Pick<
+    WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values'>,
+    'url' | 'components' | 'params' | 'worldName'
+  >
 ): Promise<HTTPPaginatedResponse<StorageEntry[]>> {
   const {
     url,
+    params,
     worldName,
-    components: { logs, worldStorage }
+    components: { logs, playerStorage }
   } = context
 
-  const logger = logs.getLogger('list-world-storage-handler')
+  const logger = logs.getLogger('list-player-storage-handler')
 
-  logger.debug('Processing list world storage request', { worldName })
+  const playerAddress = params.player_address.toLowerCase()
+
+  logger.debug('Processing list player storage request', { worldName, playerAddress })
+
+  if (!EthAddress.validate(playerAddress)) {
+    throw new InvalidRequestError('Invalid player address')
+  }
 
   try {
     const { limit, offset, prefix } = parsePaginationParams(url)
 
-    logger.debug('Parsed pagination params', { worldName, limit, offset, prefix: prefix ?? 'none' })
+    logger.debug('Parsed pagination params', { worldName, playerAddress, limit, offset, prefix: prefix ?? 'none' })
 
     // Fetch values and total count in parallel
     const [values, total] = await Promise.all([
-      worldStorage.listValues(worldName, { limit, offset, prefix }),
-      worldStorage.countKeys(worldName, { prefix })
+      playerStorage.listValues(worldName, playerAddress, { limit, offset, prefix }),
+      playerStorage.countKeys(worldName, playerAddress, { prefix })
     ])
 
-    logger.info('World storage values listed successfully', {
+    logger.info('Player storage values listed successfully', {
       worldName,
+      playerAddress,
       count: values.length,
       total,
       limit,
@@ -58,8 +70,9 @@ export async function listWorldStorageHandler(
       throw error
     }
 
-    logger.error('Error listing world storage values', {
+    logger.error('Error listing player storage values', {
       worldName,
+      playerAddress,
       error: errorMessageOrDefault(error, 'Unknown error')
     })
 
