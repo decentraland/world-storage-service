@@ -30,7 +30,13 @@ export async function initComponents(): Promise<AppComponents> {
   const tracer = await createTracerComponent()
   const fetcher = await createTracedFetcherComponent({ tracer })
   const logs = await createLogComponent({ metrics, tracer })
-  const server = await createServerComponent<GlobalContext>({ config, logs }, {})
+  const corsOrigins = await config.requireString('CORS_ORIGINS')
+  const cors = {
+    origin: corsOrigins.split(';').map(pattern => new RegExp(pattern)),
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+    maxAge: 86400
+  }
+  const server = await createServerComponent<GlobalContext>({ config, logs }, { cors })
   const statusChecks = await createStatusCheckComponent({ server, config })
   createHttpTracerComponent({ server, tracer })
   instrumentHttpServerWithRequestLogger({ server, logger: logs }, { verbosity: Verbosity.INFO })
