@@ -171,7 +171,7 @@ export const createPlayerStorageComponent = ({
     const query = SQL`SELECT COUNT(*)::int as count`.append(buildValuesBaseQuery(worldName, playerAddress, prefix))
 
     const result = await pg.query<{ count: number }>(query)
-    const count = result.rows[0]?.count ?? 0
+    const count = result.rows[0].count
 
     logger.debug('Player storage keys counted successfully', { worldName, playerAddress, count })
 
@@ -197,6 +197,59 @@ export const createPlayerStorageComponent = ({
         AND (${prefixPattern}::text IS NULL OR key LIKE ${prefixPattern})`
   }
 
+  /**
+   * Lists distinct player addresses that have stored values in a world with pagination
+   *
+   * Results are ordered alphabetically by player address (ASC) for deterministic pagination.
+   *
+   * @param worldName - The world identifier
+   * @param options - Pagination options (limit and offset)
+   * @returns Array of player addresses sorted alphabetically
+   */
+  async function listPlayers(
+    worldName: string,
+    options: Pick<PaginationOptions, 'limit' | 'offset'>
+  ): Promise<string[]> {
+    const { limit, offset } = options
+
+    logger.debug('Listing players with stored values', { worldName, limit, offset })
+
+    const query = SQL`
+      SELECT DISTINCT player_address
+      FROM player_storage
+      WHERE world_name = ${worldName}
+      ORDER BY player_address ASC
+      LIMIT ${limit} OFFSET ${offset}`
+
+    const result = await pg.query<{ player_address: string }>(query)
+
+    logger.debug('Players listed successfully', { worldName, count: result.rows.length })
+
+    return result.rows.map(row => row.player_address)
+  }
+
+  /**
+   * Counts the total number of distinct players that have stored values in a world
+   *
+   * @param worldName - The world identifier
+   * @returns Total count of distinct players
+   */
+  async function countPlayers(worldName: string): Promise<number> {
+    logger.debug('Counting distinct players', { worldName })
+
+    const query = SQL`
+      SELECT COUNT(DISTINCT player_address)::int as count
+      FROM player_storage
+      WHERE world_name = ${worldName}`
+
+    const result = await pg.query<{ count: number }>(query)
+    const count = result.rows[0].count
+
+    logger.debug('Players counted successfully', { worldName, count })
+
+    return count
+  }
+
   return {
     getValue,
     setValue,
@@ -204,6 +257,8 @@ export const createPlayerStorageComponent = ({
     deleteAllForPlayer,
     deleteAll,
     listValues,
-    countKeys
+    countKeys,
+    listPlayers,
+    countPlayers
   }
 }

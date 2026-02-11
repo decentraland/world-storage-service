@@ -76,4 +76,23 @@ export interface IPlayerStorageComponent {
    * @returns Total count of matching keys
    */
   countKeys(worldName: string, playerAddress: string, options: Pick<PaginationOptions, 'prefix'>): Promise<number>
+
+  /**
+   * Lists distinct player addresses that have stored values in a world with pagination
+   *
+   * Results are ordered alphabetically by player address (ASC) for deterministic pagination.
+   *
+   * @param worldName - The world identifier
+   * @param options - Pagination options (limit and offset)
+   * @returns Array of player addresses sorted alphabetically
+   */
+  listPlayers(worldName: string, options: Pick<PaginationOptions, 'limit' | 'offset'>): Promise<string[]>
+
+  /**
+   * Counts the total number of distinct players that have stored values in a world
+   *
+   * @param worldName - The world identifier
+   * @returns Total count of distinct players
+   */
+  countPlayers(worldName: string): Promise<number>
 }

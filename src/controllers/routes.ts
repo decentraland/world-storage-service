@@ -15,6 +15,7 @@ import {
 import { deletePlayerStorageHandler } from './handlers/player-storage/delete-player-storage'
 import { getPlayerStorageHandler } from './handlers/player-storage/get-player-storage'
 import { listPlayerStorageHandler } from './handlers/player-storage/list-player-storage'
+import { listPlayersHandler } from './handlers/player-storage/list-players'
 import { upsertPlayerStorageHandler } from './handlers/player-storage/upsert-player-storage'
 import { UpsertEnvStorageRequestSchema, UpsertStorageRequestSchema } from './handlers/schemas'
 import { clearWorldStorageHandler } from './handlers/world-storage/clear-world-storage'
@@ -82,6 +83,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
 
   // Player storage endpoints
+  router.get('/players', withWorldName(authorizationMiddleware), withWorldName(listPlayersHandler))
   router.get(
     '/players/:player_address/values',
     withWorldName(authorizationMiddleware),
