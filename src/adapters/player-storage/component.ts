@@ -171,7 +171,7 @@ export const createPlayerStorageComponent = ({
     const query = SQL`SELECT COUNT(*)::int as count`.append(buildValuesBaseQuery(worldName, playerAddress, prefix))
 
     const result = await pg.query<{ count: number }>(query)
-    const count = result.rows[0]?.count ?? 0
+    const count = result.rows[0].count
 
     logger.debug('Player storage keys counted successfully', { worldName, playerAddress, count })
 
@@ -243,7 +243,7 @@ export const createPlayerStorageComponent = ({
       WHERE world_name = ${worldName}`
 
     const result = await pg.query<{ count: number }>(query)
-    const count = result.rows[0]?.count ?? 0
+    const count = result.rows[0].count
 
     logger.debug('Players counted successfully', { worldName, count })
 

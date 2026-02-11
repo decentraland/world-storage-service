@@ -137,7 +137,7 @@ export const createWorldStorageComponent = ({
     const query = SQL`SELECT COUNT(*)::int as count`.append(buildValuesBaseQuery(worldName, prefix))
 
     const result = await pg.query<{ count: number }>(query)
-    const count = result.rows[0]?.count ?? 0
+    const count = result.rows[0].count
 
     logger.debug('World storage keys counted successfully', { worldName, count })
 

@@ -140,7 +140,7 @@ export const createEnvStorageComponent = ({
     const query = SQL`SELECT COUNT(*)::int as count`.append(buildKeysBaseQuery(worldName, prefix))
 
     const result = await pg.query<{ count: number }>(query)
-    const count = result.rows[0]?.count ?? 0
+    const count = result.rows[0].count
 
     logger.debug('Env variable keys counted successfully', { worldName, count })
 
