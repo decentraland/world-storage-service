@@ -35,7 +35,7 @@ export async function initComponents(): Promise<AppComponents> {
   const corsOrigins = await config.requireString('CORS_ORIGINS')
   corsLogger.info('CORS origins', { corsOrigins })
   const cors = {
-    origin: corsOrigins.split(';').map(pattern => new RegExp(pattern)),
+    origin: '*',
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     maxAge: 86400
   }
