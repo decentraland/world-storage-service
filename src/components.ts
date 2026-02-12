@@ -36,7 +36,7 @@ export async function initComponents(): Promise<AppComponents> {
   corsLogger.info('CORS origins', { corsOrigins })
   const cors = {
     origin: '*',
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
     maxAge: 86400
   }
   const server = await createServerComponent<GlobalContext>({ config, logs }, { cors })
