@@ -30,12 +30,9 @@ export async function initComponents(): Promise<AppComponents> {
   const tracer = await createTracerComponent()
   const fetcher = await createTracedFetcherComponent({ tracer })
   const logs = await createLogComponent({ metrics, tracer })
-
-  const corsLogger = logs.getLogger('cors')
-  const corsOrigins = await config.requireString('CORS_ORIGINS')
-  corsLogger.info('CORS origins', { corsOrigins })
+  const corsOrigins = '^https://(.{1,50}.)?decentraland.(zone|today|org)$;^https://(.{1,50}-)?decentraland1.vercel.app$'
   const cors = {
-    origin: '*',
+    origin: corsOrigins.split(';').map(pattern => new RegExp(pattern)),
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
     maxAge: 86400
   }
