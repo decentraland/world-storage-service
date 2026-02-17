@@ -18,6 +18,7 @@ import { createEnvStorageComponent } from './adapters/env-storage'
 import { createPlayerStorageComponent } from './adapters/player-storage'
 import { createWorldStorageComponent } from './adapters/world-storage'
 import { createWorldsContentServerComponent } from './adapters/worlds-content-server'
+import { createStorageLimitsComponent } from './logic/storage-limits'
 import { getDbConnectionString } from './logic/utils'
 import { createWorldPermissionComponent } from './logic/world-permission'
 import { metricDeclarations } from './metrics'
@@ -66,6 +67,7 @@ export async function initComponents(): Promise<AppComponents> {
   const worldStorage = createWorldStorageComponent({ pg, logs })
   const playerStorage = createPlayerStorageComponent({ pg, logs })
   const envStorage = createEnvStorageComponent({ pg, encryption, logs })
+  const storageLimits = await createStorageLimitsComponent({ config, logs, worldStorage, playerStorage, envStorage })
   const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config, logs })
   const worldPermission = createWorldPermissionComponent({ worldsContentServer, logs })
 
@@ -78,6 +80,7 @@ export async function initComponents(): Promise<AppComponents> {
     metrics,
     pg,
     encryption,
+    storageLimits,
     worldStorage,
     playerStorage,
     envStorage,

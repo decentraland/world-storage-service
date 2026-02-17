@@ -1,3 +1,5 @@
+import { InvalidRequestError } from '@dcl/http-commons'
+import { StorageLimitExceededError } from '../../../logic/storage-limits'
 import { errorMessageOrDefault } from '../../../utils/errors'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
@@ -5,7 +7,7 @@ import type { UpsertEnvStorageBody } from '../schemas'
 
 export async function upsertEnvStorageHandler(
   context: Pick<
-    WorldHandlerContextWithPath<'logs' | 'envStorage', '/env/:key'>,
+    WorldHandlerContextWithPath<'logs' | 'envStorage' | 'storageLimits', '/env/:key'>,
     'url' | 'components' | 'params' | 'request' | 'worldName'
   >
 ): Promise<HTTPResponse<unknown>> {
@@ -13,7 +15,7 @@ export async function upsertEnvStorageHandler(
     request,
     params,
     worldName,
-    components: { logs, envStorage }
+    components: { logs, envStorage, storageLimits }
   } = context
 
   const logger = logs.getLogger('upsert-env-storage-handler')
@@ -28,6 +30,7 @@ export async function upsertEnvStorageHandler(
   })
 
   try {
+    await storageLimits.validateEnvStorageUpsert(worldName, key, value)
     await envStorage.setValue(worldName, key, value)
 
     logger.info('Env variable upserted successfully', {
@@ -39,6 +42,10 @@ export async function upsertEnvStorageHandler(
       status: 204
     }
   } catch (error) {
+    if (error instanceof StorageLimitExceededError) {
+      throw new InvalidRequestError(error.message)
+    }
+
     logger.error('Error upserting env variable', {
       worldName,
       key,
