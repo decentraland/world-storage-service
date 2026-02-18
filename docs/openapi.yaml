@@ -199,6 +199,10 @@ paths:
       description: |
         Creates or updates the value stored under `key` for the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
+
+        **Storage limits**: This endpoint enforces configurable size limits per world:
+        - Maximum value size per key (default: 512 KB)
+        - Maximum total storage size per world (default: 10 MB)
       parameters:
         - name: key
           in: path
@@ -224,7 +228,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StorageValueResponse'
         '400':
-          description: Invalid signed fetch or request body
+          description: Invalid signed fetch, request body, or storage limit exceeded
           content:
             application/json:
               schema:
@@ -240,6 +244,14 @@ paths:
                 missingValue:
                   value:
                     message: Value is required
+                valueTooLarge:
+                  value:
+                    error: Bad request
+                    message: 'Value size (600000 bytes) exceeds the maximum allowed size (524288 bytes)'
+                totalSizeExceeded:
+                  value:
+                    error: Bad request
+                    message: 'Total storage size would exceed the maximum allowed (10485760 bytes). Current usage: 10000000 bytes. Delete existing data to free up space'
         '500':
           description: Unexpected error
           content:
@@ -468,6 +480,10 @@ paths:
       description: |
         Creates or updates the value stored under `key` for the specified player within the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
+
+        **Storage limits**: This endpoint enforces configurable size limits per player per world:
+        - Maximum value size per key (default: 100 KB)
+        - Maximum total storage size per player per world (default: 1 MB)
       parameters:
         - name: player_address
           in: path
@@ -501,7 +517,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StorageValueResponse'
         '400':
-          description: Invalid signed fetch or request body
+          description: Invalid signed fetch, request body, or storage limit exceeded
           content:
             application/json:
               schema:
@@ -517,6 +533,14 @@ paths:
                 missingValue:
                   value:
                     message: Value is required
+                valueTooLarge:
+                  value:
+                    error: Bad request
+                    message: 'Value size (200000 bytes) exceeds the maximum allowed size (102400 bytes)'
+                totalSizeExceeded:
+                  value:
+                    error: Bad request
+                    message: 'Total storage size would exceed the maximum allowed (1048576 bytes). Current usage: 1000000 bytes. Delete existing data to free up space'
         '500':
           description: Unexpected error
           content:
@@ -871,6 +895,10 @@ paths:
         
         **Authorization**: Only world owners and deployers can perform this operation.
         Authorized addresses are not allowed.
+
+        **Storage limits**: This endpoint enforces configurable size limits per world:
+        - Maximum value size per key (default: 10 KB)
+        - Maximum total storage size per world (default: 256 KB)
       parameters:
         - name: key
           in: path
@@ -893,7 +921,7 @@ paths:
         '204':
           description: Value upserted
         '400':
-          description: Invalid signed fetch or request body
+          description: Invalid signed fetch, request body, or storage limit exceeded
           content:
             application/json:
               schema:
@@ -912,6 +940,14 @@ paths:
                 invalidValueType:
                   value:
                     message: Invalid JSON body
+                valueTooLarge:
+                  value:
+                    error: Bad request
+                    message: 'Value size (20480 bytes) exceeds the maximum allowed size (10240 bytes)'
+                totalSizeExceeded:
+                  value:
+                    error: Bad request
+                    message: 'Total storage size would exceed the maximum allowed (262144 bytes). Current usage: 250000 bytes. Delete existing data to free up space'
         '401':
           description: Unauthorized - signer is not authorized
           content:

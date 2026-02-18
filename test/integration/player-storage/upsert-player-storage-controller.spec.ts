@@ -1,5 +1,6 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
+import { StorageLimitExceededError } from '../../../src/logic/storage-limits'
 import { test } from '../../components'
 import { ADDRESSES } from '../../fixtures'
 import { TEST_REALM_METADATA } from '../utils/auth'
@@ -147,6 +148,37 @@ test('when upserting a player storage value', function ({ components, stubCompon
       expect(getResponse.status).toBe(200)
       expect(getBody).toEqual({
         value: storedValue
+      })
+    })
+  })
+
+  describe('and the storage limits validation fails', () => {
+    let errorMessage: string
+
+    beforeEach(async () => {
+      errorMessage =
+        'Total storage size would exceed the maximum allowed (1048576 bytes). ' +
+        'Current usage: 1000000 bytes. Delete existing data to free up space'
+      stubComponents.storageLimits.validatePlayerStorageUpsert.rejects(new StorageLimitExceededError(errorMessage))
+      response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: 'payload' }),
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+    })
+
+    afterEach(() => {
+      stubComponents.storageLimits.validatePlayerStorageUpsert.reset()
+    })
+
+    it('should respond with a 400 and the storage limit error message', async () => {
+      const body = await response.json()
+      expect(response.status).toBe(400)
+      expect(body).toEqual({
+        error: 'Bad request',
+        message: errorMessage
       })
     })
   })

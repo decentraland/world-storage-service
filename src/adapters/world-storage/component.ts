@@ -1,4 +1,5 @@
 import { SQL } from 'sql-template-strings'
+import { calculateValueSizeInBytes } from '../../utils/calculateValueSizeInBytes'
 import { buildPrefixPattern } from '../../utils/prefix'
 import type { IWorldStorageComponent, WorldStorageItem } from './types'
 import type { AppComponents } from '../../types'
@@ -53,12 +54,13 @@ export const createWorldStorageComponent = ({
 
     const now = new Date().toISOString()
     const jsonValue = JSON.stringify(value)
+    const valueSize = calculateValueSizeInBytes(jsonValue)
     const query = SQL`
-      INSERT INTO world_storage (world_name, key, value, created_at, updated_at)
-      VALUES (${worldName}, ${key}, ${jsonValue}::jsonb, ${now}, ${now})
+      INSERT INTO world_storage (world_name, key, value, value_size, created_at, updated_at)
+      VALUES (${worldName}, ${key}, ${jsonValue}::jsonb, ${valueSize}, ${now}, ${now})
       ON CONFLICT (world_name, key) DO
       UPDATE
-      SET value = ${jsonValue}::jsonb, updated_at = ${now}
+      SET value = ${jsonValue}::jsonb, value_size = ${valueSize}, updated_at = ${now}
       RETURNING world_name as "worldName", key, value`
     const result = await pg.query<WorldStorageItem>(query)
 
@@ -162,12 +164,40 @@ export const createWorldStorageComponent = ({
         AND (${prefixPattern}::text IS NULL OR key LIKE ${prefixPattern})`
   }
 
+  /**
+   * Returns the existing value's byte size and the total storage size for a world
+   * in a single database query. Used by the storage limits validator to efficiently
+   * compute projected total size without fetching/deserializing the full value.
+   *
+   * @param worldName - The world identifier
+   * @param key - The storage key being upserted
+   * @returns The existing value's byte size (0 if key does not exist) and the total storage size
+   */
+  async function getUpsertSizeInfo(
+    worldName: string,
+    key: string
+  ): Promise<{ existingValueSize: number; totalSize: number }> {
+    const query = SQL`
+      SELECT
+        COALESCE((SELECT value_size FROM world_storage WHERE world_name = ${worldName} AND key = ${key}), 0) AS existing_value_size,
+        COALESCE(SUM(value_size), 0)::int AS total_size
+      FROM world_storage
+      WHERE world_name = ${worldName}`
+
+    const result = await pg.query<{ existing_value_size: number; total_size: number }>(query)
+    const existingValueSize = result.rows[0].existing_value_size
+    const totalSize = result.rows[0].total_size
+
+    return { existingValueSize, totalSize }
+  }
+
   return {
     getValue,
     setValue,
     deleteValue,
     deleteAll,
     listValues,
-    countKeys
+    countKeys,
+    getUpsertSizeInfo
   }
 }

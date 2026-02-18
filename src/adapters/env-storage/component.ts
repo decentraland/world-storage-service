@@ -1,4 +1,5 @@
 import { SQL } from 'sql-template-strings'
+import { calculateValueSizeInBytes } from '../../utils/calculateValueSizeInBytes'
 import { buildPrefixPattern } from '../../utils/prefix'
 import type { IEnvStorageComponent } from './types'
 import type { AppComponents } from '../../types'
@@ -57,13 +58,14 @@ export const createEnvStorageComponent = ({
     logger.debug('Encrypting and storing env variable', { worldName, key })
 
     const now = new Date().toISOString()
+    const valueSize = calculateValueSizeInBytes(value)
     const encryptedValue = encryption.encrypt(value)
     const query = SQL`
-      INSERT INTO env_variables (world_name, key, value_enc, created_at, updated_at)
-      VALUES (${worldName}, ${key}, ${encryptedValue}, ${now}, ${now})
+      INSERT INTO env_variables (world_name, key, value_enc, value_size, created_at, updated_at)
+      VALUES (${worldName}, ${key}, ${encryptedValue}, ${valueSize}, ${now}, ${now})
       ON CONFLICT (world_name, key) DO
       UPDATE
-      SET value_enc = ${encryptedValue}, updated_at = ${now}`
+      SET value_enc = ${encryptedValue}, value_size = ${valueSize}, updated_at = ${now}`
     await pg.query(query)
 
     logger.debug('Env variable stored successfully', { worldName, key })
@@ -165,12 +167,40 @@ export const createEnvStorageComponent = ({
         AND (${prefixPattern}::text IS NULL OR key LIKE ${prefixPattern})`
   }
 
+  /**
+   * Returns the existing value's plaintext byte size and the total storage size for a world
+   * in a single database query. Used by the storage limits validator to efficiently
+   * compute projected total size without fetching/decrypting the full value.
+   *
+   * @param worldName - The world identifier
+   * @param key - The environment variable key being upserted
+   * @returns The existing value's byte size (0 if key does not exist) and the total storage size
+   */
+  async function getUpsertSizeInfo(
+    worldName: string,
+    key: string
+  ): Promise<{ existingValueSize: number; totalSize: number }> {
+    const query = SQL`
+      SELECT
+        COALESCE((SELECT value_size FROM env_variables WHERE world_name = ${worldName} AND key = ${key}), 0) AS existing_value_size,
+        COALESCE(SUM(value_size), 0)::int AS total_size
+      FROM env_variables
+      WHERE world_name = ${worldName}`
+
+    const result = await pg.query<{ existing_value_size: number; total_size: number }>(query)
+    const existingValueSize = result.rows[0].existing_value_size
+    const totalSize = result.rows[0].total_size
+
+    return { existingValueSize, totalSize }
+  }
+
   return {
     getValue,
     setValue,
     deleteValue,
     deleteAll,
     listKeys,
-    countKeys
+    countKeys,
+    getUpsertSizeInfo
   }
 }

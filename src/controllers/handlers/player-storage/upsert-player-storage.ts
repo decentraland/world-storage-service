@@ -1,5 +1,6 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { EthAddress } from '@dcl/schemas'
+import { StorageLimitExceededError } from '../../../logic/storage-limits'
 import { errorMessageOrDefault } from '../../../utils/errors'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
@@ -7,7 +8,7 @@ import type { UpsertStorageBody } from '../schemas'
 
 export async function upsertPlayerStorageHandler(
   context: Pick<
-    WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values/:key'>,
+    WorldHandlerContextWithPath<'logs' | 'playerStorage' | 'storageLimits', '/players/:player_address/values/:key'>,
     'url' | 'components' | 'params' | 'request' | 'worldName'
   >
 ): Promise<HTTPResponse<unknown>> {
@@ -15,7 +16,7 @@ export async function upsertPlayerStorageHandler(
     request,
     params,
     worldName,
-    components: { logs, playerStorage }
+    components: { logs, playerStorage, storageLimits }
   } = context
 
   const logger = logs.getLogger('upsert-player-storage-handler')
@@ -36,6 +37,7 @@ export async function upsertPlayerStorageHandler(
   const { value }: UpsertStorageBody = await request.json()
 
   try {
+    await storageLimits.validatePlayerStorageUpsert(worldName, playerAddress, key, value)
     const item = await playerStorage.setValue(worldName, playerAddress, key, value)
 
     logger.info('Player storage value upserted successfully', {
@@ -51,6 +53,10 @@ export async function upsertPlayerStorageHandler(
       }
     }
   } catch (error) {
+    if (error instanceof StorageLimitExceededError) {
+      throw new InvalidRequestError(error.message)
+    }
+
     logger.error('Error upserting player storage value', {
       worldName,
       playerAddress,

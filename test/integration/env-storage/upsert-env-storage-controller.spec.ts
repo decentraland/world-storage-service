@@ -1,5 +1,6 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
+import { StorageLimitExceededError } from '../../../src/logic/storage-limits'
 import { test } from '../../components'
 import { TEST_REALM_METADATA } from '../utils/auth'
 import { createTestSetup } from '../utils/setup'
@@ -130,6 +131,35 @@ test('when upserting an env storage value', function ({ components, stubComponen
       expect(getResponse.status).toBe(200)
       expect(getBody).toEqual({
         value: storedValue
+      })
+    })
+  })
+
+  describe('and the storage limits validation fails', () => {
+    let errorMessage: string
+
+    beforeEach(async () => {
+      errorMessage = 'Value size (20480 bytes) exceeds the maximum allowed size (10240 bytes)'
+      stubComponents.storageLimits.validateEnvStorageUpsert.rejects(new StorageLimitExceededError(errorMessage))
+      response = await signedFetch(`${baseUrl}/env/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: 'payload' }),
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+    })
+
+    afterEach(() => {
+      stubComponents.storageLimits.validateEnvStorageUpsert.reset()
+    })
+
+    it('should respond with a 400 and the storage limit error message', async () => {
+      const body = await response.json()
+      expect(response.status).toBe(400)
+      expect(body).toEqual({
+        error: 'Bad request',
+        message: errorMessage
       })
     })
   })
