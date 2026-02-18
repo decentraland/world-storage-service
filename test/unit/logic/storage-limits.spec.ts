@@ -1,4 +1,5 @@
 import { StorageLimitExceededError, createStorageLimitsComponent } from '../../../src/logic/storage-limits'
+import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
 import {
   createEnvStorageMockedComponent,
   createLogsMockedComponent,
@@ -21,8 +22,8 @@ const DEFAULT_CONFIG: Record<string, number> = {
 }
 
 describe('Storage Limits Component', () => {
-  const worldName = 'test-world.dcl.eth'
-  const playerAddress = '0x1234567890abcdef1234567890abcdef12345678'
+  const worldName = WORLD_NAMES.DEFAULT
+  const playerAddress = ADDRESSES.PLAYER
   const key = 'test-key'
 
   let worldStorage: jest.Mocked<IWorldStorageComponent>
