@@ -20,17 +20,17 @@ function createUpsertValidator(
   limits: StorageNamespaceLimits
 ): (serializedValue: string) => Promise<void> {
   return async (serializedValue: string): Promise<void> => {
-    const newValueSizeBytes = calculateValueSizeInBytes(serializedValue)
+    const newValueSize = calculateValueSizeInBytes(serializedValue)
 
-    if (newValueSizeBytes > limits.maxValueSizeBytes) {
+    if (newValueSize > limits.maxValueSizeBytes) {
       throw new StorageLimitExceededError(
-        `Value size (${newValueSizeBytes} bytes) exceeds the maximum allowed size (${limits.maxValueSizeBytes} bytes)`
+        `Value size (${newValueSize} bytes) exceeds the maximum allowed size (${limits.maxValueSizeBytes} bytes)`
       )
     }
 
     const { existingValueSize, totalSize: currentTotalSize } = await getSizeInfo()
 
-    const projectedTotalSize = currentTotalSize - existingValueSize + newValueSizeBytes
+    const projectedTotalSize = currentTotalSize - existingValueSize + newValueSize
     if (projectedTotalSize > limits.maxTotalSizeBytes) {
       throw new StorageLimitExceededError(
         `Total storage size would exceed the maximum allowed (${limits.maxTotalSizeBytes} bytes). Current usage: ${currentTotalSize} bytes. Delete existing data to free up space`
