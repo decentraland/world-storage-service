@@ -4,30 +4,6 @@ import type { IStorageLimitsComponent, StorageNamespaceLimits } from './types'
 import type { AppComponents } from '../../types'
 
 /**
- * Validates that a new value would not push total storage over the configured limit.
- *
- * @param currentTotalSizeBytes - The current total storage size in bytes for the scope
- * @param newValueSizeBytes - The size in bytes of the new value being stored
- * @param existingValueSizeBytes - The size in bytes of the existing value being replaced (0 if new key)
- * @param limits - The namespace limits to validate against
- * @throws {StorageLimitExceededError} If the new total size would exceed the configured maximum
- */
-function validateTotalSize(
-  currentTotalSizeBytes: number,
-  newValueSizeBytes: number,
-  existingValueSizeBytes: number,
-  limits: StorageNamespaceLimits
-): void {
-  const projectedTotalSize = currentTotalSizeBytes - existingValueSizeBytes + newValueSizeBytes
-  if (projectedTotalSize > limits.maxTotalSizeBytes) {
-    throw new StorageLimitExceededError(
-      `Total storage size would exceed the maximum allowed (${limits.maxTotalSizeBytes} bytes). ` +
-        `Current usage: ${currentTotalSizeBytes} bytes. Delete existing data to free up space`
-    )
-  }
-}
-
-/**
  * Creates a reusable upsert validation function for a given storage scope.
  *
  * This higher-order function encapsulates the common validation workflow:
@@ -52,8 +28,14 @@ function createUpsertValidator(
       )
     }
 
-    const { existingValueSize, totalSize } = await getSizeInfo()
-    validateTotalSize(totalSize, newValueSizeBytes, existingValueSize, limits)
+    const { existingValueSize, totalSize: currentTotalSize } = await getSizeInfo()
+
+    const projectedTotalSize = currentTotalSize - existingValueSize + newValueSizeBytes
+    if (projectedTotalSize > limits.maxTotalSizeBytes) {
+      throw new StorageLimitExceededError(
+        `Total storage size would exceed the maximum allowed (${limits.maxTotalSizeBytes} bytes). Current usage: ${currentTotalSize} bytes. Delete existing data to free up space`
+      )
+    }
   }
 }
 
