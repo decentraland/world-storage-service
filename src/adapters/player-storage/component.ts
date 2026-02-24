@@ -253,23 +253,26 @@ export const createPlayerStorageComponent = ({
   }
 
   /**
-   * Returns the existing value's byte size and the total storage size for a player in a world
-   * in a single database query. Used by the storage limits validator to efficiently
-   * compute projected total size without fetching/deserializing the full value.
+   * Returns storage size info for a player scope in a world in a single query.
+   *
+   * If `key` is provided, this returns the existing value size for that key and
+   * the total size for the player's scope. If `key` is omitted, `existingValueSize`
+   * is set to 0 and only total usage is relevant.
    *
    * @param worldName - The world identifier
    * @param playerAddress - The player's wallet address
-   * @param key - The storage key being upserted
-   * @returns The existing value's byte size (0 if key does not exist) and the total storage size
+   * @param key - Optional storage key
+   * @returns Existing value size and total storage size
    */
-  async function getUpsertSizeInfo(
+  async function getSizeInfo(
     worldName: string,
     playerAddress: string,
-    key: string
+    key?: string
   ): Promise<{ existingValueSize: number; totalSize: number }> {
+    const keyFilter = key ?? null
     const query = SQL`
       SELECT
-        COALESCE((SELECT value_size FROM player_storage WHERE world_name = ${worldName} AND player_address = ${playerAddress} AND key = ${key}), 0) AS existing_value_size,
+        COALESCE(MAX(value_size) FILTER (WHERE key = ${keyFilter}), 0) AS existing_value_size,
         COALESCE(SUM(value_size), 0)::int AS total_size
       FROM player_storage
       WHERE world_name = ${worldName} AND player_address = ${playerAddress}`
@@ -291,6 +294,6 @@ export const createPlayerStorageComponent = ({
     countKeys,
     listPlayers,
     countPlayers,
-    getUpsertSizeInfo
+    getSizeInfo
   }
 }

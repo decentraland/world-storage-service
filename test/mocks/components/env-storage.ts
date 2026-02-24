@@ -8,6 +8,6 @@ export function createEnvStorageMockedComponent(): jest.Mocked<IEnvStorageCompon
     deleteAll: jest.fn(),
     listKeys: jest.fn(),
     countKeys: jest.fn(),
-    getUpsertSizeInfo: jest.fn()
+    getSizeInfo: jest.fn()
   }
 }

@@ -56,13 +56,17 @@ export interface IEnvStorageComponent {
   countKeys(worldName: string, options: Pick<PaginationOptions, 'prefix'>): Promise<number>
 
   /**
-   * Returns the existing value's plaintext byte size and the total storage size for a world
-   * in a single database query. Used by the storage limits validator to efficiently
-   * compute projected total size without fetching/decrypting the full value.
+   * Returns storage size info for env variables in a world in a single query.
+   *
+   * When `key` is provided, this includes the existing value size for that key
+   * plus total env usage for the world. Used by upsert limits validation.
+   *
+   * When `key` is omitted, `existingValueSize` is 0 and only total usage matters.
+   * Used by usage endpoints.
    *
    * @param worldName - The world identifier
-   * @param key - The environment variable key being upserted
-   * @returns The existing value's byte size (0 if key does not exist) and the total storage size
+   * @param key - Optional environment variable key
+   * @returns Existing value size and total storage size
    */
-  getUpsertSizeInfo(worldName: string, key: string): Promise<{ existingValueSize: number; totalSize: number }>
+  getSizeInfo(worldName: string, key?: string): Promise<{ existingValueSize: number; totalSize: number }>
 }

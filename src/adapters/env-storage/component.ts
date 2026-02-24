@@ -168,21 +168,23 @@ export const createEnvStorageComponent = ({
   }
 
   /**
-   * Returns the existing value's plaintext byte size and the total storage size for a world
-   * in a single database query. Used by the storage limits validator to efficiently
-   * compute projected total size without fetching/decrypting the full value.
+   * Returns storage size info for env variables in a world in a single query.
+   *
+   * If `key` is provided, this returns the existing value size for that key and
+   * the total env usage. If `key` is omitted, `existingValueSize` is set to 0.
    *
    * @param worldName - The world identifier
-   * @param key - The environment variable key being upserted
-   * @returns The existing value's byte size (0 if key does not exist) and the total storage size
+   * @param key - Optional environment variable key
+   * @returns Existing value size and total storage size
    */
-  async function getUpsertSizeInfo(
+  async function getSizeInfo(
     worldName: string,
-    key: string
+    key?: string
   ): Promise<{ existingValueSize: number; totalSize: number }> {
+    const keyFilter = key ?? null
     const query = SQL`
       SELECT
-        COALESCE((SELECT value_size FROM env_variables WHERE world_name = ${worldName} AND key = ${key}), 0) AS existing_value_size,
+        COALESCE(MAX(value_size) FILTER (WHERE key = ${keyFilter}), 0) AS existing_value_size,
         COALESCE(SUM(value_size), 0)::int AS total_size
       FROM env_variables
       WHERE world_name = ${worldName}`
@@ -201,6 +203,6 @@ export const createEnvStorageComponent = ({
     deleteAll,
     listKeys,
     countKeys,
-    getUpsertSizeInfo
+    getSizeInfo
   }
 }

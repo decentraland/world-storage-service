@@ -8,6 +8,6 @@ export function createWorldStorageMockedComponent(): jest.Mocked<IWorldStorageCo
     deleteAll: jest.fn(),
     listValues: jest.fn(),
     countKeys: jest.fn(),
-    getUpsertSizeInfo: jest.fn()
+    getSizeInfo: jest.fn()
   }
 }

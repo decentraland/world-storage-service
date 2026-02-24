@@ -88,7 +88,7 @@ describe('Storage Limits Component', () => {
       beforeEach(() => {
         // JSON.stringify adds 2 bytes for quotes, so value length + 2 <= 1024
         value = 'a'.repeat(1022)
-        worldStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 0 })
+        worldStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 0 })
       })
 
       it('should resolve without throwing', async () => {
@@ -101,7 +101,7 @@ describe('Storage Limits Component', () => {
 
       beforeEach(() => {
         value = 'x'.repeat(200)
-        worldStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 4900 })
+        worldStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 4900 })
       })
 
       it('should throw a StorageLimitExceededError about total size exceeded', async () => {
@@ -115,7 +115,7 @@ describe('Storage Limits Component', () => {
       beforeEach(() => {
         // current: 5000 (at limit), old: 302 bytes, new: ~7 bytes (JSON "small") -> projected: 5000 - 302 + 7 = 4705 <= 5000
         // A new key with the same value would fail: 5000 - 0 + 7 = 5007 > 5000
-        worldStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 302, totalSize: 5000 })
+        worldStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 302, totalSize: 5000 })
       })
 
       it('should resolve without throwing because the old value size is subtracted', async () => {
@@ -125,16 +125,16 @@ describe('Storage Limits Component', () => {
 
     describe('and all limits are within bounds for a new key', () => {
       beforeEach(() => {
-        worldStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 100 })
+        worldStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 100 })
       })
 
       it('should resolve without throwing', async () => {
         await expect(component.validateWorldStorageUpsert(worldName, key, 'hello')).resolves.not.toThrow()
       })
 
-      it('should call getUpsertSizeInfo with the world name and key', async () => {
+      it('should call getSizeInfo with the world name and key', async () => {
         await component.validateWorldStorageUpsert(worldName, key, 'hello')
-        expect(worldStorage.getUpsertSizeInfo).toHaveBeenCalledWith(worldName, key)
+        expect(worldStorage.getSizeInfo).toHaveBeenCalledWith(worldName, key)
       })
     })
   })
@@ -169,7 +169,7 @@ describe('Storage Limits Component', () => {
       beforeEach(() => {
         // JSON.stringify adds 2 bytes for quotes, so value length + 2 <= 512
         value = 'a'.repeat(510)
-        playerStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 0 })
+        playerStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 0 })
       })
 
       it('should resolve without throwing', async () => {
@@ -182,7 +182,7 @@ describe('Storage Limits Component', () => {
 
       beforeEach(() => {
         value = 'x'.repeat(200)
-        playerStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 1900 })
+        playerStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 1900 })
       })
 
       it('should throw a StorageLimitExceededError about total size exceeded', async () => {
@@ -196,7 +196,7 @@ describe('Storage Limits Component', () => {
       beforeEach(() => {
         // current: 2000 (at limit), old: 200 bytes, new: ~7 bytes (JSON "small") -> projected: 2000 - 200 + 7 = 1807 <= 2000
         // A new key with the same value would fail: 2000 - 0 + 7 = 2007 > 2000
-        playerStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 200, totalSize: 2000 })
+        playerStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 200, totalSize: 2000 })
       })
 
       it('should resolve without throwing because the old value size is subtracted', async () => {
@@ -208,7 +208,7 @@ describe('Storage Limits Component', () => {
 
     describe('and all limits are within bounds for a new key', () => {
       beforeEach(() => {
-        playerStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 100 })
+        playerStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 100 })
       })
 
       it('should resolve without throwing', async () => {
@@ -217,9 +217,9 @@ describe('Storage Limits Component', () => {
         ).resolves.not.toThrow()
       })
 
-      it('should call getUpsertSizeInfo with the world name, player address, and key', async () => {
+      it('should call getSizeInfo with the world name, player address, and key', async () => {
         await component.validatePlayerStorageUpsert(worldName, playerAddress, key, 'hello')
-        expect(playerStorage.getUpsertSizeInfo).toHaveBeenCalledWith(worldName, playerAddress, key)
+        expect(playerStorage.getSizeInfo).toHaveBeenCalledWith(worldName, playerAddress, key)
       })
     })
   })
@@ -250,7 +250,7 @@ describe('Storage Limits Component', () => {
 
     describe('and the value size is exactly at the limit', () => {
       beforeEach(() => {
-        envStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 0 })
+        envStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 0 })
       })
 
       it('should resolve without throwing because env values are measured as raw strings', async () => {
@@ -264,7 +264,7 @@ describe('Storage Limits Component', () => {
 
       beforeEach(() => {
         value = 'x'.repeat(60)
-        envStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 450 })
+        envStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 450 })
       })
 
       it('should throw a StorageLimitExceededError about total size exceeded', async () => {
@@ -278,7 +278,7 @@ describe('Storage Limits Component', () => {
       beforeEach(() => {
         // current: 500 (at limit), old: 30 bytes, new: 7 bytes ("updated") -> projected: 500 - 30 + 7 = 477 <= 500
         // A new key with the same value would fail: 500 - 0 + 7 = 507 > 500
-        envStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 30, totalSize: 500 })
+        envStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 30, totalSize: 500 })
       })
 
       it('should resolve without throwing because the old value size is subtracted', async () => {
@@ -288,16 +288,16 @@ describe('Storage Limits Component', () => {
 
     describe('and all limits are within bounds for a new key', () => {
       beforeEach(() => {
-        envStorage.getUpsertSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 50 })
+        envStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 50 })
       })
 
       it('should resolve without throwing', async () => {
         await expect(component.validateEnvStorageUpsert(worldName, key, 'my-secret')).resolves.not.toThrow()
       })
 
-      it('should call getUpsertSizeInfo with the world name and key', async () => {
+      it('should call getSizeInfo with the world name and key', async () => {
         await component.validateEnvStorageUpsert(worldName, key, 'my-secret')
-        expect(envStorage.getUpsertSizeInfo).toHaveBeenCalledWith(worldName, key)
+        expect(envStorage.getSizeInfo).toHaveBeenCalledWith(worldName, key)
       })
     })
   })
