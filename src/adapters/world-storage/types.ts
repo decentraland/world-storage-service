@@ -64,13 +64,17 @@ export interface IWorldStorageComponent {
   countKeys(worldName: string, options: Pick<PaginationOptions, 'prefix'>): Promise<number>
 
   /**
-   * Returns the existing value's byte size and the total storage size for a world
-   * in a single database query. Used by the storage limits validator to efficiently
-   * compute projected total size without fetching/deserializing the full value.
+   * Returns storage size info for a world in a single database query.
+   *
+   * When `key` is provided, this includes the existing value size for that key
+   * plus the total storage size for the world. Used by upsert limits validation.
+   *
+   * When `key` is omitted, `existingValueSize` is always 0 and only total usage
+   * is relevant. Used by usage endpoints.
    *
    * @param worldName - The world identifier
-   * @param key - The storage key being upserted
-   * @returns The existing value's byte size (0 if key does not exist) and the total storage size
+   * @param key - Optional storage key
+   * @returns Existing value size and total storage size
    */
-  getUpsertSizeInfo(worldName: string, key: string): Promise<{ existingValueSize: number; totalSize: number }>
+  getSizeInfo(worldName: string, key?: string): Promise<{ existingValueSize: number; totalSize: number }>
 }

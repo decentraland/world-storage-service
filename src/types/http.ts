@@ -44,4 +44,14 @@ export interface HTTPPaginatedResponse<T> {
   }
 }
 
+export interface StorageUsageResponse {
+  usedBytes: number
+  maxTotalSizeBytes: number
+}
+
+export interface HTTPStorageUsageResponse {
+  status: number
+  body: StorageUsageResponse
+}
+
 export type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue }

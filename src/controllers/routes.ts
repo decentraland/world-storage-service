@@ -6,6 +6,7 @@ import { wellKnownComponents } from '@dcl/platform-crypto-middleware'
 import { clearEnvStorageHandler } from './handlers/env-storage/clear-env-storage'
 import { deleteEnvStorageHandler } from './handlers/env-storage/delete-env-storage'
 import { getEnvStorageHandler } from './handlers/env-storage/get-env-storage'
+import { getEnvUsageHandler } from './handlers/env-storage/get-env-usage'
 import { listEnvKeysHandler } from './handlers/env-storage/list-env-keys'
 import { upsertEnvStorageHandler } from './handlers/env-storage/upsert-env-storage'
 import {
@@ -14,6 +15,7 @@ import {
 } from './handlers/player-storage/clear-player-storage'
 import { deletePlayerStorageHandler } from './handlers/player-storage/delete-player-storage'
 import { getPlayerStorageHandler } from './handlers/player-storage/get-player-storage'
+import { getPlayerUsageHandler } from './handlers/player-storage/get-player-usage'
 import { listPlayerStorageHandler } from './handlers/player-storage/list-player-storage'
 import { listPlayersHandler } from './handlers/player-storage/list-players'
 import { upsertPlayerStorageHandler } from './handlers/player-storage/upsert-player-storage'
@@ -21,6 +23,7 @@ import { UpsertEnvStorageRequestSchema, UpsertStorageRequestSchema } from './han
 import { clearWorldStorageHandler } from './handlers/world-storage/clear-world-storage'
 import { deleteWorldStorageHandler } from './handlers/world-storage/delete-world-storage'
 import { getWorldStorageHandler } from './handlers/world-storage/get-world-storage'
+import { getWorldUsageHandler } from './handlers/world-storage/get-world-usage'
 import { listWorldStorageHandler } from './handlers/world-storage/list-world-storage'
 import { upsertWorldStorageHandler } from './handlers/world-storage/upsert-world-storage'
 import {
@@ -65,6 +68,19 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
 
   // All handlers below run after worldNameMiddleware, so worldName is guaranteed to be present.
   // The withWorldName helper casts handlers to be compatible with the router's GlobalContext type.
+
+  // Usage endpoints
+  router.get('/usage/world', withWorldName(authorizationMiddleware), withWorldName(getWorldUsageHandler))
+  router.get(
+    '/usage/players/:player_address',
+    withWorldName(authorizationMiddleware),
+    withWorldName(getPlayerUsageHandler)
+  )
+  router.get(
+    '/usage/env',
+    withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware),
+    withWorldName(getEnvUsageHandler)
+  )
 
   // World storage endpoints
   router.get('/values', withWorldName(authorizationMiddleware), withWorldName(listWorldStorageHandler))

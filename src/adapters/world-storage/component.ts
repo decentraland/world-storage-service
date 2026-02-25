@@ -165,21 +165,24 @@ export const createWorldStorageComponent = ({
   }
 
   /**
-   * Returns the existing value's byte size and the total storage size for a world
-   * in a single database query. Used by the storage limits validator to efficiently
-   * compute projected total size without fetching/deserializing the full value.
+   * Returns storage size info for a world in a single database query.
+   *
+   * If `key` is provided, this returns the existing value size for that key and
+   * the current total size for the world. If `key` is omitted, `existingValueSize`
+   * is set to 0 and only the total size is meaningful.
    *
    * @param worldName - The world identifier
-   * @param key - The storage key being upserted
-   * @returns The existing value's byte size (0 if key does not exist) and the total storage size
+   * @param key - Optional storage key
+   * @returns Existing value size and total storage size
    */
-  async function getUpsertSizeInfo(
+  async function getSizeInfo(
     worldName: string,
-    key: string
+    key?: string
   ): Promise<{ existingValueSize: number; totalSize: number }> {
+    const keyFilter = key ?? null
     const query = SQL`
       SELECT
-        COALESCE((SELECT value_size FROM world_storage WHERE world_name = ${worldName} AND key = ${key}), 0) AS existing_value_size,
+        COALESCE(MAX(value_size) FILTER (WHERE key = ${keyFilter}), 0) AS existing_value_size,
         COALESCE(SUM(value_size), 0)::int AS total_size
       FROM world_storage
       WHERE world_name = ${worldName}`
@@ -198,6 +201,6 @@ export const createWorldStorageComponent = ({
     deleteAll,
     listValues,
     countKeys,
-    getUpsertSizeInfo
+    getSizeInfo
   }
 }

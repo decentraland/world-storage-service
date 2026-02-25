@@ -32,11 +32,174 @@ tags:
     description: Endpoints for player-scoped storage (scoped by world and player address)
   - name: Env Storage
     description: Endpoints for encrypted environment variable storage (scoped by world)
+  - name: Usage
+    description: Storage usage and limits for each namespace
 
 security:
   - SignedFetch: []
 
 paths:
+  /usage/world:
+    get:
+      operationId: getWorldStorageUsage
+      tags:
+        - Usage
+      summary: Get world storage usage
+      description: |
+        Returns current world storage usage and the configured maximum total size limit.
+        The world identifier is resolved from the Signed Fetch metadata.
+      responses:
+        '200':
+          description: Usage information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageUsageResponse'
+              examples:
+                usage:
+                  value:
+                    usedBytes: 1200
+                    maxTotalSizeBytes: 10485760
+        '400':
+          description: Signed fetch is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /usage/players/{player_address}:
+    get:
+      operationId: getPlayerStorageUsage
+      tags:
+        - Usage
+      summary: Get player storage usage
+      description: |
+        Returns current usage and maximum total size limit for a specific player within the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+      parameters:
+        - name: player_address
+          in: path
+          required: true
+          description: The player's wallet address
+          schema:
+            type: string
+            example: '0x1234567890abcdef1234567890abcdef12345678'
+      responses:
+        '200':
+          description: Usage information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageUsageResponse'
+              examples:
+                usage:
+                  value:
+                    usedBytes: 300
+                    maxTotalSizeBytes: 1048576
+        '400':
+          description: Signed fetch is missing or invalid, or player address is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidPlayerAddress:
+                  value:
+                    error: Bad request
+                    message: Invalid player address
+        '401':
+          description: Unauthorized - signer is not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /usage/env:
+    get:
+      operationId: getEnvStorageUsage
+      tags:
+        - Usage
+      summary: Get environment storage usage
+      description: |
+        Returns current env storage usage and the configured maximum total size limit for the calling world.
+        The world identifier is resolved from the Signed Fetch metadata.
+
+        **Authorization**: Only world owners and deployers can access this endpoint.
+      responses:
+        '200':
+          description: Usage information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageUsageResponse'
+              examples:
+                usage:
+                  value:
+                    usedBytes: 420
+                    maxTotalSizeBytes: 262144
+        '400':
+          description: Signed fetch is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+        '401':
+          description: Unauthorized - signer is not owner or deployer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    message: 'Unauthorized: Signer is not authorized to perform operations'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /values:
     get:
       operationId: listWorldStorageValues
@@ -1093,6 +1256,21 @@ components:
       required:
         - value
       description: Stored environment variable value response.
+    StorageUsageResponse:
+      type: object
+      properties:
+        usedBytes:
+          type: integer
+          description: Current storage usage in bytes for the requested scope
+          example: 1200
+        maxTotalSizeBytes:
+          type: integer
+          description: Maximum allowed total size in bytes for the requested scope
+          example: 10485760
+      required:
+        - usedBytes
+        - maxTotalSizeBytes
+      description: Current usage and configured maximum limit for a storage scope.
     UpsertEnvStorageRequest:
       type: object
       properties:

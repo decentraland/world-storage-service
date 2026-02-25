@@ -97,18 +97,22 @@ export interface IPlayerStorageComponent {
   countPlayers(worldName: string): Promise<number>
 
   /**
-   * Returns the existing value's byte size and the total storage size for a player in a world
-   * in a single database query. Used by the storage limits validator to efficiently
-   * compute projected total size without fetching/deserializing the full value.
+   * Returns storage size info for a player scope in a world in a single query.
+   *
+   * When `key` is provided, this includes the existing value size for that key
+   * plus total usage for the player's scope. Used by upsert limits validation.
+   *
+   * When `key` is omitted, `existingValueSize` is 0 and only total usage matters.
+   * Used by usage endpoints.
    *
    * @param worldName - The world identifier
    * @param playerAddress - The player's wallet address
-   * @param key - The storage key being upserted
-   * @returns The existing value's byte size (0 if key does not exist) and the total storage size
+   * @param key - Optional storage key
+   * @returns Existing value size and total storage size
    */
-  getUpsertSizeInfo(
+  getSizeInfo(
     worldName: string,
     playerAddress: string,
-    key: string
+    key?: string
   ): Promise<{ existingValueSize: number; totalSize: number }>
 }
