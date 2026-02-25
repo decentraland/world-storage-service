@@ -32,7 +32,7 @@ test('when getting player storage usage', function ({ components, stubComponents
     let response: Awaited<ReturnType<typeof signedFetch>>
 
     beforeEach(async () => {
-      response = await signedFetch(`${baseUrl}/players/${playerAddress}/usage`, { method: 'GET' })
+      response = await signedFetch(`${baseUrl}/usage/players/${playerAddress}`, { method: 'GET' })
     })
 
     it('should respond with a 400 and a signed fetch required message', async () => {
@@ -47,7 +47,7 @@ test('when getting player storage usage', function ({ components, stubComponents
 
   describe('and the player address is invalid', () => {
     it('should respond with a 400 and an invalid player address message', async () => {
-      const response = await signedFetch(`${baseUrl}/players/${ADDRESSES.INVALID}/usage`, {
+      const response = await signedFetch(`${baseUrl}/usage/players/${ADDRESSES.INVALID}`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
@@ -73,7 +73,7 @@ test('when getting player storage usage', function ({ components, stubComponents
         metadata: TEST_REALM_METADATA
       })
 
-      response = await signedFetch(`${baseUrl}/players/${playerAddress}/usage`, {
+      response = await signedFetch(`${baseUrl}/usage/players/${playerAddress}`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
@@ -144,7 +144,7 @@ test('when getting player storage usage', function ({ components, stubComponents
     })
 
     it('should respond with a 200 and usage for the requested player only', async () => {
-      const response = await signedFetch(`${baseUrl}/players/${playerAddress}/usage`, {
+      const response = await signedFetch(`${baseUrl}/usage/players/${playerAddress}`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
@@ -169,7 +169,7 @@ test('when getting player storage usage', function ({ components, stubComponents
     })
 
     it('should respond with a 500 and the error message', async () => {
-      const response = await signedFetch(`${baseUrl}/players/${playerAddress}/usage`, {
+      const response = await signedFetch(`${baseUrl}/usage/players/${playerAddress}`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA

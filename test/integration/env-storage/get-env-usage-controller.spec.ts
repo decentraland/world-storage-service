@@ -29,7 +29,7 @@ test('when getting env storage usage', function ({ components, stubComponents })
     let response: Awaited<ReturnType<typeof signedFetch>>
 
     beforeEach(async () => {
-      response = await signedFetch(`${baseUrl}/env/usage`, { method: 'GET' })
+      response = await signedFetch(`${baseUrl}/usage/env`, { method: 'GET' })
     })
 
     it('should respond with a 400 and a signed fetch required message', async () => {
@@ -53,7 +53,7 @@ test('when getting env storage usage', function ({ components, stubComponents })
         metadata: TEST_REALM_METADATA
       })
 
-      response = await signedFetch(`${baseUrl}/env/usage`, {
+      response = await signedFetch(`${baseUrl}/usage/env`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
@@ -104,7 +104,7 @@ test('when getting env storage usage', function ({ components, stubComponents })
     })
 
     it('should respond with a 200 and the current usage and max limit', async () => {
-      const response = await signedFetch(`${baseUrl}/env/usage`, {
+      const response = await signedFetch(`${baseUrl}/usage/env`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
@@ -129,7 +129,7 @@ test('when getting env storage usage', function ({ components, stubComponents })
     })
 
     it('should respond with a 500 and the error message', async () => {
-      const response = await signedFetch(`${baseUrl}/env/usage`, {
+      const response = await signedFetch(`${baseUrl}/usage/env`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA

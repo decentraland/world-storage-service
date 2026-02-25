@@ -69,8 +69,20 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   // All handlers below run after worldNameMiddleware, so worldName is guaranteed to be present.
   // The withWorldName helper casts handlers to be compatible with the router's GlobalContext type.
 
+  // Usage endpoints
+  router.get('/usage/world', withWorldName(authorizationMiddleware), withWorldName(getWorldUsageHandler))
+  router.get(
+    '/usage/players/:player_address',
+    withWorldName(authorizationMiddleware),
+    withWorldName(getPlayerUsageHandler)
+  )
+  router.get(
+    '/usage/env',
+    withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware),
+    withWorldName(getEnvUsageHandler)
+  )
+
   // World storage endpoints
-  router.get('/usage', withWorldName(authorizationMiddleware), withWorldName(getWorldUsageHandler))
   router.get('/values', withWorldName(authorizationMiddleware), withWorldName(listWorldStorageHandler))
   router.get('/values/:key', withWorldName(authorizationMiddleware), withWorldName(getWorldStorageHandler))
   router.put(
@@ -88,11 +100,6 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
 
   // Player storage endpoints
   router.get('/players', withWorldName(authorizationMiddleware), withWorldName(listPlayersHandler))
-  router.get(
-    '/players/:player_address/usage',
-    withWorldName(authorizationMiddleware),
-    withWorldName(getPlayerUsageHandler)
-  )
   router.get(
     '/players/:player_address/values',
     withWorldName(authorizationMiddleware),
@@ -127,11 +134,6 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
 
   // Env storage endpoints
   router.get('/env', withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware), withWorldName(listEnvKeysHandler))
-  router.get(
-    '/env/usage',
-    withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware),
-    withWorldName(getEnvUsageHandler)
-  )
   router.get(
     '/env/:key',
     withWorldName(authorizedAddressesOnlyAuthorizationMiddleware),
