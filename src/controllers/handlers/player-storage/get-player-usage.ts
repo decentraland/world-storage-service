@@ -41,10 +41,6 @@ export async function getPlayerUsageHandler(
       }
     }
   } catch (error) {
-    if (error instanceof InvalidRequestError) {
-      throw error
-    }
-
     logger.error('Error getting player usage', {
       worldName,
       playerAddress,
