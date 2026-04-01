@@ -45,12 +45,13 @@ export function createPlacesComponent(components: {
 
       const placesUrl = await config.requireString('PLACES_URL')
       const baseUrl = `${placesUrl.replace(/\/$/, '')}/api/places`
+      const encodedParcel = encodeURIComponent(parcel)
 
       let url: string
       if (worldName === 'main') {
-        url = `${baseUrl}?positions=${parcel}`
+        url = `${baseUrl}?positions=${encodedParcel}`
       } else {
-        url = `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${parcel}`
+        url = `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${encodedParcel}`
       }
 
       logger.debug('Resolving place ID from Places API', { worldName, parcel, url })
