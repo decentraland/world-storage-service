@@ -5,12 +5,13 @@ import type { HTTPResponse } from '../../../types/http'
 export async function deleteWorldStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>,
-    'url' | 'components' | 'params' | 'worldName'
+    'url' | 'components' | 'params' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPResponse> {
   const {
     params,
     worldName,
+    placeId,
     components: { logs, worldStorage }
   } = context
 
@@ -24,7 +25,7 @@ export async function deleteWorldStorageHandler(
   })
 
   try {
-    await worldStorage.deleteValue(worldName, key)
+    await worldStorage.deleteValue(worldName, placeId, key)
 
     logger.info('World storage value deleted successfully', {
       worldName,

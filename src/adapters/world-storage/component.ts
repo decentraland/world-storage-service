@@ -23,18 +23,20 @@ export const createWorldStorageComponent = ({
    * Retrieves a single value from world storage
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - The storage key
    * @returns The stored value or null if not found
    */
-  async function getValue(worldName: string, key: string): Promise<unknown | null> {
-    logger.debug('Fetching world storage value', { worldName, key })
+  async function getValue(worldName: string, placeId: string, key: string): Promise<unknown | null> {
+    logger.debug('Fetching world storage value', { worldName, placeId, key })
 
-    const query = SQL`SELECT value FROM world_storage WHERE world_name = ${worldName} AND key = ${key}`
+    const query = SQL`SELECT value FROM world_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND key = ${key}`
     const result = await pg.query<Pick<WorldStorageItem, 'value'>>(query)
     const value = result.rows[0]?.value ?? null
 
     logger.debug(value === null ? 'World storage value not found' : 'World storage value retrieved successfully', {
       worldName,
+      placeId,
       key
     })
 
@@ -45,26 +47,27 @@ export const createWorldStorageComponent = ({
    * Creates or updates a value in world storage
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - The storage key
    * @param value - The value to store
    * @returns The stored item
    */
-  async function setValue(worldName: string, key: string, value: unknown): Promise<WorldStorageItem> {
-    logger.debug('Setting world storage value', { worldName, key })
+  async function setValue(worldName: string, placeId: string, key: string, value: unknown): Promise<WorldStorageItem> {
+    logger.debug('Setting world storage value', { worldName, placeId, key })
 
     const now = new Date().toISOString()
     const jsonValue = JSON.stringify(value)
     const valueSize = calculateValueSizeInBytes(jsonValue)
     const query = SQL`
-      INSERT INTO world_storage (world_name, key, value, value_size, created_at, updated_at)
-      VALUES (${worldName}, ${key}, ${jsonValue}::jsonb, ${valueSize}, ${now}, ${now})
-      ON CONFLICT (world_name, key) DO
+      INSERT INTO world_storage (world_name, place_id, key, value, value_size, created_at, updated_at)
+      VALUES (${worldName}, ${placeId}::uuid, ${key}, ${jsonValue}::jsonb, ${valueSize}, ${now}, ${now})
+      ON CONFLICT (world_name, place_id, key) DO
       UPDATE
       SET value = ${jsonValue}::jsonb, value_size = ${valueSize}, updated_at = ${now}
       RETURNING world_name as "worldName", key, value`
     const result = await pg.query<WorldStorageItem>(query)
 
-    logger.debug('World storage value set successfully', { worldName, key })
+    logger.debug('World storage value set successfully', { worldName, placeId, key })
 
     return result.rows[0]
   }
@@ -73,75 +76,83 @@ export const createWorldStorageComponent = ({
    * Deletes a single value from world storage
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - The storage key to delete
    */
-  async function deleteValue(worldName: string, key: string): Promise<void> {
-    logger.debug('Deleting world storage value', { worldName, key })
+  async function deleteValue(worldName: string, placeId: string, key: string): Promise<void> {
+    logger.debug('Deleting world storage value', { worldName, placeId, key })
 
-    const query = SQL`DELETE FROM world_storage WHERE world_name = ${worldName} AND key = ${key}`
+    const query = SQL`DELETE FROM world_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND key = ${key}`
     await pg.query(query)
 
-    logger.debug('World storage value deleted successfully', { worldName, key })
+    logger.debug('World storage value deleted successfully', { worldName, placeId, key })
   }
 
   /**
-   * Deletes all values for a world
+   * Deletes all values for a scene within a world
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    */
-  async function deleteAll(worldName: string): Promise<void> {
-    logger.debug('Deleting all world storage values', { worldName })
+  async function deleteAll(worldName: string, placeId: string): Promise<void> {
+    logger.debug('Deleting all world storage values', { worldName, placeId })
 
-    const query = SQL`DELETE FROM world_storage WHERE world_name = ${worldName}`
+    const query = SQL`DELETE FROM world_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid`
     await pg.query(query)
 
-    logger.debug('All world storage values deleted successfully', { worldName })
+    logger.debug('All world storage values deleted successfully', { worldName, placeId })
   }
 
   /**
-   * Lists storage items (key-value pairs) for a world with pagination
+   * Lists storage items (key-value pairs) for a scene with pagination
    *
    * Results are ordered alphabetically by key (ASC) for deterministic pagination.
    * Each item is returned as { key, value }.
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param options - Pagination and filtering options
    * @returns Array of { key, value } entries sorted by key
    */
-  async function listValues(worldName: string, options: PaginationOptions): Promise<StorageEntry[]> {
+  async function listValues(worldName: string, placeId: string, options: PaginationOptions): Promise<StorageEntry[]> {
     const { limit, offset, prefix } = options
 
-    logger.debug('Listing world storage values', { worldName, limit, offset, prefix: prefix ?? 'none' })
+    logger.debug('Listing world storage values', { worldName, placeId, limit, offset, prefix: prefix ?? 'none' })
 
-    const query = SQL`SELECT key, value`.append(buildValuesBaseQuery(worldName, prefix)).append(SQL`
+    const query = SQL`SELECT key, value`.append(buildValuesBaseQuery(worldName, placeId, prefix)).append(SQL`
       ORDER BY key ASC
       LIMIT ${limit} OFFSET ${offset}`)
 
     const result = await pg.query<StorageEntry>(query)
 
-    logger.debug('World storage values listed successfully', { worldName, count: result.rows.length })
+    logger.debug('World storage values listed successfully', { worldName, placeId, count: result.rows.length })
 
     return result.rows
   }
 
   /**
-   * Counts the total number of keys for a world
+   * Counts the total number of keys for a scene
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param options - Optional prefix filter
    * @returns Total count of matching keys
    */
-  async function countKeys(worldName: string, options: Pick<PaginationOptions, 'prefix'>): Promise<number> {
+  async function countKeys(
+    worldName: string,
+    placeId: string,
+    options: Pick<PaginationOptions, 'prefix'>
+  ): Promise<number> {
     const { prefix } = options
 
-    logger.debug('Counting world storage keys', { worldName, prefix: prefix ?? 'none' })
+    logger.debug('Counting world storage keys', { worldName, placeId, prefix: prefix ?? 'none' })
 
-    const query = SQL`SELECT COUNT(*)::int as count`.append(buildValuesBaseQuery(worldName, prefix))
+    const query = SQL`SELECT COUNT(*)::int as count`.append(buildValuesBaseQuery(worldName, placeId, prefix))
 
     const result = await pg.query<{ count: number }>(query)
     const count = result.rows[0].count
 
-    logger.debug('World storage keys counted successfully', { worldName, count })
+    logger.debug('World storage keys counted successfully', { worldName, placeId, count })
 
     return count
   }
@@ -149,18 +160,19 @@ export const createWorldStorageComponent = ({
   /**
    * Builds the shared FROM + WHERE clause for world_storage queries.
    *
-   * Both listValues and countKeys filter on the same criteria (world_name + optional prefix).
+   * Both listValues and countKeys filter on the same criteria (world_name + place_id + optional prefix).
    * This helper centralises that logic so it is defined once.
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param prefix - Optional key prefix filter
    * @returns A SQLStatement containing the FROM and WHERE clauses
    */
-  function buildValuesBaseQuery(worldName: string, prefix?: string): SQLStatement {
+  function buildValuesBaseQuery(worldName: string, placeId: string, prefix?: string): SQLStatement {
     const prefixPattern = buildPrefixPattern(prefix)
     return SQL`
       FROM world_storage
-      WHERE world_name = ${worldName}
+      WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid
         AND (${prefixPattern}::text IS NULL OR key LIKE ${prefixPattern})`
   }
 
@@ -170,6 +182,8 @@ export const createWorldStorageComponent = ({
    * If `key` is provided, this returns the existing value size for that key and
    * the current total size for the world. If `key` is omitted, `existingValueSize`
    * is set to 0 and only the total size is meaningful.
+   *
+   * Size aggregation is always per-world (across all scenes).
    *
    * @param worldName - The world identifier
    * @param key - Optional storage key

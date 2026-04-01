@@ -6,12 +6,13 @@ import type { HTTPResponse } from '../../../types/http'
 export async function getEnvStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'envStorage', '/env/:key'>,
-    'url' | 'components' | 'params' | 'worldName'
+    'url' | 'components' | 'params' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPResponse<unknown>> {
   const {
     params,
     worldName,
+    placeId,
     components: { logs, envStorage }
   } = context
 
@@ -25,7 +26,7 @@ export async function getEnvStorageHandler(
   })
 
   try {
-    const value = await envStorage.getValue(worldName, key)
+    const value = await envStorage.getValue(worldName, placeId, key)
 
     if (!value) {
       logger.info('Env variable not found', {

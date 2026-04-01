@@ -10,6 +10,7 @@ import type { IPgComponent } from '@well-known-components/pg-component'
 import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
 import type { IEncryptionComponent } from '../adapters/encryption/types'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'
+import type { IPlacesComponent } from '../adapters/places/types'
 import type { IPlayerStorageComponent } from '../adapters/player-storage/types'
 import type { IWorldStorageComponent } from '../adapters/world-storage/types'
 import type { IWorldsContentServerComponent } from '../adapters/worlds-content-server/types'
@@ -23,6 +24,8 @@ export interface GlobalContext {
 
 export interface WorldStorageContext extends GlobalContext {
   worldName: string
+  parcel: string
+  placeId: string
 }
 
 // components used in every environment
@@ -38,6 +41,7 @@ export interface BaseComponents {
   envStorage: IEnvStorageComponent
   worldsContentServer: IWorldsContentServerComponent
   worldPermission: IWorldPermissionComponent
+  places: IPlacesComponent
   storageLimits: IStorageLimitsComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
 }
@@ -65,15 +69,15 @@ export type HandlerContextWithPath<
   Path
 >
 
-// this type simplifies the typings of http handlers that run after worldNameMiddleware
-// and guarantees worldName is present
+// this type simplifies the typings of http handlers that run after sceneContextMiddleware
+// and guarantees worldName, parcel, and placeId are present
 export type WorldHandlerContextWithPath<
   ComponentNames extends keyof AppComponents,
   Path extends string = string
 > = IHttpServerComponent.PathAwareContext<
   IHttpServerComponent.DefaultContext<{
     components: Pick<AppComponents, ComponentNames>
-  }> & { worldName: string },
+  }> & { worldName: string; parcel: string; placeId: string },
   Path
 >
 

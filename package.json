@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@dcl/http-commons": "^1.0.0",
+    "@dcl/memory-cache-component": "^2.2.3",
     "@dcl/platform-crypto-middleware": "^1.1.0",
     "@dcl/schema-validator-component": "^0.2.2",
     "@dcl/schemas": "^22.0.0",

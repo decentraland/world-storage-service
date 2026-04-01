@@ -26,3 +26,23 @@ export const WORLD_NAMES = {
   FALLBACK: 'fallback.dcl.eth',
   WITH_SPECIAL_CHARS: 'test world/name'
 } as const
+
+// ============================================
+// PARCELS
+// ============================================
+export const PARCELS = {
+  DEFAULT: '0,0',
+  SCENE_A: '10,20',
+  SCENE_B: '30,40',
+  GENESIS_CITY: '52,-10'
+} as const
+
+// ============================================
+// PLACE IDS
+// ============================================
+export const PLACE_IDS = {
+  DEFAULT: '830d885b-52f3-4c91-9151-9c8ec40aab63',
+  SCENE_A: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  SCENE_B: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
+  GENESIS_CITY: 'c3d4e5f6-a7b8-9012-cdef-123456789012'
+} as const

@@ -58,8 +58,8 @@ export function createAuthorizationMiddleware(
       throw new NotAuthorizedError('Unauthorized: No signer address found')
     }
 
-    // worldName is guaranteed to be present by worldNameMiddleware (enforced by WorldStorageContext type)
-    const { worldName } = ctx
+    // worldName and parcel are guaranteed to be present by sceneContextMiddleware (enforced by WorldStorageContext type)
+    const { worldName, parcel } = ctx
 
     // Fetch authoritative server address early for safe logging
     const authoritativeServerAddress = await config.getString('AUTHORITATIVE_SERVER_ADDRESS')
@@ -92,7 +92,7 @@ export function createAuthorizationMiddleware(
     if (allowOwnersAndDeployers) {
       let hasPermission: boolean
       try {
-        hasPermission = await worldPermission.hasWorldPermission(worldName, signerAddress)
+        hasPermission = await worldPermission.hasWorldPermission(worldName, signerAddress, parcel)
       } catch (error) {
         logger.warn('Authorization check failed: unable to verify world permissions', {
           worldName,

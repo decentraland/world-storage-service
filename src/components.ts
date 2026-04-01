@@ -11,10 +11,12 @@ import { createLogComponent } from '@well-known-components/logger'
 import { createMetricsComponent } from '@well-known-components/metrics'
 import { createPgComponent } from '@well-known-components/pg-component'
 import { createTracerComponent } from '@well-known-components/tracer-component'
+import { createInMemoryCacheComponent } from '@dcl/memory-cache-component'
 import { createSchemaValidatorComponent } from '@dcl/schema-validator-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
 import { createEncryptionComponent } from './adapters/encryption'
 import { createEnvStorageComponent } from './adapters/env-storage'
+import { createPlacesComponent } from './adapters/places'
 import { createPlayerStorageComponent } from './adapters/player-storage'
 import { createWorldStorageComponent } from './adapters/world-storage'
 import { createWorldsContentServerComponent } from './adapters/worlds-content-server'
@@ -69,7 +71,9 @@ export async function initComponents(): Promise<AppComponents> {
   const envStorage = createEnvStorageComponent({ pg, encryption, logs })
   const storageLimits = await createStorageLimitsComponent({ config, logs, worldStorage, playerStorage, envStorage })
   const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config, logs })
-  const worldPermission = createWorldPermissionComponent({ worldsContentServer, logs })
+  const worldPermission = createWorldPermissionComponent({ worldsContentServer, fetcher, config, logs })
+  const cache = createInMemoryCacheComponent()
+  const places = createPlacesComponent({ fetcher, config, cache, logs })
 
   return {
     fetcher,
@@ -86,6 +90,7 @@ export async function initComponents(): Promise<AppComponents> {
     envStorage,
     worldsContentServer,
     worldPermission,
+    places,
     schemaValidator
   }
 }

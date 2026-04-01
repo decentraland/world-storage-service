@@ -7,12 +7,13 @@ import type { HTTPResponse } from '../../../types/http'
 export async function getPlayerStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values/:key'>,
-    'url' | 'components' | 'params' | 'worldName'
+    'url' | 'components' | 'params' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPResponse<unknown>> {
   const {
     params,
     worldName,
+    placeId,
     components: { logs, playerStorage }
   } = context
 
@@ -32,7 +33,7 @@ export async function getPlayerStorageHandler(
   }
 
   try {
-    const value = await playerStorage.getValue(worldName, playerAddress, key)
+    const value = await playerStorage.getValue(worldName, placeId, playerAddress, key)
 
     if (!value) {
       logger.info('Player storage value not found', {

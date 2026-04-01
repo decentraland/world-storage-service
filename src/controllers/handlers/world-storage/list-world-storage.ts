@@ -15,11 +15,15 @@ import type { HTTPPaginatedResponse } from '../../../types/http'
  * @returns Paginated list of { key, value } entries
  */
 export async function listWorldStorageHandler(
-  context: Pick<WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values'>, 'url' | 'components' | 'worldName'>
+  context: Pick<
+    WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values'>,
+    'url' | 'components' | 'worldName' | 'placeId'
+  >
 ): Promise<HTTPPaginatedResponse<StorageEntry[]>> {
   const {
     url,
     worldName,
+    placeId,
     components: { logs, worldStorage }
   } = context
 
@@ -34,8 +38,8 @@ export async function listWorldStorageHandler(
 
     // Fetch values and total count in parallel
     const [values, total] = await Promise.all([
-      worldStorage.listValues(worldName, { limit, offset, prefix }),
-      worldStorage.countKeys(worldName, { prefix })
+      worldStorage.listValues(worldName, placeId, { limit, offset, prefix }),
+      worldStorage.countKeys(worldName, placeId, { prefix })
     ])
 
     logger.info('World storage values listed successfully', {

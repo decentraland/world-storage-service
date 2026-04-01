@@ -1,6 +1,6 @@
 import { NotAuthorizedError } from '@dcl/http-commons'
 import { createAuthorizationMiddleware } from '../../../../src/controllers/middlewares/authorization-middleware'
-import { ADDRESSES, WORLD_NAMES } from '../../../fixtures'
+import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../../fixtures'
 import { createLogsMockedComponent } from '../../../mocks/components'
 import { buildTestContext } from '../../utils/context'
 import type { BaseComponents } from '../../../../src/types'
@@ -28,6 +28,7 @@ describe('Authorization Middleware', () => {
   function buildCtx(auth?: string): TestContext {
     return buildTestContext({
       worldName: WORLD_NAMES.DEFAULT,
+      parcel: PARCELS.DEFAULT,
       verification: { auth: auth ?? '', authMetadata: {} },
       components: {
         config: { getString: configGetString },
@@ -70,7 +71,11 @@ describe('Authorization Middleware', () => {
       it('should allow the request', async () => {
         const result = await middleware(buildCtx(ADDRESSES.OWNER), next)
 
-        expect(hasWorldPermissionMock).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, ADDRESSES.OWNER.toLowerCase())
+        expect(hasWorldPermissionMock).toHaveBeenCalledWith(
+          WORLD_NAMES.DEFAULT,
+          ADDRESSES.OWNER.toLowerCase(),
+          PARCELS.DEFAULT
+        )
         expect(next).toHaveBeenCalled()
         expect(result).toEqual({ status: 200 })
       })
@@ -159,7 +164,11 @@ describe('Authorization Middleware', () => {
           it('should allow the request', async () => {
             const result = await middleware(buildCtx(ADDRESSES.OWNER), next)
 
-            expect(hasWorldPermissionMock).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, ADDRESSES.OWNER.toLowerCase())
+            expect(hasWorldPermissionMock).toHaveBeenCalledWith(
+              WORLD_NAMES.DEFAULT,
+              ADDRESSES.OWNER.toLowerCase(),
+              PARCELS.DEFAULT
+            )
             expect(next).toHaveBeenCalled()
             expect(result).toEqual({ status: 200 })
           })

@@ -18,12 +18,13 @@ import type { HTTPPaginatedResponse } from '../../../types/http'
 export async function listEnvKeysHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'envStorage' | 'config', '/env'>,
-    'url' | 'components' | 'worldName'
+    'url' | 'components' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPPaginatedResponse<string[]>> {
   const {
     url,
     worldName,
+    placeId,
     components: { logs, envStorage }
   } = context
 
@@ -38,8 +39,8 @@ export async function listEnvKeysHandler(
 
     // Fetch keys and total count in parallel
     const [keys, total] = await Promise.all([
-      envStorage.listKeys(worldName, { limit, offset, prefix }),
-      envStorage.countKeys(worldName, { prefix })
+      envStorage.listKeys(worldName, placeId, { limit, offset, prefix }),
+      envStorage.countKeys(worldName, placeId, { prefix })
     ])
 
     logger.info('Env keys listed successfully', {

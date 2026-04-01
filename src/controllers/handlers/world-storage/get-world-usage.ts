@@ -3,7 +3,10 @@ import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPStorageUsageResponse } from '../../../types/http'
 
 export async function getWorldUsageHandler(
-  context: Pick<WorldHandlerContextWithPath<'logs' | 'worldStorage' | 'config', '/usage'>, 'components' | 'worldName'>
+  context: Pick<
+    WorldHandlerContextWithPath<'logs' | 'worldStorage' | 'config', '/usage'>,
+    'components' | 'worldName' | 'placeId'
+  >
 ): Promise<HTTPStorageUsageResponse> {
   const {
     worldName,

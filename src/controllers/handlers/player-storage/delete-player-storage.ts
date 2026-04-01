@@ -7,12 +7,13 @@ import type { HTTPResponse } from '../../../types/http'
 export async function deletePlayerStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values/:key'>,
-    'url' | 'components' | 'params' | 'worldName'
+    'url' | 'components' | 'params' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPResponse> {
   const {
     params,
     worldName,
+    placeId,
     components: { logs, playerStorage }
   } = context
 
@@ -32,7 +33,7 @@ export async function deletePlayerStorageHandler(
   }
 
   try {
-    await playerStorage.deleteValue(worldName, playerAddress, key)
+    await playerStorage.deleteValue(worldName, placeId, playerAddress, key)
 
     logger.info('Player storage value deleted successfully', {
       worldName,
