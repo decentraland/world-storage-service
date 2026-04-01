@@ -2,8 +2,8 @@ import type { AuthIdentity } from '@dcl/crypto'
 import { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { createTestIdentityWithAddress } from './auth'
 import { createLocalFetchWrapper } from './fetch'
-import type { TestComponents } from '../../../src/types'
 import { PLACE_IDS } from '../../fixtures'
+import type { TestComponents } from '../../../src/types'
 
 export interface TestSetup {
   signedFetch: ReturnType<typeof signedFetchFactory>
