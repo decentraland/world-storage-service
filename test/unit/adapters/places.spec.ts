@@ -86,9 +86,7 @@ describe('PlacesComponent', () => {
 
     it('should call the Places API with positions only', async () => {
       await places.resolvePlaceId('main', '52,-10')
-      expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?positions=${encodeURIComponent('52,-10')}`
-      )
+      expect(fetcher.fetch).toHaveBeenCalledWith(`${placesUrl}/api/places?positions=${encodeURIComponent('52,-10')}`)
     })
 
     it('should return the place ID from the response', async () => {
