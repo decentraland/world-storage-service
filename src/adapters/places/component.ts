@@ -10,6 +10,25 @@ interface PlacesApiResponse {
   data: Array<{ id: string }>
 }
 
+function buildPlacesUrl(baseUrl: string, worldName: string, parcel: string): string {
+  const encodedParcel = encodeURIComponent(parcel)
+  const isGenesisCity = worldName === 'main'
+
+  if (isGenesisCity) {
+    return `${baseUrl}?positions=${encodedParcel}`
+  }
+
+  return `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${encodedParcel}`
+}
+
+function extractPlaceId(body: PlacesApiResponse, worldName: string, parcel: string): string {
+  if (!body.data || body.data.length === 0) {
+    throw new InvalidRequestError(`Scene not found in Places API for world "${worldName}" at parcel "${parcel}"`)
+  }
+
+  return body.data[0].id
+}
+
 /**
  * Creates the Places API adapter that resolves place IDs from world name and parcel coordinates.
  *
@@ -32,9 +51,26 @@ export function createPlacesComponent(components: {
   const { fetcher, config, cache, logs } = components
   const logger = logs.getLogger('places')
 
+  async function fetchPlaceId(worldName: string, parcel: string): Promise<string> {
+    const placesUrl = await config.requireString('PLACES_URL')
+    const baseUrl = `${placesUrl.replace(/\/$/, '')}/api/places`
+    const url = buildPlacesUrl(baseUrl, worldName, parcel)
+
+    logger.debug('Resolving place ID from Places API', { worldName, parcel, url })
+
+    const response = await fetcher.fetch(url)
+
+    if (!response.ok) {
+      throw new Error(`Places API returned HTTP ${response.status}`)
+    }
+
+    const body: PlacesApiResponse = await response.json()
+
+    return extractPlaceId(body, worldName, parcel)
+  }
+
   return {
     async resolvePlaceId(worldName: string, parcel: string): Promise<string> {
-      const cacheTtlSeconds = (await config.getNumber('PLACES_CACHE_TTL_SECONDS')) ?? 300
       const cacheKey = `places:${worldName}:${parcel}`
 
       const cached = await cache.get<string>(cacheKey)
@@ -43,36 +79,11 @@ export function createPlacesComponent(components: {
         return cached
       }
 
-      const placesUrl = await config.requireString('PLACES_URL')
-      const baseUrl = `${placesUrl.replace(/\/$/, '')}/api/places`
-      const encodedParcel = encodeURIComponent(parcel)
-
-      let url: string
-      if (worldName === 'main') {
-        url = `${baseUrl}?positions=${encodedParcel}`
-      } else {
-        url = `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${encodedParcel}`
-      }
-
-      logger.debug('Resolving place ID from Places API', { worldName, parcel, url })
-
       try {
-        const response = await fetcher.fetch(url)
-
-        if (!response.ok) {
-          throw new Error(`Places API returned HTTP ${response.status}`)
-        }
-
-        const body: PlacesApiResponse = await response.json()
-
-        if (!body.data || body.data.length === 0) {
-          throw new InvalidRequestError(`Scene not found in Places API for world "${worldName}" at parcel "${parcel}"`)
-        }
-
-        const placeId = body.data[0].id
+        const placeId = await fetchPlaceId(worldName, parcel)
+        const cacheTtlSeconds = (await config.getNumber('PLACES_CACHE_TTL_SECONDS')) ?? 300
 
         logger.debug('Place ID resolved successfully', { worldName, parcel, placeId })
-
         await cache.set(cacheKey, placeId, cacheTtlSeconds)
 
         return placeId
