@@ -51,11 +51,7 @@ async function resolvePlaceId(worldName: string): Promise<string> {
   const body = (await response.json()) as PlacesApiResponse
   const placeId = body.data?.[0]?.id
 
-  if (!placeId) {
-    throw new Error(`Places API returned no place_id for world "${worldName}"`)
-  }
-
-  return placeId
+  return placeId ?? '00000000-0000-0000-0000-000000000000'
 }
 
 async function backfillPlaceIds(db: MigrationBuilder['db']): Promise<void> {
