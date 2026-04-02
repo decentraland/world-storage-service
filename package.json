@@ -1,7 +1,7 @@
 {
   "name": "world-storage-service",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
     "start": "node --trace-warnings --abort-on-uncaught-exception --unhandled-rejections=strict dist/index.js",
     "lint": "eslint '{src,test}/**/*.{js,ts}'",
     "lint:check": "eslint '{src,test}/**/*.{js,ts}'",
