@@ -1,32 +1,12 @@
-import type { IConfigComponent, IFetchComponent, ILoggerComponent } from '@well-known-components/interfaces'
-import type { ICacheStorageComponent } from '@dcl/core-commons'
 import { InvalidRequestError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../utils/errors'
 import type { IPlacesComponent } from './types'
+import type { AppComponents } from '../../types'
 
 interface PlacesApiResponse {
   ok: boolean
   total: number
   data: Array<{ id: string }>
-}
-
-function buildPlacesUrl(baseUrl: string, worldName: string, parcel: string): string {
-  const encodedParcel = encodeURIComponent(parcel)
-  const isGenesisCity = worldName === 'main'
-
-  if (isGenesisCity) {
-    return `${baseUrl}?positions=${encodedParcel}`
-  }
-
-  return `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${encodedParcel}`
-}
-
-function extractPlaceId(body: PlacesApiResponse, worldName: string, parcel: string): string {
-  if (!body.data || body.data.length === 0) {
-    throw new InvalidRequestError(`Scene not found in Places API for world "${worldName}" at parcel "${parcel}"`)
-  }
-
-  return body.data[0].id
 }
 
 /**
@@ -42,19 +22,35 @@ function extractPlaceId(body: PlacesApiResponse, worldName: string, parcel: stri
  * @param components - Required components: fetcher, config, cache, logs
  * @returns IPlacesComponent implementation
  */
-export function createPlacesComponent(components: {
-  fetcher: IFetchComponent
-  config: IConfigComponent
-  cache: ICacheStorageComponent
-  logs: ILoggerComponent
-}): IPlacesComponent {
+export async function createPlacesComponent(
+  components: Pick<AppComponents, 'fetcher' | 'config' | 'cache' | 'logs'>
+): Promise<IPlacesComponent> {
   const { fetcher, config, cache, logs } = components
   const logger = logs.getLogger('places')
+  const placesUrl = await config.requireString('PLACES_URL')
+
+  function buildPlacesUrl(worldName: string, parcel: string): string {
+    const baseUrl = `${placesUrl.replace(/\/$/, '')}/api/places`
+    const encodedParcel = encodeURIComponent(parcel)
+    const isGenesisCity = worldName === 'main'
+
+    if (isGenesisCity) {
+      return `${baseUrl}?positions=${encodedParcel}`
+    }
+
+    return `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${encodedParcel}`
+  }
+
+  function extractPlaceId(body: PlacesApiResponse, worldName: string, parcel: string): string {
+    if (!body.data || body.data.length === 0) {
+      throw new InvalidRequestError(`Scene not found in Places API for world "${worldName}" at parcel "${parcel}"`)
+    }
+
+    return body.data[0].id
+  }
 
   async function fetchPlaceId(worldName: string, parcel: string): Promise<string> {
-    const placesUrl = await config.requireString('PLACES_URL')
-    const baseUrl = `${placesUrl.replace(/\/$/, '')}/api/places`
-    const url = buildPlacesUrl(baseUrl, worldName, parcel)
+    const url = buildPlacesUrl(worldName, parcel)
 
     logger.debug('Resolving place ID from Places API', { worldName, parcel, url })
 

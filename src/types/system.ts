@@ -7,6 +7,7 @@ import type {
   IMetricsComponent
 } from '@well-known-components/interfaces'
 import type { IPgComponent } from '@well-known-components/pg-component'
+import type { ICacheStorageComponent } from '@dcl/core-commons'
 import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
 import type { IEncryptionComponent } from '../adapters/encryption/types'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'
@@ -41,6 +42,7 @@ export interface BaseComponents {
   envStorage: IEnvStorageComponent
   worldsContentServer: IWorldsContentServerComponent
   worldPermission: IWorldPermissionComponent
+  cache: ICacheStorageComponent
   places: IPlacesComponent
   storageLimits: IStorageLimitsComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>

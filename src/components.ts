@@ -73,7 +73,7 @@ export async function initComponents(): Promise<AppComponents> {
   const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config, logs })
   const worldPermission = createWorldPermissionComponent({ worldsContentServer, fetcher, config, logs })
   const cache = createInMemoryCacheComponent()
-  const places = createPlacesComponent({ fetcher, config, cache, logs })
+  const places = await createPlacesComponent({ fetcher, config, cache, logs })
 
   return {
     fetcher,
@@ -90,6 +90,7 @@ export async function initComponents(): Promise<AppComponents> {
     envStorage,
     worldsContentServer,
     worldPermission,
+    cache,
     places,
     schemaValidator
   }

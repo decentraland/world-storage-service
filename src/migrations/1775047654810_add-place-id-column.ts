@@ -40,18 +40,24 @@ async function getDistinctWorldNames(db: MigrationBuilder['db']): Promise<string
   return [...worldNames]
 }
 
+const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+
 async function resolvePlaceId(worldName: string): Promise<string> {
-  const placesUrl = (process.env.PLACES_URL ?? 'https://places.decentraland.org').replace(/\/$/, '')
-  const response = await fetch(`${placesUrl}/api/places?names=${encodeURIComponent(worldName)}`)
+  try {
+    const placesUrl = (process.env.PLACES_URL ?? 'https://places.decentraland.org').replace(/\/$/, '')
+    const response = await fetch(`${placesUrl}/api/places?names=${encodeURIComponent(worldName)}`)
 
-  if (!response.ok) {
-    throw new Error(`Places API returned HTTP ${response.status} while resolving place_id for world "${worldName}"`)
+    if (!response.ok) {
+      throw new Error(`Places API returned HTTP ${response.status} while resolving place_id for world "${worldName}"`)
+    }
+
+    const body = (await response.json()) as PlacesApiResponse
+    const placeId = body.data?.[0]?.id
+
+    return placeId ?? NIL_UUID
+  } catch {
+    return NIL_UUID
   }
-
-  const body = (await response.json()) as PlacesApiResponse
-  const placeId = body.data?.[0]?.id
-
-  return placeId ?? '00000000-0000-0000-0000-000000000000'
 }
 
 async function backfillPlaceIds(db: MigrationBuilder['db']): Promise<void> {

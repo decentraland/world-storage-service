@@ -18,7 +18,7 @@ describe('PlacesComponent', () => {
     return response as Response
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     config = createConfigMockedComponent({
       getNumber: jest.fn().mockResolvedValue(undefined),
       requireString: jest.fn().mockResolvedValue(placesUrl)
@@ -26,7 +26,7 @@ describe('PlacesComponent', () => {
     fetcher = createFetchMockedComponent()
     cache = createCacheMockedComponent()
 
-    places = createPlacesComponent({
+    places = await createPlacesComponent({
       fetcher,
       config,
       cache,
