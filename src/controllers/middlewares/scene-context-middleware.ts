@@ -9,13 +9,22 @@ export interface SceneAuthMetadata {
   parcel?: string | null
 }
 
+/** Fallback realm name used to identify Genesis City when the caller does not
+ * send a `realmName`/`realm.serverName` (admin tooling that writes env vars for
+ * lands, for instance). Treated as "not a .dcl.eth world" downstream, which is
+ * all the Places resolution needs. */
+const GENESIS_CITY_REALM = 'main'
+
 /**
  * Middleware that extracts and validates the `worldName` and `parcel` from the signed fetch metadata,
  * then resolves the `placeId` via the Places API.
  *
  * It attaches them to the request context so handlers can read them as `context.worldName`,
- * `context.parcel`, and `context.placeId`. If the worldName cannot be extracted from the metadata,
- * it returns a 400 error. If the parcel is absent, it defaults to `"0,0"` for backward compatibility.
+ * `context.parcel`, and `context.placeId`. The request must carry either:
+ *   - `realm.serverName`/`realmName` (world or Genesis City realm name), OR
+ *   - `parcel` (land coordinates), in which case the realm defaults to Genesis City.
+ *
+ * Missing both → 400. Missing parcel alone → defaults to `"0,0"` for backward compatibility.
  *
  * After this middleware runs, `worldName`, `parcel`, and `placeId` are guaranteed to be present
  * in the context. Handlers that run after this middleware should use `WorldHandlerContextWithPath`
@@ -35,34 +44,40 @@ export const sceneContextMiddleware: IHttpServerComponent.IRequestHandler<
   const logger = logs.getLogger('scene-context-middleware')
 
   const metadata = ctx.verification?.authMetadata
-  const worldName = metadata?.realm?.serverName ?? metadata?.realmName
-  const parcel = metadata?.parcel ?? '0,0'
+  // Normalize empty strings to undefined so a blank `realmName` behaves the same
+  // as a missing one — avoids hitting Places with `names=&positions=...`.
+  const realmFromMetadata = metadata?.realm?.serverName || metadata?.realmName || undefined
+  const parcel = metadata?.parcel || undefined
 
   logger.debug('Extracting scene context from request metadata', {
     hasRealmServerName: metadata?.realm?.serverName ? 'true' : 'false',
     hasRealmName: metadata?.realmName ? 'true' : 'false',
-    hasParcel: metadata?.parcel ? 'true' : 'false'
+    hasParcel: parcel ? 'true' : 'false'
   })
 
-  if (!worldName) {
-    logger.warn('Scene context extraction failed: no world name in metadata', {
+  if (!realmFromMetadata && !parcel) {
+    logger.warn('Scene context extraction failed: request is missing both realm name and parcel', {
       path: ctx.url?.pathname,
       method: ctx.request?.method
     })
-    throw new InvalidRequestError('World name is required')
+    throw new InvalidRequestError('Request must include a realm name or a parcel')
   }
 
-  const placeId = await places.resolvePlaceId(worldName, parcel)
+  const isWorld = realmFromMetadata?.endsWith('.dcl.eth') ?? false
+  const worldName = isWorld && realmFromMetadata ? realmFromMetadata : GENESIS_CITY_REALM
+  const resolvedParcel = parcel ?? '0,0'
+
+  const placeId = await places.resolvePlaceId(worldName, resolvedParcel)
 
   logger.debug('Scene context extracted successfully', {
     worldName,
-    parcel,
+    parcel: resolvedParcel,
     placeId,
     path: ctx.url?.pathname
   })
 
   ctx.worldName = worldName
-  ctx.parcel = parcel
+  ctx.parcel = resolvedParcel
   ctx.placeId = placeId
   return await next()
 }

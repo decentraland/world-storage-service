@@ -37,18 +37,20 @@ describe('sceneContextMiddleware', () => {
     })
   }
 
-  describe('when the world name is missing', () => {
+  describe('when both realm name and parcel are missing', () => {
     beforeEach(() => {
       ctx = buildCtx({ auth: 'signature', authMetadata: {} })
     })
 
     it('should throw an InvalidRequestError', async () => {
-      await expect(sceneContextMiddleware(ctx, next)).rejects.toThrow(new InvalidRequestError('World name is required'))
+      await expect(sceneContextMiddleware(ctx, next)).rejects.toThrow(
+        new InvalidRequestError('Request must include a realm name or a parcel')
+      )
       expect(next).not.toHaveBeenCalled()
     })
   })
 
-  describe('when the world name is empty', () => {
+  describe('when the realm name is empty and no parcel is provided', () => {
     let metadata: SceneAuthMetadata
 
     beforeEach(() => {
@@ -57,8 +59,50 @@ describe('sceneContextMiddleware', () => {
     })
 
     it('should throw an InvalidRequestError', async () => {
-      await expect(sceneContextMiddleware(ctx, next)).rejects.toThrow(new InvalidRequestError('World name is required'))
+      await expect(sceneContextMiddleware(ctx, next)).rejects.toThrow(
+        new InvalidRequestError('Request must include a realm name or a parcel')
+      )
       expect(next).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('when only a parcel is provided (Genesis City admin tooling)', () => {
+    let metadata: SceneAuthMetadata
+
+    beforeEach(async () => {
+      next.mockResolvedValue({ status: 200 })
+      places.resolvePlaceId.mockResolvedValueOnce(PLACE_IDS.SCENE_A)
+      metadata = { parcel: '-125,-96' }
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
+      result = (await sceneContextMiddleware(ctx, next)) as { status: number }
+    })
+
+    it('should default the realm to Genesis City and resolve placeId', () => {
+      expect(ctx.worldName).toBe('main')
+      expect(ctx.parcel).toBe('-125,-96')
+      expect(ctx.placeId).toBe(PLACE_IDS.SCENE_A)
+      expect(places.resolvePlaceId).toHaveBeenCalledWith('main', '-125,-96')
+      expect(next).toHaveBeenCalled()
+      expect(result).toEqual({ status: 200 })
+    })
+  })
+
+  describe('when a non-`.dcl.eth` realm name is provided (e.g. zone catalyst `artemis`)', () => {
+    let metadata: SceneAuthMetadata
+
+    beforeEach(async () => {
+      next.mockResolvedValue({ status: 200 })
+      places.resolvePlaceId.mockResolvedValueOnce(PLACE_IDS.SCENE_A)
+      metadata = { realm: { serverName: 'artemis' }, parcel: '-125,-96' }
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
+      result = (await sceneContextMiddleware(ctx, next)) as { status: number }
+    })
+
+    it('should normalize the realm to Genesis City so storage keys are consistent across callers', () => {
+      expect(ctx.worldName).toBe('main')
+      expect(places.resolvePlaceId).toHaveBeenCalledWith('main', '-125,-96')
+      expect(next).toHaveBeenCalled()
+      expect(result).toEqual({ status: 200 })
     })
   })
 
