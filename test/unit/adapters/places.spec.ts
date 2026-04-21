@@ -93,6 +93,11 @@ describe('PlacesComponent', () => {
       const result = await places.resolvePlaceId('main', '52,-10')
       expect(result).toBe(PLACE_IDS.GENESIS_CITY)
     })
+
+    it('should treat non-`.dcl.eth` realm names as Genesis City (e.g. `artemis` on zone)', async () => {
+      await places.resolvePlaceId('artemis', '-125,-96')
+      expect(fetcher.fetch).toHaveBeenCalledWith(`${placesUrl}/api/places?positions=${encodeURIComponent('-125,-96')}`)
+    })
   })
 
   describe('when the place ID is already cached', () => {

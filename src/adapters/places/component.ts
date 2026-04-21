@@ -32,9 +32,12 @@ export async function createPlacesComponent(
   function buildPlacesUrl(worldName: string, parcel: string): string {
     const baseUrl = `${placesUrl.replace(/\/$/, '')}/api/places`
     const encodedParcel = encodeURIComponent(parcel)
-    const isGenesisCity = worldName === 'main'
+    // Only `.dcl.eth` realms are Decentraland Worlds. Any other realmName
+    // (e.g. `main` in prod, `artemis` in zone) is a Genesis City realm —
+    // those scenes are identified by parcel position alone.
+    const isWorld = worldName.endsWith('.dcl.eth')
 
-    if (isGenesisCity) {
+    if (!isWorld) {
       return `${baseUrl}?positions=${encodedParcel}`
     }
 

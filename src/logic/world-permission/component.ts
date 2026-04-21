@@ -33,7 +33,10 @@ export function createWorldPermissionComponent(components: {
   const logger = logs.getLogger('world-permission')
 
   function isGenesisCityWorld(worldName: string): boolean {
-    return worldName === 'main'
+    // Any realm that is not a Decentraland World (`*.dcl.eth`) is treated as
+    // Genesis City — `main` in prod, `artemis` in zone, and anything else a
+    // catalyst might advertise as its realm name.
+    return !worldName.endsWith('.dcl.eth')
   }
 
   function hasAnyLandPermission(permissions: LandsParcelPermissionsResponse): boolean {
