@@ -26,23 +26,24 @@ export const createEnvStorageComponent = ({
    * Retrieves a single environment variable value
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - The environment variable key
    * @returns The decrypted value or null if not found
    */
-  async function getValue(worldName: string, key: string): Promise<string | null> {
-    logger.debug('Fetching env variable', { worldName, key })
+  async function getValue(worldName: string, placeId: string, key: string): Promise<string | null> {
+    logger.debug('Fetching env variable', { worldName, placeId, key })
 
-    const query = SQL`SELECT value_enc FROM env_variables WHERE world_name = ${worldName} AND key = ${key}`
+    const query = SQL`SELECT value_enc FROM env_variables WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND key = ${key}`
     const result = await pg.query<{ value_enc: Buffer }>(query)
 
     if (!result.rows[0]?.value_enc) {
-      logger.debug('Env variable not found', { worldName, key })
+      logger.debug('Env variable not found', { worldName, placeId, key })
       return null
     }
 
-    logger.debug('Decrypting env variable', { worldName, key })
+    logger.debug('Decrypting env variable', { worldName, placeId, key })
     const decryptedValue = encryption.decrypt(result.rows[0].value_enc)
-    logger.debug('Env variable retrieved and decrypted successfully', { worldName, key })
+    logger.debug('Env variable retrieved and decrypted successfully', { worldName, placeId, key })
 
     return decryptedValue
   }
@@ -51,100 +52,109 @@ export const createEnvStorageComponent = ({
    * Creates or updates an environment variable
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - The environment variable key
    * @param value - The value to encrypt and store
    */
-  async function setValue(worldName: string, key: string, value: string): Promise<void> {
-    logger.debug('Encrypting and storing env variable', { worldName, key })
+  async function setValue(worldName: string, placeId: string, key: string, value: string): Promise<void> {
+    logger.debug('Encrypting and storing env variable', { worldName, placeId, key })
 
     const now = new Date().toISOString()
     const valueSize = calculateValueSizeInBytes(value)
     const encryptedValue = encryption.encrypt(value)
     const query = SQL`
-      INSERT INTO env_variables (world_name, key, value_enc, value_size, created_at, updated_at)
-      VALUES (${worldName}, ${key}, ${encryptedValue}, ${valueSize}, ${now}, ${now})
-      ON CONFLICT (world_name, key) DO
+      INSERT INTO env_variables (world_name, place_id, key, value_enc, value_size, created_at, updated_at)
+      VALUES (${worldName}, ${placeId}::uuid, ${key}, ${encryptedValue}, ${valueSize}, ${now}, ${now})
+      ON CONFLICT (world_name, place_id, key) DO
       UPDATE
       SET value_enc = ${encryptedValue}, value_size = ${valueSize}, updated_at = ${now}`
     await pg.query(query)
 
-    logger.debug('Env variable stored successfully', { worldName, key })
+    logger.debug('Env variable stored successfully', { worldName, placeId, key })
   }
 
   /**
    * Deletes a single environment variable
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - The environment variable key to delete
    */
-  async function deleteValue(worldName: string, key: string): Promise<void> {
-    logger.debug('Deleting env variable', { worldName, key })
+  async function deleteValue(worldName: string, placeId: string, key: string): Promise<void> {
+    logger.debug('Deleting env variable', { worldName, placeId, key })
 
-    const query = SQL`DELETE FROM env_variables WHERE world_name = ${worldName} AND key = ${key}`
+    const query = SQL`DELETE FROM env_variables WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND key = ${key}`
     await pg.query(query)
 
-    logger.debug('Env variable deleted successfully', { worldName, key })
+    logger.debug('Env variable deleted successfully', { worldName, placeId, key })
   }
 
   /**
-   * Deletes all environment variables for a world
+   * Deletes all environment variables for a scene
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    */
-  async function deleteAll(worldName: string): Promise<void> {
-    logger.debug('Deleting all env variables', { worldName })
+  async function deleteAll(worldName: string, placeId: string): Promise<void> {
+    logger.debug('Deleting all env variables', { worldName, placeId })
 
-    const query = SQL`DELETE FROM env_variables WHERE world_name = ${worldName}`
+    const query = SQL`DELETE FROM env_variables WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid`
     await pg.query(query)
 
-    logger.debug('All env variables deleted successfully', { worldName })
+    logger.debug('All env variables deleted successfully', { worldName, placeId })
   }
 
   /**
-   * Lists environment variable keys (names only, no values) for a world
+   * Lists environment variable keys (names only, no values) for a scene
    *
    * Values are intentionally NOT returned to protect secrets.
    * Results are ordered alphabetically by key (ASC) for deterministic pagination.
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param options - Pagination and filtering options
    * @returns Array of key names sorted alphabetically
    */
-  async function listKeys(worldName: string, options: PaginationOptions): Promise<string[]> {
+  async function listKeys(worldName: string, placeId: string, options: PaginationOptions): Promise<string[]> {
     const { limit, offset, prefix } = options
 
-    logger.debug('Listing env variable keys', { worldName, limit, offset, prefix: prefix ?? 'none' })
+    logger.debug('Listing env variable keys', { worldName, placeId, limit, offset, prefix: prefix ?? 'none' })
 
-    const query = SQL`SELECT key`.append(buildKeysBaseQuery(worldName, prefix)).append(SQL`
+    const query = SQL`SELECT key`.append(buildKeysBaseQuery(worldName, placeId, prefix)).append(SQL`
       ORDER BY key ASC
       LIMIT ${limit} OFFSET ${offset}`)
 
     const result = await pg.query<{ key: string }>(query)
     const keys = result.rows.map(row => row.key)
 
-    logger.debug('Env variable keys listed successfully', { worldName, count: keys.length })
+    logger.debug('Env variable keys listed successfully', { worldName, placeId, count: keys.length })
 
     return keys
   }
 
   /**
-   * Counts the total number of environment variable keys for a world
+   * Counts the total number of environment variable keys for a scene
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param options - Optional prefix filter
    * @returns Total count of matching keys
    */
-  async function countKeys(worldName: string, options: Pick<PaginationOptions, 'prefix'>): Promise<number> {
+  async function countKeys(
+    worldName: string,
+    placeId: string,
+    options: Pick<PaginationOptions, 'prefix'>
+  ): Promise<number> {
     const { prefix } = options
 
-    logger.debug('Counting env variable keys', { worldName, prefix: prefix ?? 'none' })
+    logger.debug('Counting env variable keys', { worldName, placeId, prefix: prefix ?? 'none' })
 
-    const query = SQL`SELECT COUNT(*)::int as count`.append(buildKeysBaseQuery(worldName, prefix))
+    const query = SQL`SELECT COUNT(*)::int as count`.append(buildKeysBaseQuery(worldName, placeId, prefix))
 
     const result = await pg.query<{ count: number }>(query)
     const count = result.rows[0].count
 
-    logger.debug('Env variable keys counted successfully', { worldName, count })
+    logger.debug('Env variable keys counted successfully', { worldName, placeId, count })
 
     return count
   }
@@ -152,18 +162,19 @@ export const createEnvStorageComponent = ({
   /**
    * Builds the shared FROM + WHERE clause for env_variables key queries.
    *
-   * Both listKeys and countKeys filter on the same criteria (world_name + optional prefix).
+   * Both listKeys and countKeys filter on the same criteria (world_name + place_id + optional prefix).
    * This helper centralises that logic so it is defined once.
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param prefix - Optional key prefix filter
    * @returns A SQLStatement containing the FROM and WHERE clauses
    */
-  function buildKeysBaseQuery(worldName: string, prefix?: string): SQLStatement {
+  function buildKeysBaseQuery(worldName: string, placeId: string, prefix?: string): SQLStatement {
     const prefixPattern = buildPrefixPattern(prefix)
     return SQL`
       FROM env_variables
-      WHERE world_name = ${worldName}
+      WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid
         AND (${prefixPattern}::text IS NULL OR key LIKE ${prefixPattern})`
   }
 
@@ -172,6 +183,8 @@ export const createEnvStorageComponent = ({
    *
    * If `key` is provided, this returns the existing value size for that key and
    * the total env usage. If `key` is omitted, `existingValueSize` is set to 0.
+   *
+   * Size aggregation is always per-world (across all scenes).
    *
    * @param worldName - The world identifier
    * @param key - Optional environment variable key

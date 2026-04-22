@@ -2,6 +2,7 @@ import type { AuthIdentity } from '@dcl/crypto'
 import { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { createTestIdentityWithAddress } from './auth'
 import { createLocalFetchWrapper } from './fetch'
+import { PLACE_IDS } from '../../fixtures'
 import type { TestComponents } from '../../../src/types'
 
 export interface TestSetup {
@@ -13,6 +14,12 @@ export interface TestSetup {
 }
 
 interface StubComponents {
+  places: {
+    resolvePlaceId: {
+      resolves: (value: unknown) => void
+      reset: () => void
+    }
+  }
   worldsContentServer: {
     getPermissions: {
       resolves: (value: unknown) => void
@@ -34,6 +41,7 @@ export async function createTestSetup(components: TestComponents, stubComponents
       deployment: { type: 'allow-list', wallets: [] }
     }
   })
+  stubComponents.places.resolvePlaceId.resolves(PLACE_IDS.DEFAULT)
 
   // Mock config.getString to return the test identity's address as AUTHORITATIVE_SERVER_ADDRESS
   // This is required for endpoints that use authorizedAddressesOnlyAuthorizationMiddleware
@@ -47,6 +55,7 @@ export async function createTestSetup(components: TestComponents, stubComponents
   components.config.getString = mockedGetString
 
   const resetStubs = () => {
+    stubComponents.places.resolvePlaceId.reset()
     stubComponents.worldsContentServer.getPermissions.reset()
     // Restore original getString method
     components.config.getString = originalGetString

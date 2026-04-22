@@ -1,5 +1,5 @@
 import { StorageLimitExceededError, createStorageLimitsComponent } from '../../../src/logic/storage-limits'
-import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
+import { ADDRESSES, PLACE_IDS, WORLD_NAMES } from '../../fixtures'
 import {
   createEnvStorageMockedComponent,
   createLogsMockedComponent,
@@ -23,6 +23,7 @@ const DEFAULT_CONFIG: Record<string, number> = {
 
 describe('Storage Limits Component', () => {
   const worldName = WORLD_NAMES.DEFAULT
+  const placeId = PLACE_IDS.DEFAULT
   const playerAddress = ADDRESSES.PLAYER
   const key = 'test-key'
 
@@ -76,7 +77,7 @@ describe('Storage Limits Component', () => {
       })
 
       it('should throw a StorageLimitExceededError with the limit in the message', async () => {
-        const promise = component.validateWorldStorageUpsert(worldName, key, largeValue)
+        const promise = component.validateWorldStorageUpsert(worldName, placeId, key, largeValue)
         await expect(promise).rejects.toBeInstanceOf(StorageLimitExceededError)
         await expect(promise).rejects.toThrow(/exceeds the maximum allowed size \(1024 bytes\)/)
       })
@@ -92,7 +93,7 @@ describe('Storage Limits Component', () => {
       })
 
       it('should resolve without throwing', async () => {
-        await expect(component.validateWorldStorageUpsert(worldName, key, value)).resolves.not.toThrow()
+        await expect(component.validateWorldStorageUpsert(worldName, placeId, key, value)).resolves.not.toThrow()
       })
     })
 
@@ -105,7 +106,7 @@ describe('Storage Limits Component', () => {
       })
 
       it('should throw a StorageLimitExceededError about total size exceeded', async () => {
-        const promise = component.validateWorldStorageUpsert(worldName, key, value)
+        const promise = component.validateWorldStorageUpsert(worldName, placeId, key, value)
         await expect(promise).rejects.toBeInstanceOf(StorageLimitExceededError)
         await expect(promise).rejects.toThrow('Total storage size would exceed the maximum allowed')
       })
@@ -119,7 +120,7 @@ describe('Storage Limits Component', () => {
       })
 
       it('should resolve without throwing because the old value size is subtracted', async () => {
-        await expect(component.validateWorldStorageUpsert(worldName, key, 'small')).resolves.not.toThrow()
+        await expect(component.validateWorldStorageUpsert(worldName, placeId, key, 'small')).resolves.not.toThrow()
       })
     })
 
@@ -129,11 +130,11 @@ describe('Storage Limits Component', () => {
       })
 
       it('should resolve without throwing', async () => {
-        await expect(component.validateWorldStorageUpsert(worldName, key, 'hello')).resolves.not.toThrow()
+        await expect(component.validateWorldStorageUpsert(worldName, placeId, key, 'hello')).resolves.not.toThrow()
       })
 
       it('should call getSizeInfo with the world name and key', async () => {
-        await component.validateWorldStorageUpsert(worldName, key, 'hello')
+        await component.validateWorldStorageUpsert(worldName, placeId, key, 'hello')
         expect(worldStorage.getSizeInfo).toHaveBeenCalledWith(worldName, key)
       })
     })
@@ -157,7 +158,7 @@ describe('Storage Limits Component', () => {
       })
 
       it('should throw a StorageLimitExceededError with the limit in the message', async () => {
-        const promise = component.validatePlayerStorageUpsert(worldName, playerAddress, key, largeValue)
+        const promise = component.validatePlayerStorageUpsert(worldName, placeId, playerAddress, key, largeValue)
         await expect(promise).rejects.toBeInstanceOf(StorageLimitExceededError)
         await expect(promise).rejects.toThrow(/exceeds the maximum allowed size \(512 bytes\)/)
       })
@@ -173,7 +174,9 @@ describe('Storage Limits Component', () => {
       })
 
       it('should resolve without throwing', async () => {
-        await expect(component.validatePlayerStorageUpsert(worldName, playerAddress, key, value)).resolves.not.toThrow()
+        await expect(
+          component.validatePlayerStorageUpsert(worldName, placeId, playerAddress, key, value)
+        ).resolves.not.toThrow()
       })
     })
 
@@ -186,7 +189,7 @@ describe('Storage Limits Component', () => {
       })
 
       it('should throw a StorageLimitExceededError about total size exceeded', async () => {
-        const promise = component.validatePlayerStorageUpsert(worldName, playerAddress, key, value)
+        const promise = component.validatePlayerStorageUpsert(worldName, placeId, playerAddress, key, value)
         await expect(promise).rejects.toBeInstanceOf(StorageLimitExceededError)
         await expect(promise).rejects.toThrow('Total storage size would exceed the maximum allowed')
       })
@@ -201,7 +204,7 @@ describe('Storage Limits Component', () => {
 
       it('should resolve without throwing because the old value size is subtracted', async () => {
         await expect(
-          component.validatePlayerStorageUpsert(worldName, playerAddress, key, 'small')
+          component.validatePlayerStorageUpsert(worldName, placeId, playerAddress, key, 'small')
         ).resolves.not.toThrow()
       })
     })
@@ -213,12 +216,12 @@ describe('Storage Limits Component', () => {
 
       it('should resolve without throwing', async () => {
         await expect(
-          component.validatePlayerStorageUpsert(worldName, playerAddress, key, 'hello')
+          component.validatePlayerStorageUpsert(worldName, placeId, playerAddress, key, 'hello')
         ).resolves.not.toThrow()
       })
 
       it('should call getSizeInfo with the world name, player address, and key', async () => {
-        await component.validatePlayerStorageUpsert(worldName, playerAddress, key, 'hello')
+        await component.validatePlayerStorageUpsert(worldName, placeId, playerAddress, key, 'hello')
         expect(playerStorage.getSizeInfo).toHaveBeenCalledWith(worldName, playerAddress, key)
       })
     })
@@ -242,7 +245,7 @@ describe('Storage Limits Component', () => {
       })
 
       it('should throw a StorageLimitExceededError with the limit in the message', async () => {
-        const promise = component.validateEnvStorageUpsert(worldName, key, largeValue)
+        const promise = component.validateEnvStorageUpsert(worldName, placeId, key, largeValue)
         await expect(promise).rejects.toBeInstanceOf(StorageLimitExceededError)
         await expect(promise).rejects.toThrow(/exceeds the maximum allowed size \(100 bytes\)/)
       })
@@ -255,7 +258,9 @@ describe('Storage Limits Component', () => {
 
       it('should resolve without throwing because env values are measured as raw strings', async () => {
         // Env values are NOT JSON-serialized, so 100 bytes = exactly at the 100-byte limit
-        await expect(component.validateEnvStorageUpsert(worldName, key, 'a'.repeat(100))).resolves.not.toThrow()
+        await expect(
+          component.validateEnvStorageUpsert(worldName, placeId, key, 'a'.repeat(100))
+        ).resolves.not.toThrow()
       })
     })
 
@@ -268,7 +273,7 @@ describe('Storage Limits Component', () => {
       })
 
       it('should throw a StorageLimitExceededError about total size exceeded', async () => {
-        const promise = component.validateEnvStorageUpsert(worldName, key, value)
+        const promise = component.validateEnvStorageUpsert(worldName, placeId, key, value)
         await expect(promise).rejects.toBeInstanceOf(StorageLimitExceededError)
         await expect(promise).rejects.toThrow('Total storage size would exceed the maximum allowed')
       })
@@ -282,7 +287,7 @@ describe('Storage Limits Component', () => {
       })
 
       it('should resolve without throwing because the old value size is subtracted', async () => {
-        await expect(component.validateEnvStorageUpsert(worldName, key, 'updated')).resolves.not.toThrow()
+        await expect(component.validateEnvStorageUpsert(worldName, placeId, key, 'updated')).resolves.not.toThrow()
       })
     })
 
@@ -292,11 +297,11 @@ describe('Storage Limits Component', () => {
       })
 
       it('should resolve without throwing', async () => {
-        await expect(component.validateEnvStorageUpsert(worldName, key, 'my-secret')).resolves.not.toThrow()
+        await expect(component.validateEnvStorageUpsert(worldName, placeId, key, 'my-secret')).resolves.not.toThrow()
       })
 
       it('should call getSizeInfo with the world name and key', async () => {
-        await component.validateEnvStorageUpsert(worldName, key, 'my-secret')
+        await component.validateEnvStorageUpsert(worldName, placeId, key, 'my-secret')
         expect(envStorage.getSizeInfo).toHaveBeenCalledWith(worldName, key)
       })
     })

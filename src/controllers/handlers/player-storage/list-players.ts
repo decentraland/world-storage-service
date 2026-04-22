@@ -14,11 +14,15 @@ import type { HTTPPaginatedResponse } from '../../../types/http'
  * @returns Paginated list of player address strings
  */
 export async function listPlayersHandler(
-  context: Pick<WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players'>, 'url' | 'components' | 'worldName'>
+  context: Pick<
+    WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players'>,
+    'url' | 'components' | 'worldName' | 'placeId'
+  >
 ): Promise<HTTPPaginatedResponse<string[]>> {
   const {
     url,
     worldName,
+    placeId,
     components: { logs, playerStorage }
   } = context
 
@@ -33,8 +37,8 @@ export async function listPlayersHandler(
 
     // Fetch player addresses and total count in parallel
     const [players, total] = await Promise.all([
-      playerStorage.listPlayers(worldName, { limit, offset }),
-      playerStorage.countPlayers(worldName)
+      playerStorage.listPlayers(worldName, placeId, { limit, offset }),
+      playerStorage.countPlayers(worldName, placeId)
     ])
 
     logger.info('Players listed successfully', {

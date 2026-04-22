@@ -31,16 +31,18 @@ import {
   authorizedAddressesOnlyAuthorizationMiddleware,
   ownerAndDeployerOnlyAuthorizationMiddleware
 } from './middlewares/authorization-middleware'
-import { worldNameMiddleware } from './middlewares/world-name-middleware'
+import { sceneContextMiddleware } from './middlewares/scene-context-middleware'
 import type { GlobalContext } from '../types'
 
 /**
- * Helper to cast handlers and middlewares that expect `worldName` to be present.
- * This cast is safe because `worldNameMiddleware` runs before any handler and guarantees
- * that `worldName` is set in the context.
+ * Helper to cast handlers and middlewares that expect `worldName`, `parcel`, and `placeId` to be present.
+ * This cast is safe because `sceneContextMiddleware` runs before any handler and guarantees
+ * that `worldName`, `parcel`, and `placeId` are set in the context.
  */
-function withWorldName<Path extends string>(
-  handler: IHttpServerComponent.IRequestHandler<RoutedContext<GlobalContext & { worldName: string }, Path>>
+function withSceneContext<Path extends string>(
+  handler: IHttpServerComponent.IRequestHandler<
+    RoutedContext<GlobalContext & { worldName: string; parcel: string; placeId: string }, Path>
+  >
 ): IHttpServerComponent.IRequestHandler<RoutedContext<GlobalContext, Path>> {
   return handler as IHttpServerComponent.IRequestHandler<RoutedContext<GlobalContext, Path>>
 }
@@ -64,96 +66,100 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
     })
 
   router.use(signedFetchMiddleware())
-  router.use(worldNameMiddleware)
+  router.use(sceneContextMiddleware)
 
-  // All handlers below run after worldNameMiddleware, so worldName is guaranteed to be present.
-  // The withWorldName helper casts handlers to be compatible with the router's GlobalContext type.
+  // All handlers below run after sceneContextMiddleware, so worldName, parcel, and placeId are guaranteed to be present.
+  // The withSceneContext helper casts handlers to be compatible with the router's GlobalContext type.
 
   // Usage endpoints
-  router.get('/usage/world', withWorldName(authorizationMiddleware), withWorldName(getWorldUsageHandler))
+  router.get('/usage/world', withSceneContext(authorizationMiddleware), withSceneContext(getWorldUsageHandler))
   router.get(
     '/usage/players/:player_address',
-    withWorldName(authorizationMiddleware),
-    withWorldName(getPlayerUsageHandler)
+    withSceneContext(authorizationMiddleware),
+    withSceneContext(getPlayerUsageHandler)
   )
   router.get(
     '/usage/env',
-    withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware),
-    withWorldName(getEnvUsageHandler)
+    withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
+    withSceneContext(getEnvUsageHandler)
   )
 
   // World storage endpoints
-  router.get('/values', withWorldName(authorizationMiddleware), withWorldName(listWorldStorageHandler))
-  router.get('/values/:key', withWorldName(authorizationMiddleware), withWorldName(getWorldStorageHandler))
+  router.get('/values', withSceneContext(authorizationMiddleware), withSceneContext(listWorldStorageHandler))
+  router.get('/values/:key', withSceneContext(authorizationMiddleware), withSceneContext(getWorldStorageHandler))
   router.put(
     '/values/:key',
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
-    withWorldName(authorizationMiddleware),
-    withWorldName(upsertWorldStorageHandler)
+    withSceneContext(authorizationMiddleware),
+    withSceneContext(upsertWorldStorageHandler)
   )
-  router.delete('/values/:key', withWorldName(authorizationMiddleware), withWorldName(deleteWorldStorageHandler))
+  router.delete('/values/:key', withSceneContext(authorizationMiddleware), withSceneContext(deleteWorldStorageHandler))
   router.delete(
     '/values',
-    withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware),
-    withWorldName(clearWorldStorageHandler)
+    withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
+    withSceneContext(clearWorldStorageHandler)
   )
 
   // Player storage endpoints
-  router.get('/players', withWorldName(authorizationMiddleware), withWorldName(listPlayersHandler))
+  router.get('/players', withSceneContext(authorizationMiddleware), withSceneContext(listPlayersHandler))
   router.get(
     '/players/:player_address/values',
-    withWorldName(authorizationMiddleware),
-    withWorldName(listPlayerStorageHandler)
+    withSceneContext(authorizationMiddleware),
+    withSceneContext(listPlayerStorageHandler)
   )
   router.get(
     '/players/:player_address/values/:key',
-    withWorldName(authorizationMiddleware),
-    withWorldName(getPlayerStorageHandler)
+    withSceneContext(authorizationMiddleware),
+    withSceneContext(getPlayerStorageHandler)
   )
   router.put(
     '/players/:player_address/values/:key',
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
-    withWorldName(authorizationMiddleware),
-    withWorldName(upsertPlayerStorageHandler)
+    withSceneContext(authorizationMiddleware),
+    withSceneContext(upsertPlayerStorageHandler)
   )
   router.delete(
     '/players/:player_address/values/:key',
-    withWorldName(authorizationMiddleware),
-    withWorldName(deletePlayerStorageHandler)
+    withSceneContext(authorizationMiddleware),
+    withSceneContext(deletePlayerStorageHandler)
   )
   router.delete(
     '/players/:player_address/values',
-    withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware),
-    withWorldName(clearPlayerStorageHandler)
+    withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
+    withSceneContext(clearPlayerStorageHandler)
   )
   router.delete(
     '/players',
-    withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware),
-    withWorldName(clearAllPlayersStorageHandler)
+    withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
+    withSceneContext(clearAllPlayersStorageHandler)
   )
 
   // Env storage endpoints
-  router.get('/env', withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware), withWorldName(listEnvKeysHandler))
+  router.get(
+    '/env',
+    withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
+    withSceneContext(listEnvKeysHandler)
+  )
   router.get(
     '/env/:key',
-    withWorldName(authorizedAddressesOnlyAuthorizationMiddleware),
-    withWorldName(getEnvStorageHandler)
+    withSceneContext(authorizedAddressesOnlyAuthorizationMiddleware),
+    withSceneContext(getEnvStorageHandler)
   )
   router.put(
     '/env/:key',
     schemaValidator.withSchemaValidatorMiddleware(UpsertEnvStorageRequestSchema),
-    withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware),
-    withWorldName(upsertEnvStorageHandler)
+    withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
+    withSceneContext(upsertEnvStorageHandler)
   )
   router.delete(
     '/env/:key',
-    withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware),
-    withWorldName(deleteEnvStorageHandler)
+    withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
+    withSceneContext(deleteEnvStorageHandler)
   )
   router.delete(
     '/env',
-    withWorldName(ownerAndDeployerOnlyAuthorizationMiddleware),
-    withWorldName(clearEnvStorageHandler)
+    withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
+    withSceneContext(clearEnvStorageHandler)
   )
 
   return router

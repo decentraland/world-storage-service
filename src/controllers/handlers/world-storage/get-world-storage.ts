@@ -6,12 +6,13 @@ import type { HTTPResponse } from '../../../types/http'
 export async function getWorldStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>,
-    'url' | 'components' | 'params' | 'worldName'
+    'url' | 'components' | 'params' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPResponse<unknown>> {
   const {
     params,
     worldName,
+    placeId,
     components: { logs, worldStorage }
   } = context
 
@@ -25,7 +26,7 @@ export async function getWorldStorageHandler(
   })
 
   try {
-    const value = await worldStorage.getValue(worldName, key)
+    const value = await worldStorage.getValue(worldName, placeId, key)
 
     if (!value) {
       logger.info('World storage value not found', {

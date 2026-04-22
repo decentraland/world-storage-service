@@ -18,13 +18,14 @@ import type { HTTPPaginatedResponse } from '../../../types/http'
 export async function listPlayerStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values'>,
-    'url' | 'components' | 'params' | 'worldName'
+    'url' | 'components' | 'params' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPPaginatedResponse<StorageEntry[]>> {
   const {
     url,
     params,
     worldName,
+    placeId,
     components: { logs, playerStorage }
   } = context
 
@@ -45,8 +46,8 @@ export async function listPlayerStorageHandler(
 
     // Fetch values and total count in parallel
     const [values, total] = await Promise.all([
-      playerStorage.listValues(worldName, playerAddress, { limit, offset, prefix }),
-      playerStorage.countKeys(worldName, playerAddress, { prefix })
+      playerStorage.listValues(worldName, placeId, playerAddress, { limit, offset, prefix }),
+      playerStorage.countKeys(worldName, placeId, playerAddress, { prefix })
     ])
 
     logger.info('Player storage values listed successfully', {

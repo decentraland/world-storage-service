@@ -10,12 +10,14 @@ export interface TestIdentityWithAddress {
 
 /**
  * Default metadata required for signed requests.
- * The worldNameMiddleware extracts worldName from realm.serverName or realmName.
+ * The sceneContextMiddleware extracts worldName from realm.serverName or realmName,
+ * and parcel from metadata.parcel (defaults to '0,0' if absent).
  */
 export const TEST_REALM_METADATA = {
   realm: {
     serverName: WORLD_NAMES.DEFAULT
-  }
+  },
+  parcel: '0,0'
 }
 
 export async function createTestIdentity(): Promise<AuthIdentity> {

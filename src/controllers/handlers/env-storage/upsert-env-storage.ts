@@ -8,13 +8,14 @@ import type { UpsertEnvStorageBody } from '../schemas'
 export async function upsertEnvStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'envStorage' | 'storageLimits', '/env/:key'>,
-    'url' | 'components' | 'params' | 'request' | 'worldName'
+    'url' | 'components' | 'params' | 'request' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPResponse<unknown>> {
   const {
     request,
     params,
     worldName,
+    placeId,
     components: { logs, envStorage, storageLimits }
   } = context
 
@@ -30,8 +31,8 @@ export async function upsertEnvStorageHandler(
   })
 
   try {
-    await storageLimits.validateEnvStorageUpsert(worldName, key, value)
-    await envStorage.setValue(worldName, key, value)
+    await storageLimits.validateEnvStorageUpsert(worldName, placeId, key, value)
+    await envStorage.setValue(worldName, placeId, key, value)
 
     logger.info('Env variable upserted successfully', {
       worldName,

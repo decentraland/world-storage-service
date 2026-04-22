@@ -6,12 +6,13 @@ import type { HTTPResponse } from '../../../types/http'
 export async function clearEnvStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'envStorage', '/env'>,
-    'url' | 'components' | 'worldName' | 'request'
+    'url' | 'components' | 'worldName' | 'placeId' | 'request'
   >
 ): Promise<HTTPResponse> {
   const {
     request,
     worldName,
+    placeId,
     components: { logs, envStorage }
   } = context
 
@@ -22,7 +23,7 @@ export async function clearEnvStorageHandler(
   logger.debug('Processing clear all env storage request', { worldName })
 
   try {
-    await envStorage.deleteAll(worldName)
+    await envStorage.deleteAll(worldName, placeId)
 
     logger.info('All env variables deleted successfully', { worldName })
 

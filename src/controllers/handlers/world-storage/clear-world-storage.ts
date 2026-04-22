@@ -6,12 +6,13 @@ import type { HTTPResponse } from '../../../types/http'
 export async function clearWorldStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values'>,
-    'url' | 'components' | 'worldName' | 'request'
+    'url' | 'components' | 'worldName' | 'placeId' | 'request'
   >
 ): Promise<HTTPResponse> {
   const {
     request,
     worldName,
+    placeId,
     components: { logs, worldStorage }
   } = context
 
@@ -22,7 +23,7 @@ export async function clearWorldStorageHandler(
   logger.debug('Processing clear all world storage request', { worldName })
 
   try {
-    await worldStorage.deleteAll(worldName)
+    await worldStorage.deleteAll(worldName, placeId)
 
     logger.info('All world storage values deleted successfully', { worldName })
 

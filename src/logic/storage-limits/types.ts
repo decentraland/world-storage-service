@@ -25,11 +25,12 @@ export interface IStorageLimitsComponent {
    * 2. Total storage size would not exceed the per-world maximum
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - The storage key being upserted
    * @param value - The value to store
    * @throws {InvalidRequestError} If any limit is exceeded
    */
-  validateWorldStorageUpsert(worldName: string, key: string, value: unknown): Promise<void>
+  validateWorldStorageUpsert(worldName: string, placeId: string, key: string, value: unknown): Promise<void>
 
   /**
    * Validates that a player storage upsert operation is within configured limits.
@@ -39,12 +40,19 @@ export interface IStorageLimitsComponent {
    * 2. Total storage size would not exceed the per-player-per-world maximum
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    * @param key - The storage key being upserted
    * @param value - The value to store
    * @throws {InvalidRequestError} If any limit is exceeded
    */
-  validatePlayerStorageUpsert(worldName: string, playerAddress: string, key: string, value: unknown): Promise<void>
+  validatePlayerStorageUpsert(
+    worldName: string,
+    placeId: string,
+    playerAddress: string,
+    key: string,
+    value: unknown
+  ): Promise<void>
 
   /**
    * Validates that an env storage upsert operation is within configured limits.
@@ -54,9 +62,10 @@ export interface IStorageLimitsComponent {
    * 2. Total storage size would not exceed the per-world maximum
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - The environment variable key being upserted
    * @param value - The string value to store
    * @throws {InvalidRequestError} If any limit is exceeded
    */
-  validateEnvStorageUpsert(worldName: string, key: string, value: string): Promise<void>
+  validateEnvStorageUpsert(worldName: string, placeId: string, key: string, value: string): Promise<void>
 }

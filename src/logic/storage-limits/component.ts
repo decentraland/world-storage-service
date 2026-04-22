@@ -79,13 +79,14 @@ export async function createStorageLimitsComponent(
   })
 
   return {
-    async validateWorldStorageUpsert(worldName: string, key: string, value: unknown): Promise<void> {
+    async validateWorldStorageUpsert(worldName: string, placeId: string, key: string, value: unknown): Promise<void> {
       const validate = createUpsertValidator(() => worldStorage.getSizeInfo(worldName, key), worldLimits)
       await validate(JSON.stringify(value))
     },
 
     async validatePlayerStorageUpsert(
       worldName: string,
+      placeId: string,
       playerAddress: string,
       key: string,
       value: unknown
@@ -97,7 +98,7 @@ export async function createStorageLimitsComponent(
       await validate(JSON.stringify(value))
     },
 
-    async validateEnvStorageUpsert(worldName: string, key: string, value: string): Promise<void> {
+    async validateEnvStorageUpsert(worldName: string, placeId: string, key: string, value: string): Promise<void> {
       const validate = createUpsertValidator(() => envStorage.getSizeInfo(worldName, key), envLimits)
       await validate(value)
     }

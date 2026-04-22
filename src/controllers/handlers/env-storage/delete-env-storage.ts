@@ -5,12 +5,13 @@ import type { HTTPResponse } from '../../../types/http'
 export async function deleteEnvStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'envStorage', '/env/:key'>,
-    'url' | 'components' | 'params' | 'worldName'
+    'url' | 'components' | 'params' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPResponse> {
   const {
     params,
     worldName,
+    placeId,
     components: { logs, envStorage }
   } = context
 
@@ -24,7 +25,7 @@ export async function deleteEnvStorageHandler(
   })
 
   try {
-    await envStorage.deleteValue(worldName, key)
+    await envStorage.deleteValue(worldName, placeId, key)
 
     logger.info('Env variable deleted successfully', {
       worldName,

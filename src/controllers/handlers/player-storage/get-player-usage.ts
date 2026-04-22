@@ -7,7 +7,7 @@ import type { HTTPStorageUsageResponse } from '../../../types/http'
 export async function getPlayerUsageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'playerStorage' | 'config', '/players/:player_address/usage'>,
-    'components' | 'worldName' | 'params'
+    'components' | 'worldName' | 'placeId' | 'params'
   >
 ): Promise<HTTPStorageUsageResponse> {
   const {

@@ -9,13 +9,14 @@ import type { UpsertStorageBody } from '../schemas'
 export async function upsertPlayerStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'playerStorage' | 'storageLimits', '/players/:player_address/values/:key'>,
-    'url' | 'components' | 'params' | 'request' | 'worldName'
+    'url' | 'components' | 'params' | 'request' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPResponse<unknown>> {
   const {
     request,
     params,
     worldName,
+    placeId,
     components: { logs, playerStorage, storageLimits }
   } = context
 
@@ -37,8 +38,8 @@ export async function upsertPlayerStorageHandler(
   const { value }: UpsertStorageBody = await request.json()
 
   try {
-    await storageLimits.validatePlayerStorageUpsert(worldName, playerAddress, key, value)
-    const item = await playerStorage.setValue(worldName, playerAddress, key, value)
+    await storageLimits.validatePlayerStorageUpsert(worldName, placeId, playerAddress, key, value)
+    const item = await playerStorage.setValue(worldName, placeId, playerAddress, key, value)
 
     logger.info('Player storage value upserted successfully', {
       worldName,

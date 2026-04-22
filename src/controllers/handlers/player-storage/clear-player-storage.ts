@@ -6,13 +6,14 @@ import type { HTTPResponse } from '../../../types/http'
 export async function clearPlayerStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values'>,
-    'url' | 'components' | 'worldName' | 'params' | 'request'
+    'url' | 'components' | 'worldName' | 'placeId' | 'params' | 'request'
   >
 ): Promise<HTTPResponse> {
   const {
     request,
     params,
     worldName,
+    placeId,
     components: { logs, playerStorage }
   } = context
 
@@ -25,7 +26,7 @@ export async function clearPlayerStorageHandler(
   logger.debug('Processing clear all player storage request', { worldName, playerAddress })
 
   try {
-    await playerStorage.deleteAllForPlayer(worldName, playerAddress)
+    await playerStorage.deleteAllForPlayer(worldName, placeId, playerAddress)
 
     logger.info('All player storage values deleted successfully', { worldName, playerAddress })
 
@@ -46,12 +47,13 @@ export async function clearPlayerStorageHandler(
 export async function clearAllPlayersStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players'>,
-    'url' | 'components' | 'worldName' | 'request'
+    'url' | 'components' | 'worldName' | 'placeId' | 'request'
   >
 ): Promise<HTTPResponse> {
   const {
     request,
     worldName,
+    placeId,
     components: { logs, playerStorage }
   } = context
 
@@ -62,7 +64,7 @@ export async function clearAllPlayersStorageHandler(
   logger.debug('Processing clear all players storage request', { worldName })
 
   try {
-    await playerStorage.deleteAll(worldName)
+    await playerStorage.deleteAll(worldName, placeId)
 
     logger.info('All players storage values deleted successfully', { worldName })
 
