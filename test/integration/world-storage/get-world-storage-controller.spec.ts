@@ -95,11 +95,11 @@ test('when getting a world storage value', function ({ components, stubComponent
 
   describe('and the database throws an error', () => {
     beforeEach(() => {
-      stubComponents.worldStorage.getValue.rejects(new Error('boom'))
+      stubComponents.worldStorage.getValue.mockRejectedValue(new Error('boom'))
     })
 
     afterEach(() => {
-      stubComponents.worldStorage.getValue.reset()
+      stubComponents.worldStorage.getValue.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

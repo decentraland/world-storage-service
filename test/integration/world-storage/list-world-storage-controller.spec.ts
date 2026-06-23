@@ -295,11 +295,11 @@ test('when listing world storage values', function ({ components, stubComponents
 
   describe('and the storage throws an InvalidRequestError', () => {
     beforeEach(() => {
-      stubComponents.worldStorage.listValues.rejects(new InvalidRequestError('invalid request'))
+      stubComponents.worldStorage.listValues.mockRejectedValue(new InvalidRequestError('invalid request'))
     })
 
     afterEach(() => {
-      stubComponents.worldStorage.listValues.reset()
+      stubComponents.worldStorage.listValues.mockReset()
     })
 
     it('should respond with a 400 and the error message', async () => {
@@ -316,11 +316,11 @@ test('when listing world storage values', function ({ components, stubComponents
 
   describe('and the database throws an error', () => {
     beforeEach(() => {
-      stubComponents.worldStorage.listValues.rejects(new Error('boom'))
+      stubComponents.worldStorage.listValues.mockRejectedValue(new Error('boom'))
     })
 
     afterEach(() => {
-      stubComponents.worldStorage.listValues.reset()
+      stubComponents.worldStorage.listValues.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

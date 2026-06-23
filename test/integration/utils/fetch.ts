@@ -1,4 +1,4 @@
-import type { IFetchComponent } from '@well-known-components/interfaces'
+import type { IFetchComponent } from '@dcl/core-commons'
 
 /**
  * Creates a fetch wrapper that bridges signedFetchFactory with localFetch.

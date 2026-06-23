@@ -1,5 +1,5 @@
-import type { IHttpServerComponent } from '@well-known-components/interfaces'
-import type { DecentralandSignatureContext } from '@dcl/platform-crypto-middleware'
+import type { IHttpServerComponent } from '@dcl/core-commons'
+import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import type { SceneAuthMetadata } from '../../../src/controllers/middlewares/scene-context-middleware'
 import type { WorldStorageContext } from '../../../src/types'
 

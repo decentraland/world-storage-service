@@ -159,7 +159,9 @@ test('when upserting a player storage value', function ({ components, stubCompon
       errorMessage =
         'Total storage size would exceed the maximum allowed (1048576 bytes). ' +
         'Current usage: 1000000 bytes. Delete existing data to free up space'
-      stubComponents.storageLimits.validatePlayerStorageUpsert.rejects(new StorageLimitExceededError(errorMessage))
+      stubComponents.storageLimits.validatePlayerStorageUpsert.mockRejectedValue(
+        new StorageLimitExceededError(errorMessage)
+      )
       response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -170,7 +172,7 @@ test('when upserting a player storage value', function ({ components, stubCompon
     })
 
     afterEach(() => {
-      stubComponents.storageLimits.validatePlayerStorageUpsert.reset()
+      stubComponents.storageLimits.validatePlayerStorageUpsert.mockReset()
     })
 
     it('should respond with a 400 and the storage limit error message', async () => {
@@ -185,7 +187,7 @@ test('when upserting a player storage value', function ({ components, stubCompon
 
   describe('and the database throws an error', () => {
     beforeEach(async () => {
-      stubComponents.playerStorage.setValue.rejects(new Error('boom'))
+      stubComponents.playerStorage.setValue.mockRejectedValue(new Error('boom'))
       response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -196,7 +198,7 @@ test('when upserting a player storage value', function ({ components, stubCompon
     })
 
     afterEach(() => {
-      stubComponents.playerStorage.setValue.reset()
+      stubComponents.playerStorage.setValue.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

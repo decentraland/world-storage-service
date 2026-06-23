@@ -1,8 +1,11 @@
 import type { AuthIdentity } from '@dcl/crypto'
+import type { MockedComponent } from '@dcl/test-helpers'
 import { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { createTestIdentityWithAddress } from './auth'
 import { createLocalFetchWrapper } from './fetch'
 import { PLACE_IDS } from '../../fixtures'
+import type { IPlacesComponent } from '../../../src/adapters/places/types'
+import type { IWorldsContentServerComponent } from '../../../src/adapters/worlds-content-server/types'
 import type { TestComponents } from '../../../src/types'
 
 export interface TestSetup {
@@ -14,18 +17,8 @@ export interface TestSetup {
 }
 
 interface StubComponents {
-  places: {
-    resolvePlaceId: {
-      resolves: (value: unknown) => void
-      reset: () => void
-    }
-  }
-  worldsContentServer: {
-    getPermissions: {
-      resolves: (value: unknown) => void
-      reset: () => void
-    }
-  }
+  places: Pick<MockedComponent<IPlacesComponent>, 'resolvePlaceId'>
+  worldsContentServer: Pick<MockedComponent<IWorldsContentServerComponent>, 'getPermissions'>
 }
 
 export async function createTestSetup(components: TestComponents, stubComponents: StubComponents): Promise<TestSetup> {
@@ -35,13 +28,13 @@ export async function createTestSetup(components: TestComponents, stubComponents
   const baseUrl = `http://${host}:${port}`
   const signedFetch = signedFetchFactory({ fetch: createLocalFetchWrapper(components.localFetch) })
 
-  stubComponents.worldsContentServer.getPermissions.resolves({
+  stubComponents.worldsContentServer.getPermissions.mockResolvedValue({
     owner: address,
     permissions: {
       deployment: { type: 'allow-list', wallets: [] }
     }
   })
-  stubComponents.places.resolvePlaceId.resolves(PLACE_IDS.DEFAULT)
+  stubComponents.places.resolvePlaceId.mockResolvedValue(PLACE_IDS.DEFAULT)
 
   // Mock config.getString to return the test identity's address as AUTHORITATIVE_SERVER_ADDRESS
   // This is required for endpoints that use authorizedAddressesOnlyAuthorizationMiddleware
@@ -55,8 +48,8 @@ export async function createTestSetup(components: TestComponents, stubComponents
   components.config.getString = mockedGetString
 
   const resetStubs = () => {
-    stubComponents.places.resolvePlaceId.reset()
-    stubComponents.worldsContentServer.getPermissions.reset()
+    stubComponents.places.resolvePlaceId.mockReset()
+    stubComponents.worldsContentServer.getPermissions.mockReset()
     // Restore original getString method
     components.config.getString = originalGetString
   }

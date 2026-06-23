@@ -265,11 +265,11 @@ test('when listing env keys', function ({ components, stubComponents }) {
 
   describe('and the storage throws an InvalidRequestError', () => {
     beforeEach(() => {
-      stubComponents.envStorage.listKeys.rejects(new InvalidRequestError('invalid request'))
+      stubComponents.envStorage.listKeys.mockRejectedValue(new InvalidRequestError('invalid request'))
     })
 
     afterEach(() => {
-      stubComponents.envStorage.listKeys.reset()
+      stubComponents.envStorage.listKeys.mockReset()
     })
 
     it('should respond with a 400 and the error message', async () => {
@@ -286,11 +286,11 @@ test('when listing env keys', function ({ components, stubComponents }) {
 
   describe('and the database throws an error', () => {
     beforeEach(() => {
-      stubComponents.envStorage.listKeys.rejects(new Error('boom'))
+      stubComponents.envStorage.listKeys.mockRejectedValue(new Error('boom'))
     })
 
     afterEach(() => {
-      stubComponents.envStorage.listKeys.reset()
+      stubComponents.envStorage.listKeys.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

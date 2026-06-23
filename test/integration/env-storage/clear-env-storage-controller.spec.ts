@@ -109,7 +109,7 @@ test('when clearing all env storage values', function ({ components, stubCompone
 
   describe('and the storage clear throws an error', () => {
     beforeEach(async () => {
-      stubComponents.envStorage.deleteAll.rejects(new Error('boom'))
+      stubComponents.envStorage.deleteAll.mockRejectedValue(new Error('boom'))
       response = await signedFetch(`${baseUrl}/env`, {
         method: 'DELETE',
         headers: { 'X-Confirm-Delete-All': 'true' },
@@ -119,7 +119,7 @@ test('when clearing all env storage values', function ({ components, stubCompone
     })
 
     afterEach(() => {
-      stubComponents.envStorage.deleteAll.reset()
+      stubComponents.envStorage.deleteAll.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

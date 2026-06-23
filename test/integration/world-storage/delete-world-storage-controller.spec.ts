@@ -77,7 +77,7 @@ test('when deleting a world storage value', function ({ components, stubComponen
 
   describe('and the storage delete throws an error', () => {
     beforeEach(async () => {
-      stubComponents.worldStorage.deleteValue.rejects(new Error('boom'))
+      stubComponents.worldStorage.deleteValue.mockRejectedValue(new Error('boom'))
       response = await signedFetch(`${baseUrl}/values/${key}`, {
         method: 'DELETE',
         identity,
@@ -86,7 +86,7 @@ test('when deleting a world storage value', function ({ components, stubComponen
     })
 
     afterEach(() => {
-      stubComponents.worldStorage.deleteValue.reset()
+      stubComponents.worldStorage.deleteValue.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

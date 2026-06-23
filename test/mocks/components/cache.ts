@@ -5,6 +5,7 @@ export function createCacheMockedComponent(): jest.Mocked<ICacheStorageComponent
     get: jest.fn(),
     set: jest.fn(),
     remove: jest.fn(),
+    exists: jest.fn(),
     keys: jest.fn(),
     setInHash: jest.fn(),
     getFromHash: jest.fn(),

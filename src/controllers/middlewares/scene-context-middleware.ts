@@ -1,9 +1,9 @@
-import type { IHttpServerComponent } from '@well-known-components/interfaces'
+import type { IHttpServerComponent } from '@dcl/core-commons'
+import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { InvalidRequestError } from '@dcl/http-commons'
-import type { DecentralandSignatureContext } from '@dcl/platform-crypto-middleware'
 import type { GlobalContext } from '../../types'
 
-export interface SceneAuthMetadata {
+export interface SceneAuthMetadata extends Record<string, unknown> {
   realm?: { serverName?: string | null }
   realmName?: string | null
   parcel?: string | null

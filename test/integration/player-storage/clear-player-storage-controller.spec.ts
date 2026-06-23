@@ -130,7 +130,7 @@ test('when clearing all player storage values for a specific player', function (
 
   describe('and the storage clear throws an error', () => {
     beforeEach(async () => {
-      stubComponents.playerStorage.deleteAllForPlayer.rejects(new Error('boom'))
+      stubComponents.playerStorage.deleteAllForPlayer.mockRejectedValue(new Error('boom'))
       response = await signedFetch(`${baseUrl}/players/${playerAddress}/values`, {
         method: 'DELETE',
         headers: { 'X-Confirm-Delete-All': 'true' },
@@ -140,7 +140,7 @@ test('when clearing all player storage values for a specific player', function (
     })
 
     afterEach(() => {
-      stubComponents.playerStorage.deleteAllForPlayer.reset()
+      stubComponents.playerStorage.deleteAllForPlayer.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {
@@ -262,7 +262,7 @@ test('when clearing all player storage values for all players', function ({ comp
 
   describe('and the storage clear throws an error', () => {
     beforeEach(async () => {
-      stubComponents.playerStorage.deleteAll.rejects(new Error('boom'))
+      stubComponents.playerStorage.deleteAll.mockRejectedValue(new Error('boom'))
       response = await signedFetch(`${baseUrl}/players`, {
         method: 'DELETE',
         headers: { 'X-Confirm-Delete-All': 'true' },
@@ -272,7 +272,7 @@ test('when clearing all player storage values for all players', function ({ comp
     })
 
     afterEach(() => {
-      stubComponents.playerStorage.deleteAll.reset()
+      stubComponents.playerStorage.deleteAll.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

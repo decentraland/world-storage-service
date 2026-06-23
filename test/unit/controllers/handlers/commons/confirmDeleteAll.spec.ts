@@ -1,4 +1,4 @@
-import type { IHttpServerComponent } from '@well-known-components/interfaces'
+import type { IHttpServerComponent } from '@dcl/core-commons'
 import { InvalidRequestError } from '@dcl/http-commons'
 import { validateConfirmDeleteAllHeader } from '../../../../../src/controllers/handlers/commons/confirmDeleteAll'
 

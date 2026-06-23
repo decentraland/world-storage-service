@@ -126,7 +126,9 @@ test('when upserting a world storage value', function ({ components, stubCompone
 
     beforeEach(async () => {
       errorMessage = 'Value size (600000 bytes) exceeds the maximum allowed size (524288 bytes)'
-      stubComponents.storageLimits.validateWorldStorageUpsert.rejects(new StorageLimitExceededError(errorMessage))
+      stubComponents.storageLimits.validateWorldStorageUpsert.mockRejectedValue(
+        new StorageLimitExceededError(errorMessage)
+      )
       response = await signedFetch(`${baseUrl}/values/${key}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -137,7 +139,7 @@ test('when upserting a world storage value', function ({ components, stubCompone
     })
 
     afterEach(() => {
-      stubComponents.storageLimits.validateWorldStorageUpsert.reset()
+      stubComponents.storageLimits.validateWorldStorageUpsert.mockReset()
     })
 
     it('should respond with a 400 and the storage limit error message', async () => {
@@ -152,7 +154,7 @@ test('when upserting a world storage value', function ({ components, stubCompone
 
   describe('and the database throws an error', () => {
     beforeEach(async () => {
-      stubComponents.worldStorage.setValue.rejects(new Error('boom'))
+      stubComponents.worldStorage.setValue.mockRejectedValue(new Error('boom'))
       response = await signedFetch(`${baseUrl}/values/${key}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -163,7 +165,7 @@ test('when upserting a world storage value', function ({ components, stubCompone
     })
 
     afterEach(() => {
-      stubComponents.worldStorage.setValue.reset()
+      stubComponents.worldStorage.setValue.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

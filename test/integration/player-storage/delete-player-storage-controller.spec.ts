@@ -102,7 +102,7 @@ test('when deleting a player storage value', function ({ components, stubCompone
 
   describe('and the storage delete throws an error', () => {
     beforeEach(async () => {
-      stubComponents.playerStorage.deleteValue.rejects(new Error('boom'))
+      stubComponents.playerStorage.deleteValue.mockRejectedValue(new Error('boom'))
       response = await signedFetch(`${baseUrl}/players/${playerAddress}/values/${key}`, {
         method: 'DELETE',
         identity,
@@ -111,7 +111,7 @@ test('when deleting a player storage value', function ({ components, stubCompone
     })
 
     afterEach(() => {
-      stubComponents.playerStorage.deleteValue.reset()
+      stubComponents.playerStorage.deleteValue.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

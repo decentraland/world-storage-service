@@ -1,6 +1,6 @@
-import type { IHttpServerComponent } from '@well-known-components/interfaces'
+import type { IHttpServerComponent } from '@dcl/core-commons'
+import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { NotAuthorizedError } from '@dcl/http-commons'
-import type { DecentralandSignatureContext } from '@dcl/platform-crypto-middleware'
 import { isErrorWithMessage } from '../../utils/errors'
 import type { WorldStorageContext } from '../../types'
 
@@ -41,7 +41,7 @@ function safeAddress(signerAddress: string, authoritativeServerAddress: string |
 export function createAuthorizationMiddleware(
   options: AuthorizationMiddlewareOptions
 ): IHttpServerComponent.IRequestHandler<
-  IHttpServerComponent.PathAwareContext<WorldStorageContext, string> & DecentralandSignatureContext<unknown>
+  IHttpServerComponent.PathAwareContext<WorldStorageContext, string> & DecentralandSignatureContext
 > {
   const { allowAuthorizedAddresses, allowOwnersAndDeployers } = options
 

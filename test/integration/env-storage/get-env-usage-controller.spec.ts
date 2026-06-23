@@ -121,11 +121,11 @@ test('when getting env storage usage', function ({ components, stubComponents })
 
   describe('and the storage throws an error', () => {
     beforeEach(() => {
-      stubComponents.envStorage.getSizeInfo.rejects(new Error('boom'))
+      stubComponents.envStorage.getSizeInfo.mockRejectedValue(new Error('boom'))
     })
 
     afterEach(() => {
-      stubComponents.envStorage.getSizeInfo.reset()
+      stubComponents.envStorage.getSizeInfo.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {
