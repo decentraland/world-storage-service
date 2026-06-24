@@ -77,7 +77,7 @@ test('when deleting an env storage value', function ({ components, stubComponent
 
   describe('and the storage delete throws an error', () => {
     beforeEach(async () => {
-      stubComponents.envStorage.deleteValue.rejects(new Error('boom'))
+      stubComponents.envStorage.deleteValue.mockRejectedValue(new Error('boom'))
       response = await signedFetch(`${baseUrl}/env/${key}`, {
         method: 'DELETE',
         identity,
@@ -86,7 +86,7 @@ test('when deleting an env storage value', function ({ components, stubComponent
     })
 
     afterEach(() => {
-      stubComponents.envStorage.deleteValue.reset()
+      stubComponents.envStorage.deleteValue.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

@@ -109,7 +109,7 @@ test('when clearing all world storage values', function ({ components, stubCompo
 
   describe('and the storage clear throws an error', () => {
     beforeEach(async () => {
-      stubComponents.worldStorage.deleteAll.rejects(new Error('boom'))
+      stubComponents.worldStorage.deleteAll.mockRejectedValue(new Error('boom'))
       response = await signedFetch(`${baseUrl}/values`, {
         method: 'DELETE',
         headers: { 'X-Confirm-Delete-All': 'true' },
@@ -119,7 +119,7 @@ test('when clearing all world storage values', function ({ components, stubCompo
     })
 
     afterEach(() => {
-      stubComponents.worldStorage.deleteAll.reset()
+      stubComponents.worldStorage.deleteAll.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

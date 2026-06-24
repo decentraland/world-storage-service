@@ -124,11 +124,11 @@ test('when getting world storage usage', function ({ components, stubComponents 
 
   describe('and the storage throws an error', () => {
     beforeEach(() => {
-      stubComponents.worldStorage.getSizeInfo.rejects(new Error('boom'))
+      stubComponents.worldStorage.getSizeInfo.mockRejectedValue(new Error('boom'))
     })
 
     afterEach(() => {
-      stubComponents.worldStorage.getSizeInfo.reset()
+      stubComponents.worldStorage.getSizeInfo.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

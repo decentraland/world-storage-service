@@ -1,4 +1,5 @@
-import type { IConfigComponent, Response } from '@well-known-components/interfaces'
+import type { IConfigComponent } from '@well-known-components/interfaces'
+import type { IFetchComponent } from '@dcl/core-commons'
 import { createConfigMockedComponent, createFetchMockedComponent } from '@dcl/core-commons'
 import { createWorldPermissionComponent } from '../../../src/logic/world-permission'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../fixtures'
@@ -9,7 +10,7 @@ import type { IWorldPermissionComponent } from '../../../src/logic/world-permiss
 describe('World Permission Component', () => {
   let getPermissionsMock: jest.Mock
   let worldsContentServerMock: IWorldsContentServerComponent
-  let fetcher: ReturnType<typeof createFetchMockedComponent>
+  let fetcher: jest.Mocked<IFetchComponent>
   let config: jest.Mocked<IConfigComponent>
 
   beforeEach(() => {
@@ -17,7 +18,7 @@ describe('World Permission Component', () => {
     worldsContentServerMock = {
       getPermissions: getPermissionsMock
     }
-    fetcher = createFetchMockedComponent()
+    fetcher = createFetchMockedComponent() as jest.Mocked<IFetchComponent>
     config = createConfigMockedComponent() as jest.Mocked<IConfigComponent>
   })
 

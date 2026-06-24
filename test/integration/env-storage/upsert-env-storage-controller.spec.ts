@@ -140,7 +140,9 @@ test('when upserting an env storage value', function ({ components, stubComponen
 
     beforeEach(async () => {
       errorMessage = 'Value size (20480 bytes) exceeds the maximum allowed size (10240 bytes)'
-      stubComponents.storageLimits.validateEnvStorageUpsert.rejects(new StorageLimitExceededError(errorMessage))
+      stubComponents.storageLimits.validateEnvStorageUpsert.mockRejectedValue(
+        new StorageLimitExceededError(errorMessage)
+      )
       response = await signedFetch(`${baseUrl}/env/${key}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -151,7 +153,7 @@ test('when upserting an env storage value', function ({ components, stubComponen
     })
 
     afterEach(() => {
-      stubComponents.storageLimits.validateEnvStorageUpsert.reset()
+      stubComponents.storageLimits.validateEnvStorageUpsert.mockReset()
     })
 
     it('should respond with a 400 and the storage limit error message', async () => {
@@ -166,7 +168,7 @@ test('when upserting an env storage value', function ({ components, stubComponen
 
   describe('and the database throws an error', () => {
     beforeEach(async () => {
-      stubComponents.envStorage.setValue.rejects(new Error('boom'))
+      stubComponents.envStorage.setValue.mockRejectedValue(new Error('boom'))
       response = await signedFetch(`${baseUrl}/env/${key}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -177,7 +179,7 @@ test('when upserting an env storage value', function ({ components, stubComponen
     })
 
     afterEach(() => {
-      stubComponents.envStorage.setValue.reset()
+      stubComponents.envStorage.setValue.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

@@ -265,11 +265,11 @@ test('when listing players with stored values', function ({ components, stubComp
 
   describe('and the storage throws an InvalidRequestError', () => {
     beforeEach(() => {
-      stubComponents.playerStorage.listPlayers.rejects(new InvalidRequestError('invalid request'))
+      stubComponents.playerStorage.listPlayers.mockRejectedValue(new InvalidRequestError('invalid request'))
     })
 
     afterEach(() => {
-      stubComponents.playerStorage.listPlayers.reset()
+      stubComponents.playerStorage.listPlayers.mockReset()
     })
 
     it('should respond with a 400 and the error message', async () => {
@@ -286,11 +286,11 @@ test('when listing players with stored values', function ({ components, stubComp
 
   describe('and the database throws an error', () => {
     beforeEach(() => {
-      stubComponents.playerStorage.listPlayers.rejects(new Error('boom'))
+      stubComponents.playerStorage.listPlayers.mockRejectedValue(new Error('boom'))
     })
 
     afterEach(() => {
-      stubComponents.playerStorage.listPlayers.reset()
+      stubComponents.playerStorage.listPlayers.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

@@ -95,11 +95,11 @@ test('when getting an env storage value', function ({ components, stubComponents
 
   describe('and the database throws an error', () => {
     beforeEach(() => {
-      stubComponents.envStorage.getValue.rejects(new Error('boom'))
+      stubComponents.envStorage.getValue.mockRejectedValue(new Error('boom'))
     })
 
     afterEach(() => {
-      stubComponents.envStorage.getValue.reset()
+      stubComponents.envStorage.getValue.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

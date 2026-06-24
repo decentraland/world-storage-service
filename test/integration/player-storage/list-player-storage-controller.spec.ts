@@ -311,11 +311,11 @@ test('when listing player storage values', function ({ components, stubComponent
 
   describe('and the storage throws an InvalidRequestError', () => {
     beforeEach(() => {
-      stubComponents.playerStorage.listValues.rejects(new InvalidRequestError('invalid request'))
+      stubComponents.playerStorage.listValues.mockRejectedValue(new InvalidRequestError('invalid request'))
     })
 
     afterEach(() => {
-      stubComponents.playerStorage.listValues.reset()
+      stubComponents.playerStorage.listValues.mockReset()
     })
 
     it('should respond with a 400 and the error message', async () => {
@@ -332,11 +332,11 @@ test('when listing player storage values', function ({ components, stubComponent
 
   describe('and the database throws an error', () => {
     beforeEach(() => {
-      stubComponents.playerStorage.listValues.rejects(new Error('boom'))
+      stubComponents.playerStorage.listValues.mockRejectedValue(new Error('boom'))
     })
 
     afterEach(() => {
-      stubComponents.playerStorage.listValues.reset()
+      stubComponents.playerStorage.listValues.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {

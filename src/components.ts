@@ -1,19 +1,19 @@
 import { resolve } from 'path'
 import { createDotEnvConfigComponent } from '@well-known-components/env-config-provider'
-import { Verbosity, instrumentHttpServerWithRequestLogger } from '@well-known-components/http-requests-logger-component'
+import { createLogComponent } from '@well-known-components/logger'
+import { Verbosity, instrumentHttpServerWithRequestLogger } from '@dcl/http-requests-logger-component'
 import {
   createServerComponent,
   createStatusCheckComponent,
   instrumentHttpServerWithPromClientRegistry
-} from '@well-known-components/http-server'
-import { createHttpTracerComponent } from '@well-known-components/http-tracer-component'
-import { createLogComponent } from '@well-known-components/logger'
-import { createMetricsComponent } from '@well-known-components/metrics'
-import { createPgComponent } from '@well-known-components/pg-component'
-import { createTracerComponent } from '@well-known-components/tracer-component'
+} from '@dcl/http-server'
+import { createHttpTracerComponent } from '@dcl/http-tracer-component'
 import { createInMemoryCacheComponent } from '@dcl/memory-cache-component'
+import { createMetricsComponent } from '@dcl/metrics'
+import { createPgComponent } from '@dcl/pg-component'
 import { createSchemaValidatorComponent } from '@dcl/schema-validator-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
+import { createTracerComponent } from '@dcl/tracer-component'
 import { createEncryptionComponent } from './adapters/encryption'
 import { createEnvStorageComponent } from './adapters/env-storage'
 import { createPlacesComponent } from './adapters/places'
@@ -55,8 +55,10 @@ export async function initComponents(): Promise<AppComponents> {
   const pg = await createPgComponent(
     { logs, config, metrics },
     {
+      pool: {
+        connectionString: await getDbConnectionString({ config })
+      },
       migration: {
-        databaseUrl: await getDbConnectionString({ config }),
         dir: resolve(__dirname, 'migrations'),
         migrationsTable: 'pgmigrations',
         ignorePattern: '.*\\.map',

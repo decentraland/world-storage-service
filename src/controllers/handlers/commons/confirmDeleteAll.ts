@@ -1,4 +1,4 @@
-import type { IHttpServerComponent } from '@well-known-components/interfaces'
+import type { IHttpServerComponent } from '@dcl/core-commons'
 import { InvalidRequestError } from '@dcl/http-commons'
 
 const CONFIRM_DELETE_ALL_HEADER = 'X-Confirm-Delete-All'

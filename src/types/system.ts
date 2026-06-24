@@ -1,13 +1,11 @@
 import type {
   IBaseComponent,
   IConfigComponent,
-  IFetchComponent,
-  IHttpServerComponent,
   ILoggerComponent,
   IMetricsComponent
 } from '@well-known-components/interfaces'
-import type { IPgComponent } from '@well-known-components/pg-component'
-import type { ICacheStorageComponent } from '@dcl/core-commons'
+import type { ICacheStorageComponent, IFetchComponent, IHttpServerComponent } from '@dcl/core-commons'
+import type { IPgComponent } from '@dcl/pg-component'
 import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
 import type { IEncryptionComponent } from '../adapters/encryption/types'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'

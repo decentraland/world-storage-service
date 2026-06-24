@@ -1,5 +1,4 @@
-import type { Response } from '@well-known-components/interfaces'
-import type { ICacheStorageComponent } from '@dcl/core-commons'
+import type { ICacheStorageComponent, IFetchComponent } from '@dcl/core-commons'
 import { createConfigMockedComponent, createFetchMockedComponent } from '@dcl/core-commons'
 import { InvalidRequestError } from '@dcl/http-commons'
 import { createPlacesComponent } from '../../../src/adapters/places'
@@ -10,7 +9,7 @@ import type { IPlacesComponent } from '../../../src/adapters/places/types'
 describe('PlacesComponent', () => {
   const placesUrl = 'https://places.decentraland.org'
   let config: ReturnType<typeof createConfigMockedComponent>
-  let fetcher: ReturnType<typeof createFetchMockedComponent>
+  let fetcher: jest.Mocked<IFetchComponent>
   let cache: jest.Mocked<ICacheStorageComponent>
   let places: IPlacesComponent
 
@@ -23,7 +22,7 @@ describe('PlacesComponent', () => {
       getNumber: jest.fn().mockResolvedValue(undefined),
       requireString: jest.fn().mockResolvedValue(placesUrl)
     })
-    fetcher = createFetchMockedComponent()
+    fetcher = createFetchMockedComponent() as jest.Mocked<IFetchComponent>
     cache = createCacheMockedComponent()
 
     places = await createPlacesComponent({

@@ -125,11 +125,11 @@ test('when getting a player storage value', function ({ components, stubComponen
 
   describe('and the database throws an error', () => {
     beforeEach(() => {
-      stubComponents.playerStorage.getValue.rejects(new Error('boom'))
+      stubComponents.playerStorage.getValue.mockRejectedValue(new Error('boom'))
     })
 
     afterEach(() => {
-      stubComponents.playerStorage.getValue.reset()
+      stubComponents.playerStorage.getValue.mockReset()
     })
 
     it('should respond with a 500 and the error message', async () => {
