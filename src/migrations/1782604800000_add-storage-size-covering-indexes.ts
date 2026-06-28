@@ -19,15 +19,24 @@ export const shorthands: ColumnDefinitions | undefined = undefined
  *   - env_variables:   WHERE world_name = ?
  */
 export async function up(pgm: MigrationBuilder): Promise<void> {
-  pgm.sql('CREATE INDEX world_storage_size_idx ON world_storage (world_name) INCLUDE (key, value_size)')
+  // Build CONCURRENTLY so creating the index does not take a write lock on these live tables.
+  // CONCURRENTLY cannot run inside a transaction, so the migration opts out of the implicit one;
+  // IF NOT EXISTS keeps it re-runnable if a concurrent build is interrupted.
+  pgm.noTransaction()
   pgm.sql(
-    'CREATE INDEX player_storage_size_idx ON player_storage (world_name, player_address) INCLUDE (key, value_size)'
+    'CREATE INDEX CONCURRENTLY IF NOT EXISTS world_storage_size_idx ON world_storage (world_name) INCLUDE (key, value_size)'
   )
-  pgm.sql('CREATE INDEX env_variables_size_idx ON env_variables (world_name) INCLUDE (key, value_size)')
+  pgm.sql(
+    'CREATE INDEX CONCURRENTLY IF NOT EXISTS player_storage_size_idx ON player_storage (world_name, player_address) INCLUDE (key, value_size)'
+  )
+  pgm.sql(
+    'CREATE INDEX CONCURRENTLY IF NOT EXISTS env_variables_size_idx ON env_variables (world_name) INCLUDE (key, value_size)'
+  )
 }
 
 export async function down(pgm: MigrationBuilder): Promise<void> {
-  pgm.sql('DROP INDEX IF EXISTS world_storage_size_idx')
-  pgm.sql('DROP INDEX IF EXISTS player_storage_size_idx')
-  pgm.sql('DROP INDEX IF EXISTS env_variables_size_idx')
+  pgm.noTransaction()
+  pgm.sql('DROP INDEX CONCURRENTLY IF EXISTS world_storage_size_idx')
+  pgm.sql('DROP INDEX CONCURRENTLY IF EXISTS player_storage_size_idx')
+  pgm.sql('DROP INDEX CONCURRENTLY IF EXISTS env_variables_size_idx')
 }
