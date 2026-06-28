@@ -99,6 +99,33 @@ describe('PlayerStorageComponent', () => {
       })
     })
 
+    describe('and the stored value is larger than the max cacheable size', () => {
+      beforeEach(async () => {
+        config = createConfigMockedComponent({
+          getString: jest.fn().mockResolvedValue(undefined),
+          getNumber: jest.fn().mockResolvedValue(5)
+        })
+        playerStorage = await createPlayerStorageComponent({
+          pg,
+          config,
+          storageCache,
+          logs: createLogsMockedComponent()
+        })
+        storageCache.get.mockResolvedValueOnce(null)
+        pg.query.mockResolvedValueOnce({ rows: [{ value: storedValue }] } as never)
+      })
+
+      it('should return the value from the database', async () => {
+        const result = await playerStorage.getValue(worldName, placeId, playerAddress, key)
+        expect(result).toEqual(storedValue)
+      })
+
+      it('should not store the value in the cache', async () => {
+        await playerStorage.getValue(worldName, placeId, playerAddress, key)
+        expect(storageCache.set).not.toHaveBeenCalled()
+      })
+    })
+
     describe('and the cache is disabled', () => {
       beforeEach(async () => {
         config = createConfigMockedComponent({
@@ -191,6 +218,116 @@ describe('PlayerStorageComponent', () => {
       await playerStorage.deleteAll(worldName, placeId)
       expect(storageCache.remove).toHaveBeenCalledWith(firstKey)
       expect(storageCache.remove).toHaveBeenCalledWith(secondKey)
+    })
+  })
+
+  describe('when listing player storage values', () => {
+    let rows: Array<{ key: string; value: unknown }>
+
+    beforeEach(() => {
+      rows = [
+        { key: 'a', value: 'value-a' },
+        { key: 'b', value: 'value-b' }
+      ]
+      pg.query.mockResolvedValueOnce({ rows } as never)
+    })
+
+    it('should return the rows from the database', async () => {
+      const result = await playerStorage.listValues(worldName, placeId, playerAddress, {
+        limit: 10,
+        offset: 0,
+        prefix: undefined
+      })
+      expect(result).toEqual(rows)
+    })
+  })
+
+  describe('when counting player storage keys', () => {
+    beforeEach(() => {
+      pg.query.mockResolvedValueOnce({ rows: [{ count: 7 }] } as never)
+    })
+
+    it('should return the count from the database', async () => {
+      const result = await playerStorage.countKeys(worldName, placeId, playerAddress, { prefix: undefined })
+      expect(result).toBe(7)
+    })
+  })
+
+  describe('when listing players with stored values', () => {
+    beforeEach(() => {
+      pg.query.mockResolvedValueOnce({
+        rows: [{ player_address: ADDRESSES.PLAYER }, { player_address: ADDRESSES.OTHER }]
+      } as never)
+    })
+
+    it('should return the distinct player addresses', async () => {
+      const result = await playerStorage.listPlayers(worldName, placeId, { limit: 10, offset: 0 })
+      expect(result).toEqual([ADDRESSES.PLAYER, ADDRESSES.OTHER])
+    })
+  })
+
+  describe('when counting distinct players', () => {
+    beforeEach(() => {
+      pg.query.mockResolvedValueOnce({ rows: [{ count: 3 }] } as never)
+    })
+
+    it('should return the count from the database', async () => {
+      const result = await playerStorage.countPlayers(worldName, placeId)
+      expect(result).toBe(3)
+    })
+  })
+
+  describe('when getting player storage size info', () => {
+    describe('and a key is provided', () => {
+      beforeEach(() => {
+        pg.query.mockResolvedValueOnce({ rows: [{ existing_value_size: 5, total_size: 50 }] } as never)
+      })
+
+      it('should return the existing value size and total size', async () => {
+        const result = await playerStorage.getSizeInfo(worldName, playerAddress, key)
+        expect(result).toEqual({ existingValueSize: 5, totalSize: 50 })
+      })
+    })
+
+    describe('and no key is provided', () => {
+      beforeEach(() => {
+        pg.query.mockResolvedValueOnce({ rows: [{ existing_value_size: 0, total_size: 120 }] } as never)
+      })
+
+      it('should return a zero existing value size and the total size', async () => {
+        const result = await playerStorage.getSizeInfo(worldName, playerAddress)
+        expect(result).toEqual({ existingValueSize: 0, totalSize: 120 })
+      })
+    })
+  })
+
+  describe('when the cache is disabled and a value is written', () => {
+    let disabledPlayerStorage: IPlayerStorageComponent
+
+    beforeEach(async () => {
+      config = createConfigMockedComponent({
+        getString: jest.fn().mockResolvedValue('false'),
+        getNumber: jest.fn().mockResolvedValue(undefined)
+      })
+      disabledPlayerStorage = await createPlayerStorageComponent({
+        pg,
+        config,
+        storageCache,
+        logs: createLogsMockedComponent()
+      })
+      pg.query.mockResolvedValue({ rows: [] } as never)
+    })
+
+    it('should not invalidate the cache on setValue', async () => {
+      await disabledPlayerStorage.setValue(worldName, placeId, playerAddress, key, '"v"')
+      expect(storageCache.remove).not.toHaveBeenCalled()
+      expect(storageCache.keys).not.toHaveBeenCalled()
+    })
+
+    it('should not invalidate the cache on deleteAllForPlayer', async () => {
+      await disabledPlayerStorage.deleteAllForPlayer(worldName, placeId, playerAddress)
+      expect(storageCache.remove).not.toHaveBeenCalled()
+      expect(storageCache.keys).not.toHaveBeenCalled()
     })
   })
 })

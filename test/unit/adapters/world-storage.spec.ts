@@ -421,4 +421,58 @@ describe('WorldStorageComponent', () => {
       })
     })
   })
+
+  describe('when getting storage size info', () => {
+    describe('and a key is provided', () => {
+      beforeEach(() => {
+        pg.query.mockResolvedValueOnce({ rows: [{ existing_value_size: 10, total_size: 100 }] } as never)
+      })
+
+      it('should return the existing value size and total size', async () => {
+        const result = await worldStorage.getSizeInfo(worldName, key)
+        expect(result).toEqual({ existingValueSize: 10, totalSize: 100 })
+      })
+    })
+
+    describe('and no key is provided', () => {
+      beforeEach(() => {
+        pg.query.mockResolvedValueOnce({ rows: [{ existing_value_size: 0, total_size: 250 }] } as never)
+      })
+
+      it('should return a zero existing value size and the total size', async () => {
+        const result = await worldStorage.getSizeInfo(worldName)
+        expect(result).toEqual({ existingValueSize: 0, totalSize: 250 })
+      })
+    })
+  })
+
+  describe('when the cache is disabled and a value is written', () => {
+    let disabledWorldStorage: IWorldStorageComponent
+
+    beforeEach(async () => {
+      config = createConfigMockedComponent({
+        getString: jest.fn().mockResolvedValue('false'),
+        getNumber: jest.fn().mockResolvedValue(undefined)
+      })
+      disabledWorldStorage = await createWorldStorageComponent({
+        pg,
+        config,
+        storageCache,
+        logs: createLogsMockedComponent()
+      })
+      pg.query.mockResolvedValue({ rows: [] } as never)
+    })
+
+    it('should not invalidate the cache on setValue', async () => {
+      await disabledWorldStorage.setValue(worldName, placeId, key, '"v"')
+      expect(storageCache.remove).not.toHaveBeenCalled()
+      expect(storageCache.keys).not.toHaveBeenCalled()
+    })
+
+    it('should not invalidate the cache on deleteAll', async () => {
+      await disabledWorldStorage.deleteAll(worldName, placeId)
+      expect(storageCache.remove).not.toHaveBeenCalled()
+      expect(storageCache.keys).not.toHaveBeenCalled()
+    })
+  })
 })
