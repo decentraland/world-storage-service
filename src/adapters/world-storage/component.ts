@@ -3,7 +3,6 @@ import { calculateValueSizeInBytes } from '../../utils/calculateValueSizeInBytes
 import { buildPrefixPattern } from '../../utils/prefix'
 import type { IWorldStorageComponent } from './types'
 import type { AppComponents } from '../../types'
-import type { StorageEntry } from '../../types/commons'
 import type { PaginationOptions } from '../../types/http'
 import type { SQLStatement } from 'sql-template-strings'
 
@@ -211,17 +210,17 @@ export const createWorldStorageComponent = async ({
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param options - Pagination and filtering options
-   * @returns Array of { key, value } entries sorted by key
+   * @returns The page as a JSON array text of { key, value } entries sorted by key (e.g. `[{"key":"k","value":1}]`)
    */
-  async function listValues(worldName: string, placeId: string, options: PaginationOptions): Promise<StorageEntry[]> {
+  async function listValues(worldName: string, placeId: string, options: PaginationOptions): Promise<string> {
     const { limit, offset, prefix } = options
 
     // Only the default listing is cached; every other variant goes straight to the DB.
     const cacheable = cacheEnabled && isDefaultListing(options)
 
     if (cacheable) {
-      const cached = await storageCache.get<StorageEntry[]>(listCacheKey(worldName, placeId))
-      // Empty pages are cached as [] (not null), so a null hit is unambiguously a miss.
+      const cached = await storageCache.get<string>(listCacheKey(worldName, placeId))
+      // Empty pages are cached as "[]" (not null), so a null hit is unambiguously a miss.
       if (cached !== null) {
         logger.debug('World storage values listed from cache', { worldName, placeId })
         return cached
@@ -230,24 +229,29 @@ export const createWorldStorageComponent = async ({
 
     logger.debug('Listing world storage values', { worldName, placeId, limit, offset, prefix: prefix ?? 'none' })
 
-    const query = SQL`SELECT key, value`.append(buildValuesBaseQuery(worldName, placeId, prefix)).append(SQL`
+    // Select each value as JSON text so node-postgres doesn't JSON.parse every jsonb row; the page is
+    // assembled into a JSON array by splicing that text verbatim, so the values are neither parsed
+    // here nor re-serialized by the response layer. Only the (small) keys are escaped.
+    const query = SQL`SELECT key, value::text AS value`.append(buildValuesBaseQuery(worldName, placeId, prefix))
+      .append(SQL`
       ORDER BY key ASC
       LIMIT ${limit} OFFSET ${offset}`)
 
-    const result = await pg.query<StorageEntry>(query)
+    const result = await pg.query<{ key: string; value: string }>(query)
+    const dataText = `[${result.rows.map(row => `{"key":${JSON.stringify(row.key)},"value":${row.value}}`).join(',')}]`
 
     // A page bundles many values, so it is guarded by its own (larger) size limit to
     // keep a single cache entry from growing without bound.
     if (cacheable) {
-      const pageSize = calculateValueSizeInBytes(JSON.stringify(result.rows))
+      const pageSize = calculateValueSizeInBytes(dataText)
       if (pageSize <= maxCachedListSizeInBytes) {
-        await storageCache.set(listCacheKey(worldName, placeId), result.rows)
+        await storageCache.set(listCacheKey(worldName, placeId), dataText)
       }
     }
 
     logger.debug('World storage values listed successfully', { worldName, placeId, count: result.rows.length })
 
-    return result.rows
+    return dataText
   }
 
   /**

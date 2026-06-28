@@ -1,9 +1,9 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../../utils/errors'
+import { rawJsonPaginatedResponse } from '../../../utils/rawJsonResponse'
 import { parseSearchParams } from '../commons/parseSearchParams'
 import type { WorldHandlerContextWithPath } from '../../../types'
-import type { StorageEntry } from '../../../types/commons'
-import type { HTTPPaginatedResponse } from '../../../types/http'
+import type { RawJSONResponse } from '../../../types/http'
 
 /**
  * Handler for listing world storage values with pagination
@@ -19,7 +19,7 @@ export async function listWorldStorageHandler(
     WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values'>,
     'url' | 'components' | 'worldName' | 'placeId'
   >
-): Promise<HTTPPaginatedResponse<StorageEntry[]>> {
+): Promise<RawJSONResponse> {
   const {
     url,
     worldName,
@@ -36,27 +36,20 @@ export async function listWorldStorageHandler(
 
     logger.debug('Parsed pagination params', { worldName, limit, offset, prefix: prefix ?? 'none' })
 
-    // Fetch values and total count in parallel
-    const [values, total] = await Promise.all([
+    // Fetch the page (already serialized as JSON array text) and the total count in parallel.
+    const [data, total] = await Promise.all([
       worldStorage.listValues(worldName, placeId, { limit, offset, prefix }),
       worldStorage.countKeys(worldName, placeId, { prefix })
     ])
 
     logger.info('World storage values listed successfully', {
       worldName,
-      count: values.length,
       total,
       limit,
       offset
     })
 
-    return {
-      status: 200,
-      body: {
-        data: values,
-        pagination: { limit, offset, total }
-      }
-    }
+    return rawJsonPaginatedResponse(data, { limit, offset, total })
   } catch (error) {
     if (error instanceof InvalidRequestError) {
       throw error

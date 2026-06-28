@@ -228,14 +228,17 @@ describe('WorldStorageComponent', () => {
 
   describe('when listing world storage values', () => {
     let listCacheKey: string
-    let rows: Array<{ key: string; value: unknown }>
+    // Rows as returned by `SELECT key, value::text` — each value is already JSON text.
+    let rows: Array<{ key: string; value: string }>
+    let dataText: string
 
     beforeEach(() => {
       listCacheKey = `world-storage:list:${worldName}:${placeId}`
       rows = [
-        { key: 'a', value: 'value-a' },
-        { key: 'b', value: 'value-b' }
+        { key: 'a', value: '"value-a"' },
+        { key: 'b', value: '42' }
       ]
+      dataText = '[{"key":"a","value":"value-a"},{"key":"b","value":42}]'
     })
 
     describe('and the request is the default listing (first page, default size, no prefix)', () => {
@@ -256,25 +259,37 @@ describe('WorldStorageComponent', () => {
           expect(pg.query).toHaveBeenCalledTimes(1)
         })
 
-        it('should return the rows from the database', async () => {
+        it('should return the page assembled as JSON array text', async () => {
           const result = await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(result).toEqual(rows)
+          expect(result).toBe(dataText)
         })
 
-        it('should store the page in the cache under the scene key', async () => {
+        it('should store the assembled page text in the cache under the scene key', async () => {
           await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(storageCache.set).toHaveBeenCalledWith(listCacheKey, rows)
+          expect(storageCache.set).toHaveBeenCalledWith(listCacheKey, dataText)
+        })
+      })
+
+      describe('and the page is empty', () => {
+        beforeEach(() => {
+          storageCache.get.mockResolvedValueOnce(null)
+          pg.query.mockResolvedValueOnce({ rows: [] } as never)
+        })
+
+        it('should return an empty JSON array text', async () => {
+          const result = await worldStorage.listValues(worldName, placeId, defaultOptions)
+          expect(result).toBe('[]')
         })
       })
 
       describe('and the page is already cached', () => {
         beforeEach(() => {
-          storageCache.get.mockResolvedValueOnce(rows)
+          storageCache.get.mockResolvedValueOnce(dataText)
         })
 
-        it('should return the cached page', async () => {
+        it('should return the cached page text', async () => {
           const result = await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(result).toEqual(rows)
+          expect(result).toBe(dataText)
         })
 
         it('should not query the database', async () => {
@@ -299,9 +314,9 @@ describe('WorldStorageComponent', () => {
           pg.query.mockResolvedValueOnce({ rows } as never)
         })
 
-        it('should return the rows from the database', async () => {
+        it('should return the assembled page text from the database', async () => {
           const result = await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(result).toEqual(rows)
+          expect(result).toBe(dataText)
         })
 
         it('should not store the page in the cache', async () => {
@@ -334,6 +349,11 @@ describe('WorldStorageComponent', () => {
       it('should not write to the cache', async () => {
         await worldStorage.listValues(worldName, placeId, { limit: 10, offset: 0, prefix: undefined })
         expect(storageCache.set).not.toHaveBeenCalled()
+      })
+
+      it('should still return the assembled page text', async () => {
+        const result = await worldStorage.listValues(worldName, placeId, { limit: 10, offset: 0, prefix: undefined })
+        expect(result).toBe(dataText)
       })
     })
   })
