@@ -1,6 +1,7 @@
 export * from './cache'
 export * from './env-storage'
 export * from './logs'
+export * from './pg'
 export * from './places'
 export * from './player-storage'
 export * from './world-storage'

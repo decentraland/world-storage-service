@@ -1,36 +1,32 @@
 import type { StorageEntry } from '../../types/commons'
 import type { PaginationOptions } from '../../types/http'
 
-export interface WorldStorageItem {
-  worldName: string
-  key: string
-  value: unknown
-}
-
 /**
  * World storage component interface for managing world-level key-value storage
  */
 export interface IWorldStorageComponent {
   /**
-   * Retrieves a single value from world storage
+   * Retrieves a single value from world storage as raw JSON text.
+   *
+   * The value is returned already serialized (via `value::text`) so it can be passed straight to
+   * the HTTP response without a parse/re-stringify round-trip.
    *
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param key - The storage key
-   * @returns The stored value or null if not found
+   * @returns The stored value as JSON text, or null if the key does not exist
    */
-  getValue(worldName: string, placeId: string, key: string): Promise<unknown | null>
+  getValue(worldName: string, placeId: string, key: string): Promise<string | null>
 
   /**
-   * Creates or updates a value in world storage
+   * Creates or updates a value in world storage.
    *
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param key - The storage key
-   * @param value - The value to store
-   * @returns The stored item
+   * @param serializedValue - The value already serialized as JSON text (stored verbatim as jsonb)
    */
-  setValue(worldName: string, placeId: string, key: string, value: unknown): Promise<WorldStorageItem>
+  setValue(worldName: string, placeId: string, key: string, serializedValue: string): Promise<void>
 
   /**
    * Deletes a single value from world storage

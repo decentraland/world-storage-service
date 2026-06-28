@@ -1,14 +1,15 @@
 import { NotFoundError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../../utils/errors'
+import { rawJsonValueResponse } from '../../../utils/rawJsonResponse'
 import type { WorldHandlerContextWithPath } from '../../../types'
-import type { HTTPResponse } from '../../../types/http'
+import type { RawJSONResponse } from '../../../types/http'
 
 export async function getWorldStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'worldStorage', '/values/:key'>,
     'url' | 'components' | 'params' | 'worldName' | 'placeId'
   >
-): Promise<HTTPResponse<unknown>> {
+): Promise<RawJSONResponse> {
   const {
     params,
     worldName,
@@ -26,9 +27,10 @@ export async function getWorldStorageHandler(
   })
 
   try {
+    // `value` is the stored value as raw JSON text, or null when the key does not exist.
     const value = await worldStorage.getValue(worldName, placeId, key)
 
-    if (!value) {
+    if (value === null) {
       logger.info('World storage value not found', {
         worldName,
         key
@@ -41,12 +43,7 @@ export async function getWorldStorageHandler(
       key
     })
 
-    return {
-      status: 200,
-      body: {
-        value
-      }
-    }
+    return rawJsonValueResponse(value)
   } catch (error) {
     // Only log as error if it's not a NotFoundError (which is expected behavior)
     if (error instanceof NotFoundError) {

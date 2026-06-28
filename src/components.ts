@@ -68,8 +68,19 @@ export async function initComponents(): Promise<AppComponents> {
   )
 
   const encryption = await createEncryptionComponent({ config, logs })
-  const worldStorage = createWorldStorageComponent({ pg, logs })
-  const playerStorage = createPlayerStorageComponent({ pg, logs })
+
+  // Dedicated cache for storage reads. `max` bounds the number of cached entries
+  // (LRU) and the TTL bounds how long a stale read can survive on a replica that
+  // did not handle the write (in-memory caches cannot be invalidated cross-instance).
+  const storageCacheMax = (await config.getNumber('STORAGE_CACHE_MAX')) ?? 10_000
+  const storageCacheTtlSeconds = (await config.getNumber('STORAGE_CACHE_TTL_SECONDS')) ?? 60
+  const storageCache = createInMemoryCacheComponent({
+    max: storageCacheMax,
+    ttl: storageCacheTtlSeconds * 1000
+  })
+
+  const worldStorage = await createWorldStorageComponent({ pg, config, storageCache, logs })
+  const playerStorage = await createPlayerStorageComponent({ pg, config, storageCache, logs })
   const envStorage = createEnvStorageComponent({ pg, encryption, logs })
   const storageLimits = await createStorageLimitsComponent({ config, logs, worldStorage, playerStorage, envStorage })
   const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config, logs })
@@ -93,6 +104,7 @@ export async function initComponents(): Promise<AppComponents> {
     worldsContentServer,
     worldPermission,
     cache,
+    storageCache,
     places,
     schemaValidator
   }

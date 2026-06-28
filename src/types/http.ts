@@ -10,6 +10,20 @@ export interface HTTPResponse<T = undefined> {
 }
 
 /**
+ * A response whose body is already-serialized JSON text, sent verbatim.
+ *
+ * Used by the storage value endpoints to avoid a redundant `JSON.stringify`: the value is read
+ * from (or written to) Postgres as JSON text and spliced straight into the response body, so the
+ * HTTP layer does not re-serialize it. The `@dcl/http-server` layer sends a string body as-is, so
+ * the `Content-Type` must be set explicitly.
+ */
+export interface RawJSONResponse {
+  status: number
+  headers: { 'Content-Type': 'application/json' }
+  body: string
+}
+
+/**
  * Pagination options for listing operations (used by storage adapters)
  */
 export interface PaginationOptions {

@@ -79,9 +79,13 @@ export async function createStorageLimitsComponent(
   })
 
   return {
-    async validateWorldStorageUpsert(worldName: string, placeId: string, key: string, value: unknown): Promise<void> {
+    async validateWorldStorageUpsert(worldName: string, placeId: string, key: string, value: unknown): Promise<string> {
+      // Serialize once here and hand the string back to the caller so the storage write reuses it
+      // instead of serializing the same value a second time.
+      const serializedValue = JSON.stringify(value)
       const validate = createUpsertValidator(() => worldStorage.getSizeInfo(worldName, key), worldLimits)
-      await validate(JSON.stringify(value))
+      await validate(serializedValue)
+      return serializedValue
     },
 
     async validatePlayerStorageUpsert(
@@ -90,12 +94,16 @@ export async function createStorageLimitsComponent(
       playerAddress: string,
       key: string,
       value: unknown
-    ): Promise<void> {
+    ): Promise<string> {
+      // Serialize once here and hand the string back to the caller so the storage write reuses it
+      // instead of serializing the same value a second time.
+      const serializedValue = JSON.stringify(value)
       const validate = createUpsertValidator(
         () => playerStorage.getSizeInfo(worldName, playerAddress, key),
         playerLimits
       )
-      await validate(JSON.stringify(value))
+      await validate(serializedValue)
+      return serializedValue
     },
 
     async validateEnvStorageUpsert(worldName: string, placeId: string, key: string, value: string): Promise<void> {

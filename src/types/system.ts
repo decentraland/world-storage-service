@@ -41,6 +41,9 @@ export interface BaseComponents {
   worldsContentServer: IWorldsContentServerComponent
   worldPermission: IWorldPermissionComponent
   cache: ICacheStorageComponent
+  // Dedicated in-memory cache for storage reads, sized independently from `cache`
+  // so per-scene read churn never evicts the long-lived place-id entries.
+  storageCache: ICacheStorageComponent
   places: IPlacesComponent
   storageLimits: IStorageLimitsComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
