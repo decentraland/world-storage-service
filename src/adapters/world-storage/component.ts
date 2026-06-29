@@ -31,7 +31,7 @@ export const createWorldStorageComponent = async ({
 
   const cacheEnabled = (await config.getString('STORAGE_CACHE_ENABLED')) !== 'false'
   const maxCachedValueSizeInBytes = (await config.getNumber('STORAGE_CACHE_MAX_VALUE_BYTES')) ?? 32_768
-  const maxCachedListSizeInBytes = (await config.getNumber('STORAGE_CACHE_MAX_LIST_BYTES')) ?? 131_072
+  const maxCachedListSizeInBytes = (await config.getNumber('STORAGE_CACHE_MAX_LIST_BYTES')) ?? 32_768
 
   const VALUE_CACHE_PREFIX = 'world-storage:value'
 

@@ -72,7 +72,9 @@ export async function initComponents(): Promise<AppComponents> {
   // Dedicated cache for storage reads. `max` bounds the number of cached entries
   // (LRU) and the TTL bounds how long a stale read can survive on a replica that
   // did not handle the write (in-memory caches cannot be invalidated cross-instance).
-  const storageCacheMax = (await config.getNumber('STORAGE_CACHE_MAX')) ?? 10_000
+  // The cache is count-capped, so worst-case memory ~= max * largest per-entry gate
+  // (see STORAGE_CACHE_MAX_* in .env.default); keep `max` sized for the container limit.
+  const storageCacheMax = (await config.getNumber('STORAGE_CACHE_MAX')) ?? 8_000
   const storageCacheTtlSeconds = (await config.getNumber('STORAGE_CACHE_TTL_SECONDS')) ?? 60
   const storageCache = createInMemoryCacheComponent({
     max: storageCacheMax,
