@@ -9,14 +9,12 @@ import type { SQLStatement } from 'sql-template-strings'
 /**
  * Creates the world storage component that manages world-level key-value storage.
  *
- * Reads are served through an in-memory read-through cache (`storageCache`): single-key
- * `getValue`, the *default* `listValues` page (first page, default size, no prefix), and the
- * unfiltered `countKeys` total. Other list variants (custom limit/offset/prefix) are not cached
- * and go straight to the DB. Every mutation (`setValue`, `deleteValue`, `deleteAll`) invalidates
- * the affected entries on the instance that handled the write — a single-key write also drops the
- * scene's listing page and total, because adding or removing a key changes both. Because the cache
- * is per-instance, the configured TTL — not invalidation — is what bounds staleness on replicas
- * that did not handle the write.
+ * Single-key reads (`getValue`) are served through an in-memory read-through cache (`storageCache`)
+ * and invalidated on `setValue`/`deleteValue`/`deleteAll`. The paginated `listValues`/`countKeys`
+ * are NOT cached (the listing is write-invalidated on every change to a write-heavy scene, so the
+ * hit rate would be marginal) — they still avoid per-row JSON parsing via `value::text`. Because
+ * the cache is per-instance, the configured TTL — not invalidation — is what bounds staleness on
+ * replicas that did not handle the write.
  *
  * @param components - Required components: pg (database), config, storageCache, logs (logger)
  * @returns IWorldStorageComponent implementation
@@ -31,17 +29,12 @@ export const createWorldStorageComponent = async ({
 
   const cacheEnabled = (await config.getString('STORAGE_CACHE_ENABLED')) !== 'false'
   const maxCachedValueSizeInBytes = (await config.getNumber('STORAGE_CACHE_MAX_VALUE_BYTES')) ?? 32_768
-  const maxCachedListSizeInBytes = (await config.getNumber('STORAGE_CACHE_MAX_LIST_BYTES')) ?? 32_768
 
   const VALUE_CACHE_PREFIX = 'world-storage:value'
 
-  // Default/maximum page size from @dcl/http-commons `getPaginationParams`. We only cache the
-  // *default* listing — first page, default size, no prefix filter — which is the overwhelmingly
-  // common GET /values call. Any other limit/offset/prefix is served straight from the DB. This
-  // keeps the list cache to a single page + single count entry per scene and makes invalidation a
-  // couple of exact removes instead of a prefix scan. If this constant ever drifts from the lib,
-  // the default page simply stops being cached (a miss) — never a wrong result.
-  const DEFAULT_PAGE_LIMIT = 100
+  // Only single-key reads are cached. The paginated `GET /values` listing is intentionally NOT
+  // cached: it is write-invalidated on every change to the scene (world storage is write-heavy),
+  // so the hit rate would be marginal while adding invalidation work to every write.
 
   // Single-value entries are namespaced per scene and key. `worldName` ("foo.dcl.eth")
   // and `placeId` (a UUID) never contain ":", so the trailing user-supplied key cannot
@@ -50,44 +43,17 @@ export const createWorldStorageComponent = async ({
     return `${VALUE_CACHE_PREFIX}:${worldName}:${placeId}:${key}`
   }
 
-  // One key per scene for the default listing page, and one for the (unfiltered) total count.
-  function listCacheKey(worldName: string, placeId: string): string {
-    return `world-storage:list:${worldName}:${placeId}`
-  }
-
-  function countCacheKey(worldName: string, placeId: string): string {
-    return `world-storage:count:${worldName}:${placeId}`
-  }
-
-  // The default listing is the only list variant we cache (see DEFAULT_PAGE_LIMIT).
-  function isDefaultListing(options: PaginationOptions): boolean {
-    return options.offset === 0 && !options.prefix && options.limit === DEFAULT_PAGE_LIMIT
-  }
-
-  async function removeByPattern(pattern: string): Promise<void> {
-    const keys = await storageCache.keys(pattern)
-    await Promise.all(keys.map(cacheKey => storageCache.remove(cacheKey)))
-  }
-
-  // A change to a single key also changes the scene's default listing page and total count,
-  // so the exact value entry plus those two are invalidated.
+  // Invalidates the cached single value for a key.
   async function invalidateKey(worldName: string, placeId: string, key: string): Promise<void> {
     if (!cacheEnabled) return
-    await Promise.all([
-      storageCache.remove(valueCacheKey(worldName, placeId, key)),
-      storageCache.remove(listCacheKey(worldName, placeId)),
-      storageCache.remove(countCacheKey(worldName, placeId))
-    ])
+    await storageCache.remove(valueCacheKey(worldName, placeId, key))
   }
 
-  // Clears every cached entry for a scene: all single values plus the listing page and count.
+  // Clears every cached single value for a scene (used when all of a scene's keys are removed).
   async function invalidateScene(worldName: string, placeId: string): Promise<void> {
     if (!cacheEnabled) return
-    await Promise.all([
-      removeByPattern(`${VALUE_CACHE_PREFIX}:${worldName}:${placeId}:*`),
-      storageCache.remove(listCacheKey(worldName, placeId)),
-      storageCache.remove(countCacheKey(worldName, placeId))
-    ])
+    const keys = await storageCache.keys(`${VALUE_CACHE_PREFIX}:${worldName}:${placeId}:*`)
+    await Promise.all(keys.map(cacheKey => storageCache.remove(cacheKey)))
   }
 
   /**
@@ -215,23 +181,12 @@ export const createWorldStorageComponent = async ({
   async function listValues(worldName: string, placeId: string, options: PaginationOptions): Promise<string> {
     const { limit, offset, prefix } = options
 
-    // Only the default listing is cached; every other variant goes straight to the DB.
-    const cacheable = cacheEnabled && isDefaultListing(options)
-
-    if (cacheable) {
-      const cached = await storageCache.get<string>(listCacheKey(worldName, placeId))
-      // Empty pages are cached as "[]" (not null), so a null hit is unambiguously a miss.
-      if (cached !== null) {
-        logger.debug('World storage values listed from cache', { worldName, placeId })
-        return cached
-      }
-    }
-
     logger.debug('Listing world storage values', { worldName, placeId, limit, offset, prefix: prefix ?? 'none' })
 
     // Select each value as JSON text so node-postgres doesn't JSON.parse every jsonb row; the page is
     // assembled into a JSON array by splicing that text verbatim, so the values are neither parsed
-    // here nor re-serialized by the response layer. Only the (small) keys are escaped.
+    // here nor re-serialized by the response layer. Only the (small) keys are escaped. The listing
+    // itself is not cached (see the note near the cache helpers).
     const query = SQL`SELECT key, value::text AS value`.append(buildValuesBaseQuery(worldName, placeId, prefix))
       .append(SQL`
       ORDER BY key ASC
@@ -239,15 +194,6 @@ export const createWorldStorageComponent = async ({
 
     const result = await pg.query<{ key: string; value: string }>(query)
     const dataText = `[${result.rows.map(row => `{"key":${JSON.stringify(row.key)},"value":${row.value}}`).join(',')}]`
-
-    // A page bundles many values, so it is guarded by its own (larger) size limit to
-    // keep a single cache entry from growing without bound.
-    if (cacheable) {
-      const pageSize = calculateValueSizeInBytes(dataText)
-      if (pageSize <= maxCachedListSizeInBytes) {
-        await storageCache.set(listCacheKey(worldName, placeId), dataText)
-      }
-    }
 
     logger.debug('World storage values listed successfully', { worldName, placeId, count: result.rows.length })
 
@@ -269,29 +215,12 @@ export const createWorldStorageComponent = async ({
   ): Promise<number> {
     const { prefix } = options
 
-    // Only the unfiltered total is cached (it backs the default listing's `total`); the count
-    // does not depend on limit/offset, so any no-prefix request reuses it.
-    const cacheable = cacheEnabled && !prefix
-
-    if (cacheable) {
-      const cached = await storageCache.get<number>(countCacheKey(worldName, placeId))
-      // A count of 0 is cached as 0 (not null), so a null hit is unambiguously a miss.
-      if (cached !== null) {
-        logger.debug('World storage keys counted from cache', { worldName, placeId, count: cached })
-        return cached
-      }
-    }
-
     logger.debug('Counting world storage keys', { worldName, placeId, prefix: prefix ?? 'none' })
 
     const query = SQL`SELECT COUNT(*)::int as count`.append(buildValuesBaseQuery(worldName, placeId, prefix))
 
     const result = await pg.query<{ count: number }>(query)
     const count = result.rows[0].count
-
-    if (cacheable) {
-      await storageCache.set(countCacheKey(worldName, placeId), count)
-    }
 
     logger.debug('World storage keys counted successfully', { worldName, placeId, count })
 

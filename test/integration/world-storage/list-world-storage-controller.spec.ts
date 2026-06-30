@@ -293,55 +293,6 @@ test('when listing world storage values', function ({ components, stubComponents
     })
   })
 
-  describe('and the default listing is updated after having been read', () => {
-    afterEach(async () => {
-      await signedFetch(`${baseUrl}/values`, {
-        method: 'DELETE',
-        headers: { 'X-Confirm-Delete-All': 'true' },
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-    })
-
-    it('should reflect a newly written key, not the previously cached page', async () => {
-      // Read the (default) listing first so its page is cached.
-      await signedFetch(`${baseUrl}/values/alpha`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 1 }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      const firstResponse = await signedFetch(`${baseUrl}/values`, {
-        method: 'GET',
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      const firstBody = await firstResponse.json()
-      expect(firstBody.data).toEqual([{ key: 'alpha', value: 1 }])
-
-      // Writing a second key must invalidate the cached listing page and count.
-      await signedFetch(`${baseUrl}/values/beta`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: 2 }),
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      const secondResponse = await signedFetch(`${baseUrl}/values`, {
-        method: 'GET',
-        identity,
-        metadata: TEST_REALM_METADATA
-      })
-      const secondBody = await secondResponse.json()
-      expect(secondBody.data).toEqual([
-        { key: 'alpha', value: 1 },
-        { key: 'beta', value: 2 }
-      ])
-      expect(secondBody.pagination.total).toBe(2)
-    })
-  })
-
   describe('and the storage throws an InvalidRequestError', () => {
     beforeEach(() => {
       stubComponents.worldStorage.listValues.mockRejectedValue(new InvalidRequestError('invalid request'))

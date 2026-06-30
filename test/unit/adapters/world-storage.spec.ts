@@ -160,16 +160,6 @@ describe('WorldStorageComponent', () => {
       await worldStorage.setValue(worldName, placeId, key, storedValue)
       expect(storageCache.remove).toHaveBeenCalledWith(cacheKey)
     })
-
-    it("should invalidate the scene's cached listing page", async () => {
-      await worldStorage.setValue(worldName, placeId, key, storedValue)
-      expect(storageCache.remove).toHaveBeenCalledWith(`world-storage:list:${worldName}:${placeId}`)
-    })
-
-    it("should invalidate the scene's cached total count", async () => {
-      await worldStorage.setValue(worldName, placeId, key, storedValue)
-      expect(storageCache.remove).toHaveBeenCalledWith(`world-storage:count:${worldName}:${placeId}`)
-    })
   })
 
   describe('when deleting a world storage value', () => {
@@ -180,16 +170,6 @@ describe('WorldStorageComponent', () => {
     it('should invalidate the cached value for the key', async () => {
       await worldStorage.deleteValue(worldName, placeId, key)
       expect(storageCache.remove).toHaveBeenCalledWith(cacheKey)
-    })
-
-    it("should invalidate the scene's cached listing page", async () => {
-      await worldStorage.deleteValue(worldName, placeId, key)
-      expect(storageCache.remove).toHaveBeenCalledWith(`world-storage:list:${worldName}:${placeId}`)
-    })
-
-    it("should invalidate the scene's cached total count", async () => {
-      await worldStorage.deleteValue(worldName, placeId, key)
-      expect(storageCache.remove).toHaveBeenCalledWith(`world-storage:count:${worldName}:${placeId}`)
     })
   })
 
@@ -214,26 +194,14 @@ describe('WorldStorageComponent', () => {
       expect(storageCache.remove).toHaveBeenCalledWith(firstKey)
       expect(storageCache.remove).toHaveBeenCalledWith(secondKey)
     })
-
-    it("should invalidate the scene's cached listing page", async () => {
-      await worldStorage.deleteAll(worldName, placeId)
-      expect(storageCache.remove).toHaveBeenCalledWith(`world-storage:list:${worldName}:${placeId}`)
-    })
-
-    it("should invalidate the scene's cached total count", async () => {
-      await worldStorage.deleteAll(worldName, placeId)
-      expect(storageCache.remove).toHaveBeenCalledWith(`world-storage:count:${worldName}:${placeId}`)
-    })
   })
 
   describe('when listing world storage values', () => {
-    let listCacheKey: string
     // Rows as returned by `SELECT key, value::text` — each value is already JSON text.
     let rows: Array<{ key: string; value: string }>
     let dataText: string
 
     beforeEach(() => {
-      listCacheKey = `world-storage:list:${worldName}:${placeId}`
       rows = [
         { key: 'a', value: '"value-a"' },
         { key: 'b', value: '42' }
@@ -241,184 +209,49 @@ describe('WorldStorageComponent', () => {
       dataText = '[{"key":"a","value":"value-a"},{"key":"b","value":42}]'
     })
 
-    describe('and the request is the default listing (first page, default size, no prefix)', () => {
-      let defaultOptions: { limit: number; offset: number; prefix: string | undefined }
-
+    describe('and the scene has values', () => {
       beforeEach(() => {
-        defaultOptions = { limit: 100, offset: 0, prefix: undefined }
+        pg.query.mockResolvedValueOnce({ rows } as never)
       })
 
-      describe('and the page is not cached', () => {
-        beforeEach(() => {
-          storageCache.get.mockResolvedValueOnce(null)
-          pg.query.mockResolvedValueOnce({ rows } as never)
-        })
-
-        it('should query the database once', async () => {
-          await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(pg.query).toHaveBeenCalledTimes(1)
-        })
-
-        it('should return the page assembled as JSON array text', async () => {
-          const result = await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(result).toBe(dataText)
-        })
-
-        it('should store the assembled page text in the cache under the scene key', async () => {
-          await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(storageCache.set).toHaveBeenCalledWith(listCacheKey, dataText)
-        })
+      it('should return the page assembled as JSON array text', async () => {
+        const result = await worldStorage.listValues(worldName, placeId, { limit: 100, offset: 0, prefix: undefined })
+        expect(result).toBe(dataText)
       })
 
-      describe('and the page is empty', () => {
-        beforeEach(() => {
-          storageCache.get.mockResolvedValueOnce(null)
-          pg.query.mockResolvedValueOnce({ rows: [] } as never)
-        })
-
-        it('should return an empty JSON array text', async () => {
-          const result = await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(result).toBe('[]')
-        })
-      })
-
-      describe('and the page is already cached', () => {
-        beforeEach(() => {
-          storageCache.get.mockResolvedValueOnce(dataText)
-        })
-
-        it('should return the cached page text', async () => {
-          const result = await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(result).toBe(dataText)
-        })
-
-        it('should not query the database', async () => {
-          await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(pg.query).not.toHaveBeenCalled()
-        })
-      })
-
-      describe('and the page is larger than the max cacheable list size', () => {
-        beforeEach(async () => {
-          config = createConfigMockedComponent({
-            getString: jest.fn().mockResolvedValue(undefined),
-            getNumber: jest.fn().mockResolvedValue(5)
-          })
-          worldStorage = await createWorldStorageComponent({
-            pg,
-            config,
-            storageCache,
-            logs: createLogsMockedComponent()
-          })
-          storageCache.get.mockResolvedValueOnce(null)
-          pg.query.mockResolvedValueOnce({ rows } as never)
-        })
-
-        it('should return the assembled page text from the database', async () => {
-          const result = await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(result).toBe(dataText)
-        })
-
-        it('should not store the page in the cache', async () => {
-          await worldStorage.listValues(worldName, placeId, defaultOptions)
-          expect(storageCache.set).not.toHaveBeenCalled()
-        })
+      it('should neither read from nor write to the cache (the listing is not cached)', async () => {
+        await worldStorage.listValues(worldName, placeId, { limit: 100, offset: 0, prefix: undefined })
+        expect(storageCache.get).not.toHaveBeenCalled()
+        expect(storageCache.set).not.toHaveBeenCalled()
       })
     })
 
-    describe('and the request is not the default listing', () => {
+    describe('and the scene is empty', () => {
       beforeEach(() => {
-        pg.query.mockResolvedValue({ rows } as never)
+        pg.query.mockResolvedValueOnce({ rows: [] } as never)
       })
 
-      it('should not read from the cache when a prefix is provided', async () => {
-        await worldStorage.listValues(worldName, placeId, { limit: 100, offset: 0, prefix: 'foo' })
-        expect(storageCache.get).not.toHaveBeenCalled()
-      })
-
-      it('should not read from the cache when the offset is not the first page', async () => {
-        await worldStorage.listValues(worldName, placeId, { limit: 100, offset: 100, prefix: undefined })
-        expect(storageCache.get).not.toHaveBeenCalled()
-      })
-
-      it('should not read from the cache when the limit is not the default', async () => {
-        await worldStorage.listValues(worldName, placeId, { limit: 10, offset: 0, prefix: undefined })
-        expect(storageCache.get).not.toHaveBeenCalled()
-      })
-
-      it('should not write to the cache', async () => {
-        await worldStorage.listValues(worldName, placeId, { limit: 10, offset: 0, prefix: undefined })
-        expect(storageCache.set).not.toHaveBeenCalled()
-      })
-
-      it('should still return the assembled page text', async () => {
-        const result = await worldStorage.listValues(worldName, placeId, { limit: 10, offset: 0, prefix: undefined })
-        expect(result).toBe(dataText)
+      it('should return an empty JSON array text', async () => {
+        const result = await worldStorage.listValues(worldName, placeId, { limit: 100, offset: 0, prefix: undefined })
+        expect(result).toBe('[]')
       })
     })
   })
 
   describe('when counting world storage keys', () => {
-    let countCacheKey: string
-
     beforeEach(() => {
-      countCacheKey = `world-storage:count:${worldName}:${placeId}`
+      pg.query.mockResolvedValueOnce({ rows: [{ count: 3 }] } as never)
     })
 
-    describe('and no prefix is provided', () => {
-      describe('and the count is not cached', () => {
-        beforeEach(() => {
-          storageCache.get.mockResolvedValueOnce(null)
-          pg.query.mockResolvedValueOnce({ rows: [{ count: 3 }] } as never)
-        })
-
-        it('should query the database once', async () => {
-          await worldStorage.countKeys(worldName, placeId, { prefix: undefined })
-          expect(pg.query).toHaveBeenCalledTimes(1)
-        })
-
-        it('should return the count from the database', async () => {
-          const result = await worldStorage.countKeys(worldName, placeId, { prefix: undefined })
-          expect(result).toBe(3)
-        })
-
-        it('should store the count in the cache', async () => {
-          await worldStorage.countKeys(worldName, placeId, { prefix: undefined })
-          expect(storageCache.set).toHaveBeenCalledWith(countCacheKey, 3)
-        })
-      })
-
-      describe('and the count is already cached', () => {
-        beforeEach(() => {
-          storageCache.get.mockResolvedValueOnce(5)
-        })
-
-        it('should return the cached count', async () => {
-          const result = await worldStorage.countKeys(worldName, placeId, { prefix: undefined })
-          expect(result).toBe(5)
-        })
-
-        it('should not query the database', async () => {
-          await worldStorage.countKeys(worldName, placeId, { prefix: undefined })
-          expect(pg.query).not.toHaveBeenCalled()
-        })
-      })
+    it('should return the count from the database', async () => {
+      const result = await worldStorage.countKeys(worldName, placeId, { prefix: undefined })
+      expect(result).toBe(3)
     })
 
-    describe('and a prefix is provided', () => {
-      beforeEach(() => {
-        pg.query.mockResolvedValueOnce({ rows: [{ count: 2 }] } as never)
-      })
-
-      it('should not read from the cache', async () => {
-        await worldStorage.countKeys(worldName, placeId, { prefix: 'foo' })
-        expect(storageCache.get).not.toHaveBeenCalled()
-      })
-
-      it('should not write to the cache', async () => {
-        await worldStorage.countKeys(worldName, placeId, { prefix: 'foo' })
-        expect(storageCache.set).not.toHaveBeenCalled()
-      })
+    it('should neither read from nor write to the cache (counts are not cached)', async () => {
+      await worldStorage.countKeys(worldName, placeId, { prefix: undefined })
+      expect(storageCache.get).not.toHaveBeenCalled()
+      expect(storageCache.set).not.toHaveBeenCalled()
     })
   })
 
