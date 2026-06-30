@@ -28,9 +28,10 @@ export interface IStorageLimitsComponent {
    * @param placeId - The place ID (UUID) of the scene
    * @param key - The storage key being upserted
    * @param value - The value to store
+   * @returns The value serialized as JSON text (computed once here so the caller can reuse it)
    * @throws {InvalidRequestError} If any limit is exceeded
    */
-  validateWorldStorageUpsert(worldName: string, placeId: string, key: string, value: unknown): Promise<void>
+  validateWorldStorageUpsert(worldName: string, placeId: string, key: string, value: unknown): Promise<string>
 
   /**
    * Validates that a player storage upsert operation is within configured limits.
@@ -44,6 +45,7 @@ export interface IStorageLimitsComponent {
    * @param playerAddress - The player's wallet address
    * @param key - The storage key being upserted
    * @param value - The value to store
+   * @returns The value serialized as JSON text (computed once here so the caller can reuse it)
    * @throws {InvalidRequestError} If any limit is exceeded
    */
   validatePlayerStorageUpsert(
@@ -52,7 +54,7 @@ export interface IStorageLimitsComponent {
     playerAddress: string,
     key: string,
     value: unknown
-  ): Promise<void>
+  ): Promise<string>
 
   /**
    * Validates that an env storage upsert operation is within configured limits.

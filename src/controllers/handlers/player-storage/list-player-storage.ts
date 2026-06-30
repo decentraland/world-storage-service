@@ -1,10 +1,10 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { EthAddress } from '@dcl/schemas'
 import { errorMessageOrDefault } from '../../../utils/errors'
+import { rawJsonPaginatedResponse } from '../../../utils/rawJsonResponse'
 import { parseSearchParams } from '../commons/parseSearchParams'
 import type { WorldHandlerContextWithPath } from '../../../types'
-import type { StorageEntry } from '../../../types/commons'
-import type { HTTPPaginatedResponse } from '../../../types/http'
+import type { RawJSONResponse } from '../../../types/http'
 
 /**
  * Handler for listing player storage values with pagination
@@ -20,7 +20,7 @@ export async function listPlayerStorageHandler(
     WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values'>,
     'url' | 'components' | 'params' | 'worldName' | 'placeId'
   >
-): Promise<HTTPPaginatedResponse<StorageEntry[]>> {
+): Promise<RawJSONResponse> {
   const {
     url,
     params,
@@ -44,8 +44,8 @@ export async function listPlayerStorageHandler(
 
     logger.debug('Parsed pagination params', { worldName, playerAddress, limit, offset, prefix: prefix ?? 'none' })
 
-    // Fetch values and total count in parallel
-    const [values, total] = await Promise.all([
+    // Fetch the page (already serialized as JSON array text) and the total count in parallel.
+    const [data, total] = await Promise.all([
       playerStorage.listValues(worldName, placeId, playerAddress, { limit, offset, prefix }),
       playerStorage.countKeys(worldName, placeId, playerAddress, { prefix })
     ])
@@ -53,19 +53,12 @@ export async function listPlayerStorageHandler(
     logger.info('Player storage values listed successfully', {
       worldName,
       playerAddress,
-      count: values.length,
       total,
       limit,
       offset
     })
 
-    return {
-      status: 200,
-      body: {
-        data: values,
-        pagination: { limit, offset, total }
-      }
-    }
+    return rawJsonPaginatedResponse(data, { limit, offset, total })
   } catch (error) {
     if (error instanceof InvalidRequestError) {
       throw error

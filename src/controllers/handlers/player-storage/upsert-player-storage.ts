@@ -2,8 +2,9 @@ import { InvalidRequestError } from '@dcl/http-commons'
 import { EthAddress } from '@dcl/schemas'
 import { StorageLimitExceededError } from '../../../logic/storage-limits'
 import { errorMessageOrDefault } from '../../../utils/errors'
+import { rawJsonValueResponse } from '../../../utils/rawJsonResponse'
 import type { WorldHandlerContextWithPath } from '../../../types'
-import type { HTTPResponse } from '../../../types/http'
+import type { RawJSONResponse } from '../../../types/http'
 import type { UpsertStorageBody } from '../schemas'
 
 export async function upsertPlayerStorageHandler(
@@ -11,7 +12,7 @@ export async function upsertPlayerStorageHandler(
     WorldHandlerContextWithPath<'logs' | 'playerStorage' | 'storageLimits', '/players/:player_address/values/:key'>,
     'url' | 'components' | 'params' | 'request' | 'worldName' | 'placeId'
   >
-): Promise<HTTPResponse<unknown>> {
+): Promise<RawJSONResponse> {
   const {
     request,
     params,
@@ -38,8 +39,16 @@ export async function upsertPlayerStorageHandler(
   const { value }: UpsertStorageBody = await request.json()
 
   try {
-    await storageLimits.validatePlayerStorageUpsert(worldName, placeId, playerAddress, key, value)
-    const item = await playerStorage.setValue(worldName, placeId, playerAddress, key, value)
+    // Validation serializes the value once and returns the JSON text; reuse it for the write and
+    // the response so the value is never serialized more than once.
+    const serializedValue = await storageLimits.validatePlayerStorageUpsert(
+      worldName,
+      placeId,
+      playerAddress,
+      key,
+      value
+    )
+    await playerStorage.setValue(worldName, placeId, playerAddress, key, serializedValue)
 
     logger.info('Player storage value upserted successfully', {
       worldName,
@@ -47,12 +56,7 @@ export async function upsertPlayerStorageHandler(
       key
     })
 
-    return {
-      status: 200,
-      body: {
-        value: item.value
-      }
-    }
+    return rawJsonValueResponse(serializedValue)
   } catch (error) {
     if (error instanceof StorageLimitExceededError) {
       throw new InvalidRequestError(error.message)

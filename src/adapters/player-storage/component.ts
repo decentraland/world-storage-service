@@ -1,44 +1,106 @@
 import { SQL } from 'sql-template-strings'
 import { calculateValueSizeInBytes } from '../../utils/calculateValueSizeInBytes'
 import { buildPrefixPattern } from '../../utils/prefix'
-import type { IPlayerStorageComponent, PlayerStorageItem } from './types'
+import type { IPlayerStorageComponent } from './types'
 import type { AppComponents } from '../../types'
-import type { StorageEntry } from '../../types/commons'
 import type { PaginationOptions } from '../../types/http'
 import type { SQLStatement } from 'sql-template-strings'
 
 /**
  * Creates the player storage component that manages player-level key-value storage within worlds.
  *
- * @param components - Required components: pg (database), logs (logger)
+ * Single-key reads (`getValue`) are served through an in-memory read-through cache
+ * (`storageCache`). Every mutation invalidates the affected cache entries on the instance
+ * that handled the write: `setValue`/`deleteValue` invalidate a single key, `deleteAllForPlayer`
+ * invalidates one player's keys, and `deleteAll` invalidates the whole scene. Because the cache
+ * is per-instance, the configured TTL — not invalidation — is what bounds staleness on replicas
+ * that did not handle the write.
+ *
+ * @param components - Required components: pg (database), config, storageCache, logs (logger)
  * @returns IPlayerStorageComponent implementation
  */
-export const createPlayerStorageComponent = ({
+export const createPlayerStorageComponent = async ({
   pg,
+  config,
+  storageCache,
   logs
-}: Pick<AppComponents, 'pg' | 'logs'>): IPlayerStorageComponent => {
+}: Pick<AppComponents, 'pg' | 'config' | 'storageCache' | 'logs'>): Promise<IPlayerStorageComponent> => {
   const logger = logs.getLogger('player-storage')
 
+  const cacheEnabled = (await config.getString('STORAGE_CACHE_ENABLED')) !== 'false'
+  const maxCachedValueSizeInBytes = (await config.getNumber('STORAGE_CACHE_MAX_VALUE_BYTES')) ?? 32_768
+
+  const CACHE_PREFIX = 'player-storage:value'
+
+  // Cache keys are namespaced per scene and player so the scene- and player-level deletes
+  // can wipe their entries with a single prefix glob. `worldName` (e.g. "foo.dcl.eth"),
+  // `placeId` (a UUID) and `playerAddress` (a 0x-prefixed hex address) never contain the
+  // ":" separator, so the trailing user-supplied key cannot collide across scopes.
+  function valueCacheKey(worldName: string, placeId: string, playerAddress: string, key: string): string {
+    return `${CACHE_PREFIX}:${worldName}:${placeId}:${playerAddress}:${key}`
+  }
+
+  async function invalidateKey(worldName: string, placeId: string, playerAddress: string, key: string): Promise<void> {
+    if (!cacheEnabled) return
+    await storageCache.remove(valueCacheKey(worldName, placeId, playerAddress, key))
+  }
+
+  async function invalidateByPattern(pattern: string): Promise<void> {
+    if (!cacheEnabled) return
+    const keys = await storageCache.keys(pattern)
+    await Promise.all(keys.map(cacheKey => storageCache.remove(cacheKey)))
+  }
+
+  async function invalidatePlayer(worldName: string, placeId: string, playerAddress: string): Promise<void> {
+    await invalidateByPattern(`${CACHE_PREFIX}:${worldName}:${placeId}:${playerAddress}:*`)
+  }
+
+  async function invalidateScene(worldName: string, placeId: string): Promise<void> {
+    await invalidateByPattern(`${CACHE_PREFIX}:${worldName}:${placeId}:*`)
+  }
+
   /**
-   * Retrieves a single value from player storage
+   * Retrieves a single value from player storage as raw JSON text.
    *
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    * @param key - The storage key
-   * @returns The stored value or null if not found
+   * @returns The stored value as JSON text, or null if the key does not exist
    */
   async function getValue(
     worldName: string,
     placeId: string,
     playerAddress: string,
     key: string
-  ): Promise<unknown | null> {
+  ): Promise<string | null> {
+    if (cacheEnabled) {
+      const cached = await storageCache.get<string>(valueCacheKey(worldName, placeId, playerAddress, key))
+      // `value` is NOT NULL in the schema, so a missing row is the only source of null here — the
+      // cache returning null is unambiguously a miss (misses are never cached, see below).
+      if (cached !== null) {
+        logger.debug('Player storage value retrieved from cache', { worldName, placeId, playerAddress, key })
+        return cached
+      }
+    }
+
     logger.debug('Fetching player storage value', { worldName, placeId, playerAddress, key })
 
-    const query = SQL`SELECT value FROM player_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND player_address = ${playerAddress} AND key = ${key}`
-    const result = await pg.query<Pick<PlayerStorageItem, 'value'>>(query)
+    // Select the value already serialized as JSON text. Otherwise node-postgres JSON.parses every
+    // jsonb result on the event loop, only for it to be re-serialized into the HTTP response;
+    // `::text` lets the value pass straight through, parsed by neither side.
+    const query = SQL`SELECT value::text AS value FROM player_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND player_address = ${playerAddress} AND key = ${key}`
+    const result = await pg.query<{ value: string }>(query)
     const value = result.rows[0]?.value ?? null
+
+    // Cache present, reasonably-sized values. Misses are not cached (null is the miss sentinel) and
+    // oversized values are skipped to keep the entry-count-capped cache bounded.
+    if (cacheEnabled && value !== null) {
+      const valueSize = calculateValueSizeInBytes(value)
+      if (valueSize <= maxCachedValueSizeInBytes) {
+        await storageCache.set(valueCacheKey(worldName, placeId, playerAddress, key), value)
+      }
+    }
 
     logger.debug(value === null ? 'Player storage value not found' : 'Player storage value retrieved successfully', {
       worldName,
@@ -51,39 +113,39 @@ export const createPlayerStorageComponent = ({
   }
 
   /**
-   * Creates or updates a value in player storage
+   * Creates or updates a value in player storage.
    *
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    * @param key - The storage key
-   * @param value - The value to store
-   * @returns The stored item
+   * @param serializedValue - The value already serialized as JSON text (stored verbatim as jsonb)
    */
   async function setValue(
     worldName: string,
     placeId: string,
     playerAddress: string,
     key: string,
-    value: unknown
-  ): Promise<PlayerStorageItem> {
+    serializedValue: string
+  ): Promise<void> {
     logger.debug('Setting player storage value', { worldName, placeId, playerAddress, key })
 
     const now = new Date().toISOString()
-    const jsonValue = JSON.stringify(value)
-    const valueSize = calculateValueSizeInBytes(jsonValue)
+    const valueSize = calculateValueSizeInBytes(serializedValue)
+    // The value arrives already serialized (the caller serialized it once for validation), so it is
+    // stored as jsonb directly. `RETURNING value` is intentionally omitted: it would force PG to
+    // send the value back and node-postgres to re-parse it, and the caller already has it.
     const query = SQL`
       INSERT INTO player_storage (world_name, place_id, player_address, key, value, value_size, created_at, updated_at)
-      VALUES (${worldName}, ${placeId}::uuid, ${playerAddress}, ${key}, ${jsonValue}::jsonb, ${valueSize}, ${now}, ${now})
+      VALUES (${worldName}, ${placeId}::uuid, ${playerAddress}, ${key}, ${serializedValue}::jsonb, ${valueSize}, ${now}, ${now})
       ON CONFLICT (world_name, place_id, player_address, key) DO
       UPDATE
-      SET value = ${jsonValue}::jsonb, value_size = ${valueSize}, updated_at = ${now}
-      RETURNING world_name as "worldName", player_address as "playerAddress", key, value`
-    const result = await pg.query<PlayerStorageItem>(query)
+      SET value = ${serializedValue}::jsonb, value_size = ${valueSize}, updated_at = ${now}`
+    await pg.query(query)
+
+    await invalidateKey(worldName, placeId, playerAddress, key)
 
     logger.debug('Player storage value set successfully', { worldName, placeId, playerAddress, key })
-
-    return result.rows[0]
   }
 
   /**
@@ -99,6 +161,8 @@ export const createPlayerStorageComponent = ({
 
     const query = SQL`DELETE FROM player_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND player_address = ${playerAddress} AND key = ${key}`
     await pg.query(query)
+
+    await invalidateKey(worldName, placeId, playerAddress, key)
 
     logger.debug('Player storage value deleted successfully', { worldName, placeId, playerAddress, key })
   }
@@ -116,6 +180,8 @@ export const createPlayerStorageComponent = ({
     const query = SQL`DELETE FROM player_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND player_address = ${playerAddress}`
     await pg.query(query)
 
+    await invalidatePlayer(worldName, placeId, playerAddress)
+
     logger.debug('All player storage values deleted successfully for player', { worldName, placeId, playerAddress })
   }
 
@@ -130,6 +196,8 @@ export const createPlayerStorageComponent = ({
 
     const query = SQL`DELETE FROM player_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid`
     await pg.query(query)
+
+    await invalidateScene(worldName, placeId)
 
     logger.debug('All player storage values deleted successfully', { worldName, placeId })
   }
@@ -151,7 +219,7 @@ export const createPlayerStorageComponent = ({
     placeId: string,
     playerAddress: string,
     options: PaginationOptions
-  ): Promise<StorageEntry[]> {
+  ): Promise<string> {
     const { limit, offset, prefix } = options
 
     logger.debug('Listing player storage values', {
@@ -163,12 +231,17 @@ export const createPlayerStorageComponent = ({
       prefix: prefix ?? 'none'
     })
 
-    const query = SQL`SELECT key, value`.append(buildValuesBaseQuery(worldName, placeId, playerAddress, prefix))
-      .append(SQL`
+    // Select each value as JSON text so node-postgres doesn't JSON.parse every jsonb row; the page is
+    // assembled into a JSON array by splicing that text verbatim, so the values are neither parsed
+    // here nor re-serialized by the response layer. Only the (small) keys are escaped.
+    const query = SQL`SELECT key, value::text AS value`.append(
+      buildValuesBaseQuery(worldName, placeId, playerAddress, prefix)
+    ).append(SQL`
       ORDER BY key ASC
       LIMIT ${limit} OFFSET ${offset}`)
 
-    const result = await pg.query<StorageEntry>(query)
+    const result = await pg.query<{ key: string; value: string }>(query)
+    const dataText = `[${result.rows.map(row => `{"key":${JSON.stringify(row.key)},"value":${row.value}}`).join(',')}]`
 
     logger.debug('Player storage values listed successfully', {
       worldName,
@@ -177,7 +250,7 @@ export const createPlayerStorageComponent = ({
       count: result.rows.length
     })
 
-    return result.rows
+    return dataText
   }
 
   /**

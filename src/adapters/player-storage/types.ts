@@ -1,45 +1,39 @@
-import type { StorageEntry } from '../../types/commons'
 import type { PaginationOptions } from '../../types/http'
-
-export interface PlayerStorageItem {
-  worldName: string
-  playerAddress: string
-  key: string
-  value: unknown
-}
 
 /**
  * Player storage component interface for managing player-level key-value storage within worlds
  */
 export interface IPlayerStorageComponent {
   /**
-   * Retrieves a single value from player storage
+   * Retrieves a single value from player storage as raw JSON text.
+   *
+   * The value is returned already serialized (via `value::text`) so it can be passed straight to
+   * the HTTP response without a parse/re-stringify round-trip.
    *
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    * @param key - The storage key
-   * @returns The stored value or null if not found
+   * @returns The stored value as JSON text, or null if the key does not exist
    */
-  getValue(worldName: string, placeId: string, playerAddress: string, key: string): Promise<unknown | null>
+  getValue(worldName: string, placeId: string, playerAddress: string, key: string): Promise<string | null>
 
   /**
-   * Creates or updates a value in player storage
+   * Creates or updates a value in player storage.
    *
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    * @param key - The storage key
-   * @param value - The value to store
-   * @returns The stored item
+   * @param serializedValue - The value already serialized as JSON text (stored verbatim as jsonb)
    */
   setValue(
     worldName: string,
     placeId: string,
     playerAddress: string,
     key: string,
-    value: unknown
-  ): Promise<PlayerStorageItem>
+    serializedValue: string
+  ): Promise<void>
 
   /**
    * Deletes a single value from player storage
@@ -69,20 +63,19 @@ export interface IPlayerStorageComponent {
   deleteAll(worldName: string, placeId: string): Promise<void>
 
   /**
-   * Lists storage items (key-value pairs) for a player with pagination
+   * Lists storage items (key-value pairs) for a player with pagination.
+   *
+   * Returns the page already serialized as a JSON array text (values are read as `value::text` and
+   * spliced in verbatim) so it can be passed straight to the HTTP response without a per-row
+   * parse/re-stringify round-trip.
    *
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    * @param options - Pagination and filtering options
-   * @returns Array of { key, value } entries sorted by key
+   * @returns The page as JSON array text of { key, value } entries sorted by key
    */
-  listValues(
-    worldName: string,
-    placeId: string,
-    playerAddress: string,
-    options: PaginationOptions
-  ): Promise<StorageEntry[]>
+  listValues(worldName: string, placeId: string, playerAddress: string, options: PaginationOptions): Promise<string>
 
   /**
    * Counts the total number of keys for a player
