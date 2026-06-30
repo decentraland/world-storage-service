@@ -3,7 +3,6 @@ import { calculateValueSizeInBytes } from '../../utils/calculateValueSizeInBytes
 import { buildPrefixPattern } from '../../utils/prefix'
 import type { IPlayerStorageComponent } from './types'
 import type { AppComponents } from '../../types'
-import type { StorageEntry } from '../../types/commons'
 import type { PaginationOptions } from '../../types/http'
 import type { SQLStatement } from 'sql-template-strings'
 
@@ -220,7 +219,7 @@ export const createPlayerStorageComponent = async ({
     placeId: string,
     playerAddress: string,
     options: PaginationOptions
-  ): Promise<StorageEntry[]> {
+  ): Promise<string> {
     const { limit, offset, prefix } = options
 
     logger.debug('Listing player storage values', {
@@ -232,12 +231,17 @@ export const createPlayerStorageComponent = async ({
       prefix: prefix ?? 'none'
     })
 
-    const query = SQL`SELECT key, value`.append(buildValuesBaseQuery(worldName, placeId, playerAddress, prefix))
-      .append(SQL`
+    // Select each value as JSON text so node-postgres doesn't JSON.parse every jsonb row; the page is
+    // assembled into a JSON array by splicing that text verbatim, so the values are neither parsed
+    // here nor re-serialized by the response layer. Only the (small) keys are escaped.
+    const query = SQL`SELECT key, value::text AS value`.append(
+      buildValuesBaseQuery(worldName, placeId, playerAddress, prefix)
+    ).append(SQL`
       ORDER BY key ASC
       LIMIT ${limit} OFFSET ${offset}`)
 
-    const result = await pg.query<StorageEntry>(query)
+    const result = await pg.query<{ key: string; value: string }>(query)
+    const dataText = `[${result.rows.map(row => `{"key":${JSON.stringify(row.key)},"value":${row.value}}`).join(',')}]`
 
     logger.debug('Player storage values listed successfully', {
       worldName,
@@ -246,7 +250,7 @@ export const createPlayerStorageComponent = async ({
       count: result.rows.length
     })
 
-    return result.rows
+    return dataText
   }
 
   /**

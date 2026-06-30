@@ -222,23 +222,26 @@ describe('PlayerStorageComponent', () => {
   })
 
   describe('when listing player storage values', () => {
-    let rows: Array<{ key: string; value: unknown }>
+    // Rows as returned by `SELECT key, value::text` — each value is already JSON text.
+    let rows: Array<{ key: string; value: string }>
+    let dataText: string
 
     beforeEach(() => {
       rows = [
-        { key: 'a', value: 'value-a' },
-        { key: 'b', value: 'value-b' }
+        { key: 'a', value: '"value-a"' },
+        { key: 'b', value: '42' }
       ]
+      dataText = '[{"key":"a","value":"value-a"},{"key":"b","value":42}]'
       pg.query.mockResolvedValueOnce({ rows } as never)
     })
 
-    it('should return the rows from the database', async () => {
+    it('should return the page assembled as JSON array text', async () => {
       const result = await playerStorage.listValues(worldName, placeId, playerAddress, {
         limit: 10,
         offset: 0,
         prefix: undefined
       })
-      expect(result).toEqual(rows)
+      expect(result).toBe(dataText)
     })
   })
 

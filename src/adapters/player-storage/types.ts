@@ -1,4 +1,3 @@
-import type { StorageEntry } from '../../types/commons'
 import type { PaginationOptions } from '../../types/http'
 
 /**
@@ -64,20 +63,19 @@ export interface IPlayerStorageComponent {
   deleteAll(worldName: string, placeId: string): Promise<void>
 
   /**
-   * Lists storage items (key-value pairs) for a player with pagination
+   * Lists storage items (key-value pairs) for a player with pagination.
+   *
+   * Returns the page already serialized as a JSON array text (values are read as `value::text` and
+   * spliced in verbatim) so it can be passed straight to the HTTP response without a per-row
+   * parse/re-stringify round-trip.
    *
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    * @param options - Pagination and filtering options
-   * @returns Array of { key, value } entries sorted by key
+   * @returns The page as JSON array text of { key, value } entries sorted by key
    */
-  listValues(
-    worldName: string,
-    placeId: string,
-    playerAddress: string,
-    options: PaginationOptions
-  ): Promise<StorageEntry[]>
+  listValues(worldName: string, placeId: string, playerAddress: string, options: PaginationOptions): Promise<string>
 
   /**
    * Counts the total number of keys for a player
