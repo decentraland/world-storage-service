@@ -293,6 +293,55 @@ test('when listing world storage values', function ({ components, stubComponents
     })
   })
 
+  describe('and the values contain special characters', () => {
+    let storedItems: Array<{ key: string; value: unknown }>
+
+    beforeEach(async () => {
+      // Exercises the list value::text passthrough + JS array assembly: special characters in both
+      // keys and values must survive being spliced into the response body verbatim.
+      storedItems = [
+        { key: 'a"quote', value: 'has "quotes" and \\ backslash' },
+        { key: 'b\nnewline', value: { nested: 'unicode 😀 ✅', arr: [1, 'two'] } }
+      ]
+      await Promise.all(
+        storedItems.map(item =>
+          signedFetch(`${baseUrl}/values/${encodeURIComponent(item.key)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: item.value }),
+            identity,
+            metadata: TEST_REALM_METADATA
+          })
+        )
+      )
+    })
+
+    afterEach(async () => {
+      await signedFetch(`${baseUrl}/values`, {
+        method: 'DELETE',
+        headers: { 'X-Confirm-Delete-All': 'true' },
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+    })
+
+    it('should respond with a 200 and the entries round-tripped intact', async () => {
+      const response = await signedFetch(`${baseUrl}/values`, {
+        method: 'GET',
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+      const body = await response.json()
+      expect(response.status).toBe(200)
+      // Sorted alphabetically by key (a" < b\n).
+      expect(body.data).toEqual([
+        { key: 'a"quote', value: 'has "quotes" and \\ backslash' },
+        { key: 'b\nnewline', value: { nested: 'unicode 😀 ✅', arr: [1, 'two'] } }
+      ])
+      expect(body.pagination.total).toBe(2)
+    })
+  })
+
   describe('and the storage throws an InvalidRequestError', () => {
     beforeEach(() => {
       stubComponents.worldStorage.listValues.mockRejectedValue(new InvalidRequestError('invalid request'))
