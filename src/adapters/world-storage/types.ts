@@ -69,19 +69,39 @@ export interface IWorldStorageComponent {
   countKeys(worldName: string, placeId: string, options: Pick<PaginationOptions, 'prefix'>): Promise<number>
 
   /**
-   * Returns storage size info for a world in a single database query.
+   * Returns storage size info for a quota scope in a single database query.
    *
-   * When `key` is provided, this includes the existing value size for that key
-   * plus the total storage size for the world. Used by upsert limits validation.
+   * When `key` is provided, this includes the existing value size for that exact
+   * `(place_id, key)` row plus the total storage size for the scope. Used by upsert
+   * limits validation.
    *
    * When `key` is omitted, `existingValueSize` is always 0 and only total usage
    * is relevant. Used by usage endpoints.
    *
-   * Size aggregation is always per-world (across all scenes).
+   * Totals are aggregated per world (across all scenes) for `*.dcl.eth` worlds, and
+   * per place for shared Genesis City realms.
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - Optional storage key
    * @returns Existing value size and total storage size
    */
-  getSizeInfo(worldName: string, key?: string): Promise<{ existingValueSize: number; totalSize: number }>
+  getSizeInfo(
+    worldName: string,
+    placeId: string,
+    key?: string
+  ): Promise<{ existingValueSize: number; totalSize: number }>
+
+  /**
+   * Invalidates the cached value for a key after a committed write.
+   *
+   * Called by the storage-operations orchestrator once its transaction commits. It removes
+   * (rather than write-through sets) the entry so concurrent writes/deletes to the same key
+   * cannot leave a stale value cached; the next read repopulates from the committed state.
+   *
+   * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
+   * @param key - The storage key
+   */
+  invalidateValue(worldName: string, placeId: string, key: string): Promise<void>
 }

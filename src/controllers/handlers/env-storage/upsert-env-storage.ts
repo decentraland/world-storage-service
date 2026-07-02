@@ -1,13 +1,14 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { StorageLimitExceededError } from '../../../logic/storage-limits'
 import { errorMessageOrDefault } from '../../../utils/errors'
+import { validateStorageKey } from '../commons/validateStorageKey'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 import type { UpsertEnvStorageBody } from '../schemas'
 
 export async function upsertEnvStorageHandler(
   context: Pick<
-    WorldHandlerContextWithPath<'logs' | 'envStorage' | 'storageLimits', '/env/:key'>,
+    WorldHandlerContextWithPath<'logs' | 'storageOperations', '/env/:key'>,
     'url' | 'components' | 'params' | 'request' | 'worldName' | 'placeId'
   >
 ): Promise<HTTPResponse<unknown>> {
@@ -16,12 +17,13 @@ export async function upsertEnvStorageHandler(
     params,
     worldName,
     placeId,
-    components: { logs, envStorage, storageLimits }
+    components: { logs, storageOperations }
   } = context
 
   const logger = logs.getLogger('upsert-env-storage-handler')
 
   const key = params.key
+  validateStorageKey(key)
 
   const { value }: UpsertEnvStorageBody = await request.json()
 
@@ -31,8 +33,8 @@ export async function upsertEnvStorageHandler(
   })
 
   try {
-    await storageLimits.validateEnvStorageUpsert(worldName, placeId, key, value)
-    await envStorage.setValue(worldName, placeId, key, value)
+    // Validation and write run atomically inside the storage-operations transaction.
+    await storageOperations.upsertEnvValue(worldName, placeId, key, value)
 
     logger.info('Env variable upserted successfully', {
       worldName,

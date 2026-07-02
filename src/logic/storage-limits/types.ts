@@ -18,6 +18,17 @@ export interface StorageNamespaceLimits {
  */
 export interface IStorageLimitsComponent {
   /**
+   * The limits configured for each storage namespace, read from environment
+   * variables at startup. Exposed so other layers (e.g. the request body size
+   * cap middleware) reuse the same source of truth instead of re-reading config.
+   */
+  limits: {
+    env: StorageNamespaceLimits
+    world: StorageNamespaceLimits
+    player: StorageNamespaceLimits
+  }
+
+  /**
    * Validates that a world storage upsert operation is within configured limits.
    *
    * Checks are performed in order:

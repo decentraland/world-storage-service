@@ -1,4 +1,5 @@
 import { errorMessageOrDefault } from '../../utils/errors'
+import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { IWorldsContentServerComponent, WorldPermissions } from './types'
 import type { AppComponents } from '../../types'
 
@@ -6,22 +7,48 @@ import type { AppComponents } from '../../types'
  * Creates the worlds content server component for fetching world permissions.
  *
  * This component communicates with an external worlds content server to retrieve
- * permission information for worlds. All external calls are logged for debugging.
+ * permission information for worlds. Results are cached in memory with a short TTL
+ * (`WORLD_PERMISSIONS_CACHE_TTL_SECONDS`, default 30 seconds): every authenticated
+ * request performs a permission check, and without the cache each one is a synchronous
+ * upstream round-trip. The TTL also bounds how long a revoked permission keeps working,
+ * so it is deliberately short.
  *
- * @param components - Required components: fetcher, config, logs
+ * @param components - Required components: fetcher, config, cache, logs
  * @returns Promise resolving to IWorldsContentServerComponent implementation
  */
-// TODO: Add a cache layer to the component to avoid making unnecessary requests to the worlds content server.
 export async function createWorldsContentServerComponent(
-  components: Pick<AppComponents, 'fetcher' | 'config' | 'logs'>
+  components: Pick<AppComponents, 'fetcher' | 'config' | 'cache' | 'logs'>
 ): Promise<IWorldsContentServerComponent> {
-  const { fetcher, config, logs } = components
+  const { fetcher, config, cache, logs } = components
   const logger = logs.getLogger('worlds-content-server')
 
   const worldsContentServerUrl = await config.requireString('WORLDS_CONTENT_SERVER_URL')
+  const cacheTtlSeconds = (await config.getNumber('WORLD_PERMISSIONS_CACHE_TTL_SECONDS')) ?? 30
+
+  /**
+   * Validates the minimal shape the permission checks rely on, so a malformed upstream
+   * payload fails here with a clear error instead of a TypeError (or worse, a payload
+   * missing `wallets` being treated as an empty allow-list).
+   */
+  function assertWorldPermissionsShape(body: unknown, worldName: string): asserts body is WorldPermissions {
+    const permissions = (body as WorldPermissions | null)?.permissions
+    const deployment = permissions?.deployment
+    const isValid =
+      typeof deployment?.type === 'string' && (deployment.type !== 'allow-list' || Array.isArray(deployment.wallets))
+
+    if (!isValid) {
+      throw new Error(`Worlds content server returned an unexpected permissions payload for ${worldName}`)
+    }
+  }
 
   return {
     getPermissions: async (worldName: string): Promise<WorldPermissions> => {
+      const cacheKey = `world-permissions:${worldName}`
+      const cached = await cache.get<WorldPermissions>(cacheKey)
+      if (cached) {
+        return cached
+      }
+
       const url = `${worldsContentServerUrl}/world/${encodeURIComponent(worldName)}/permissions`
 
       logger.debug('Fetching world permissions from content server', {
@@ -32,7 +59,7 @@ export async function createWorldsContentServerComponent(
       let response: Awaited<ReturnType<typeof fetcher.fetch>>
 
       try {
-        response = await fetcher.fetch(url)
+        response = await fetcher.fetch(url, UPSTREAM_FETCH_OPTIONS)
       } catch (error) {
         logger.error('Failed to fetch world permissions: network error', {
           worldName,
@@ -43,6 +70,7 @@ export async function createWorldsContentServerComponent(
       }
 
       if (!response.ok) {
+        await discardResponseBody(response)
         logger.warn('Failed to fetch world permissions: non-OK response', {
           worldName,
           url,
@@ -57,7 +85,12 @@ export async function createWorldsContentServerComponent(
         status: response.status
       })
 
-      return (await response.json()) as WorldPermissions
+      const body: unknown = await response.json()
+      assertWorldPermissionsShape(body, worldName)
+
+      await cache.set(cacheKey, body, cacheTtlSeconds)
+
+      return body
     }
   }
 }

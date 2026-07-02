@@ -1,6 +1,7 @@
 import { SQL } from 'sql-template-strings'
 import { calculateValueSizeInBytes } from '../../utils/calculateValueSizeInBytes'
 import { buildPrefixPattern } from '../../utils/prefix'
+import { isSharedRealmName } from '../../utils/worldName'
 import type { IEnvStorageComponent } from './types'
 import type { AppComponents } from '../../types'
 import type { PaginationOptions } from '../../types/http'
@@ -179,32 +180,45 @@ export const createEnvStorageComponent = ({
   }
 
   /**
-   * Returns storage size info for env variables in a world in a single query.
+   * Returns storage size info for an env quota scope in a single query.
    *
-   * If `key` is provided, this returns the existing value size for that key and
-   * the total env usage. If `key` is omitted, `existingValueSize` is set to 0.
+   * If `key` is provided, this returns the existing value size for that exact
+   * `(place_id, key)` row and the total env usage for the scope. If `key` is
+   * omitted, `existingValueSize` is set to 0.
    *
-   * Size aggregation is always per-world (across all scenes).
+   * Totals are aggregated per world (across all scenes) for `*.dcl.eth` worlds, and
+   * per place for shared Genesis City realms — unrelated land scenes must not compete
+   * for (or disclose) a single realm-wide pool.
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - Optional environment variable key
    * @returns Existing value size and total storage size
    */
   async function getSizeInfo(
     worldName: string,
+    placeId: string,
     key?: string
   ): Promise<{ existingValueSize: number; totalSize: number }> {
     const keyFilter = key ?? null
+    // The existing-value credit must match the exact row being replaced: rows are keyed
+    // (world_name, place_id, key), so filtering by key alone would credit a same-named
+    // key from another scene and let the quota be exceeded.
     const query = SQL`
       SELECT
-        COALESCE(MAX(value_size) FILTER (WHERE key = ${keyFilter}), 0) AS existing_value_size,
-        COALESCE(SUM(value_size), 0)::int AS total_size
+        COALESCE(MAX(value_size) FILTER (WHERE place_id = ${placeId}::uuid AND key = ${keyFilter}), 0) AS existing_value_size,
+        COALESCE(SUM(value_size), 0)::bigint AS total_size
       FROM env_variables
       WHERE world_name = ${worldName}`
+    if (isSharedRealmName(worldName)) {
+      query.append(SQL` AND place_id = ${placeId}::uuid`)
+    }
 
-    const result = await pg.query<{ existing_value_size: number; total_size: number }>(query)
+    const result = await pg.query<{ existing_value_size: number; total_size: string }>(query)
     const existingValueSize = result.rows[0].existing_value_size
-    const totalSize = result.rows[0].total_size
+    // SUM is cast to bigint (an int cast overflows at 2 GB and would 500 every request in
+    // the scope); node-postgres returns bigint as text, and totals fit safely in a JS number.
+    const totalSize = Number(result.rows[0].total_size)
 
     return { existingValueSize, totalSize }
   }

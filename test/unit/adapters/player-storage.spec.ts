@@ -287,7 +287,7 @@ describe('PlayerStorageComponent', () => {
       })
 
       it('should return the existing value size and total size', async () => {
-        const result = await playerStorage.getSizeInfo(worldName, playerAddress, key)
+        const result = await playerStorage.getSizeInfo(worldName, placeId, playerAddress, key)
         expect(result).toEqual({ existingValueSize: 5, totalSize: 50 })
       })
     })
@@ -298,7 +298,7 @@ describe('PlayerStorageComponent', () => {
       })
 
       it('should return a zero existing value size and the total size', async () => {
-        const result = await playerStorage.getSizeInfo(worldName, playerAddress)
+        const result = await playerStorage.getSizeInfo(worldName, placeId, playerAddress)
         expect(result).toEqual({ existingValueSize: 0, totalSize: 120 })
       })
     })

@@ -1,6 +1,7 @@
 import { SQL } from 'sql-template-strings'
 import { calculateValueSizeInBytes } from '../../utils/calculateValueSizeInBytes'
 import { buildPrefixPattern } from '../../utils/prefix'
+import { isSharedRealmName } from '../../utils/worldName'
 import type { IPlayerStorageComponent } from './types'
 import type { AppComponents } from '../../types'
 import type { PaginationOptions } from '../../types/http'
@@ -366,37 +367,73 @@ export const createPlayerStorageComponent = async ({
   }
 
   /**
-   * Returns storage size info for a player scope in a world in a single query.
+   * Returns storage size info for a player's quota scope in a single query.
    *
-   * If `key` is provided, this returns the existing value size for that key and
-   * the total size for the player's scope. If `key` is omitted, `existingValueSize`
-   * is set to 0 and only total usage is relevant.
+   * If `key` is provided, this returns the existing value size for that exact
+   * `(place_id, key)` row and the total size for the player's scope. If `key` is
+   * omitted, `existingValueSize` is set to 0 and only total usage is relevant.
    *
-   * Size aggregation is always per-world (across all scenes).
+   * Totals are aggregated per world (across all scenes) for `*.dcl.eth` worlds, and
+   * per place for shared Genesis City realms — unrelated land scenes must not compete
+   * for (or disclose) a single realm-wide pool.
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    * @param key - Optional storage key
    * @returns Existing value size and total storage size
    */
   async function getSizeInfo(
     worldName: string,
+    placeId: string,
     playerAddress: string,
     key?: string
   ): Promise<{ existingValueSize: number; totalSize: number }> {
     const keyFilter = key ?? null
+    // The existing-value credit must match the exact row being replaced: rows are keyed
+    // (world_name, place_id, player_address, key), so filtering by key alone would credit
+    // a same-named key from another scene and let the quota be exceeded.
     const query = SQL`
       SELECT
-        COALESCE(MAX(value_size) FILTER (WHERE key = ${keyFilter}), 0) AS existing_value_size,
-        COALESCE(SUM(value_size), 0)::int AS total_size
+        COALESCE(MAX(value_size) FILTER (WHERE place_id = ${placeId}::uuid AND key = ${keyFilter}), 0) AS existing_value_size,
+        COALESCE(SUM(value_size), 0)::bigint AS total_size
       FROM player_storage
       WHERE world_name = ${worldName} AND player_address = ${playerAddress}`
+    if (isSharedRealmName(worldName)) {
+      query.append(SQL` AND place_id = ${placeId}::uuid`)
+    }
 
-    const result = await pg.query<{ existing_value_size: number; total_size: number }>(query)
+    const result = await pg.query<{ existing_value_size: number; total_size: string }>(query)
     const existingValueSize = result.rows[0].existing_value_size
-    const totalSize = result.rows[0].total_size
+    // SUM is cast to bigint (an int cast overflows at 2 GB and would 500 every request in
+    // the scope); node-postgres returns bigint as text, and totals fit safely in a JS number.
+    const totalSize = Number(result.rows[0].total_size)
 
     return { existingValueSize, totalSize }
+  }
+
+  /**
+   * Invalidates the cached value for a key AFTER a committed write.
+   *
+   * Called by the storage-operations orchestrator once its transaction commits. It is a
+   * plain removal rather than a write-through set on purpose: a set runs outside the quota
+   * advisory lock (and `deleteValue` takes no lock at all), so a concurrent delete's removal
+   * could land before a just-committed upsert's set and leave a stale value served for the
+   * whole TTL. Removals are idempotent and order-independent, so the next read always
+   * repopulates from the committed database state.
+   *
+   * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
+   * @param playerAddress - The player's wallet address
+   * @param key - The storage key
+   */
+  async function invalidateValue(
+    worldName: string,
+    placeId: string,
+    playerAddress: string,
+    key: string
+  ): Promise<void> {
+    await invalidateKey(worldName, placeId, playerAddress, key)
   }
 
   return {
@@ -409,6 +446,7 @@ export const createPlayerStorageComponent = async ({
     countKeys,
     listPlayers,
     countPlayers,
-    getSizeInfo
+    getSizeInfo,
+    invalidateValue
   }
 }

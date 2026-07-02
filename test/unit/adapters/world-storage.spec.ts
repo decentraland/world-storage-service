@@ -262,7 +262,7 @@ describe('WorldStorageComponent', () => {
       })
 
       it('should return the existing value size and total size', async () => {
-        const result = await worldStorage.getSizeInfo(worldName, key)
+        const result = await worldStorage.getSizeInfo(worldName, placeId, key)
         expect(result).toEqual({ existingValueSize: 10, totalSize: 100 })
       })
     })
@@ -273,8 +273,50 @@ describe('WorldStorageComponent', () => {
       })
 
       it('should return a zero existing value size and the total size', async () => {
-        const result = await worldStorage.getSizeInfo(worldName)
+        const result = await worldStorage.getSizeInfo(worldName, placeId)
         expect(result).toEqual({ existingValueSize: 0, totalSize: 250 })
+      })
+    })
+
+    describe('and the total size comes back as a bigint string', () => {
+      beforeEach(() => {
+        // SUM(...)::bigint reaches node-postgres as text; the adapter must convert it.
+        pg.query.mockResolvedValueOnce({ rows: [{ existing_value_size: 10, total_size: '3000000000' }] } as never)
+      })
+
+      it('should return the total size as a number', async () => {
+        const result = await worldStorage.getSizeInfo(worldName, placeId, key)
+        expect(result).toEqual({ existingValueSize: 10, totalSize: 3_000_000_000 })
+      })
+    })
+
+    describe('and the world is a .dcl.eth world', () => {
+      beforeEach(async () => {
+        pg.query.mockResolvedValueOnce({ rows: [{ existing_value_size: 0, total_size: 0 }] } as never)
+        await worldStorage.getSizeInfo(worldName, placeId, key)
+      })
+
+      it('should credit the existing value only for the exact place and key', () => {
+        const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
+        expect(statement.text).toContain('FILTER (WHERE place_id = ')
+        expect(statement.values).toContain(placeId)
+      })
+
+      it('should aggregate the total across all scenes of the world', () => {
+        const statement = pg.query.mock.calls[0][0] as unknown as { text: string }
+        expect(statement.text).not.toContain('AND place_id')
+      })
+    })
+
+    describe('and the scene belongs to a shared Genesis City realm', () => {
+      beforeEach(async () => {
+        pg.query.mockResolvedValueOnce({ rows: [{ existing_value_size: 0, total_size: 0 }] } as never)
+        await worldStorage.getSizeInfo('main', placeId, key)
+      })
+
+      it('should scope the total to the place so unrelated scenes do not share a quota pool', () => {
+        const statement = pg.query.mock.calls[0][0] as unknown as { text: string }
+        expect(statement.text).toContain('AND place_id')
       })
     })
   })

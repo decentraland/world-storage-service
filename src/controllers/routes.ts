@@ -31,6 +31,7 @@ import {
   authorizedAddressesOnlyAuthorizationMiddleware,
   ownerAndDeployerOnlyAuthorizationMiddleware
 } from './middlewares/authorization-middleware'
+import { createBodySizeLimitMiddleware } from './middlewares/body-size-limit-middleware'
 import { sceneContextMiddleware } from './middlewares/scene-context-middleware'
 import type { GlobalContext } from '../types'
 
@@ -49,7 +50,7 @@ function withSceneContext<Path extends string>(
 
 // We return the entire router because it will be easier to test than a whole server
 export async function setupRouter(context: GlobalContext): Promise<Router<GlobalContext>> {
-  const { fetcher, schemaValidator } = context.components
+  const { fetcher, schemaValidator, storageLimits } = context.components
   const router = new Router<GlobalContext>()
 
   router.use(errorHandler)
@@ -58,12 +59,20 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
     wellKnownComponents({
       fetcher,
       optional,
-      onError: (err: Error) => ({
-        error: err.message,
+      onError: (err: Error & { statusCode?: number }) => ({
+        // Mirror the library default: 5xx messages carry internal detail (catalyst
+        // hostnames, upstream errors) and are replaced with a generic message.
+        error: (err.statusCode ?? 500) >= 500 ? 'Internal error' : err.message,
         message: 'This endpoint requires a signed fetch request. See ADR-44.'
       }),
       metadataValidator: metadata => metadata?.signer !== 'decentraland-kernel-scene' // prevent requests from scenes
     })
+
+  // Reject oversized bodies before anything buffers or parses them; each PUT route is
+  // capped relative to its namespace's per-value limit.
+  const worldBodySizeLimitMiddleware = createBodySizeLimitMiddleware(storageLimits.limits.world.maxValueSizeBytes)
+  const playerBodySizeLimitMiddleware = createBodySizeLimitMiddleware(storageLimits.limits.player.maxValueSizeBytes)
+  const envBodySizeLimitMiddleware = createBodySizeLimitMiddleware(storageLimits.limits.env.maxValueSizeBytes)
 
   router.use(signedFetchMiddleware())
   router.use(sceneContextMiddleware)
@@ -87,10 +96,13 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   // World storage endpoints
   router.get('/values', withSceneContext(authorizationMiddleware), withSceneContext(listWorldStorageHandler))
   router.get('/values/:key', withSceneContext(authorizationMiddleware), withSceneContext(getWorldStorageHandler))
+  // Authorization runs before schema validation so unauthorized callers cannot make the
+  // server buffer and parse request bodies.
   router.put(
     '/values/:key',
-    schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
+    worldBodySizeLimitMiddleware,
     withSceneContext(authorizationMiddleware),
+    schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
     withSceneContext(upsertWorldStorageHandler)
   )
   router.delete('/values/:key', withSceneContext(authorizationMiddleware), withSceneContext(deleteWorldStorageHandler))
@@ -114,8 +126,9 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
   router.put(
     '/players/:player_address/values/:key',
-    schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
+    playerBodySizeLimitMiddleware,
     withSceneContext(authorizationMiddleware),
+    schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
     withSceneContext(upsertPlayerStorageHandler)
   )
   router.delete(
@@ -147,8 +160,9 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
   router.put(
     '/env/:key',
-    schemaValidator.withSchemaValidatorMiddleware(UpsertEnvStorageRequestSchema),
+    envBodySizeLimitMiddleware,
     withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
+    schemaValidator.withSchemaValidatorMiddleware(UpsertEnvStorageRequestSchema),
     withSceneContext(upsertEnvStorageHandler)
   )
   router.delete(

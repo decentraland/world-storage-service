@@ -152,6 +152,74 @@ test('when upserting a world storage value', function ({ components, stubCompone
     })
   })
 
+  describe('and the key is longer than 255 characters', () => {
+    let longKey: string
+
+    beforeEach(async () => {
+      longKey = 'a'.repeat(256)
+      response = await signedFetch(`${baseUrl}/values/${longKey}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: 'payload' }),
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+    })
+
+    it('should respond with a 400 and the key length constraint', async () => {
+      const body = await response.json()
+      expect(response.status).toBe(400)
+      expect(body).toEqual({
+        error: 'Bad request',
+        message: 'Key must be between 1 and 255 characters'
+      })
+    })
+  })
+
+  describe('and the request body exceeds the size cap', () => {
+    beforeEach(async () => {
+      // World per-value limit (524288) + envelope slack (1024), exceeded by the JSON wrapper.
+      const oversizedValue = 'x'.repeat(524288 + 1024)
+      response = await signedFetch(`${baseUrl}/values/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: oversizedValue }),
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+    })
+
+    it('should respond with a 413 and a payload too large message', async () => {
+      const body = await response.json()
+      expect(response.status).toBe(413)
+      expect(body).toEqual({
+        error: 'Payload Too Large',
+        message: 'Request body exceeds the maximum allowed size (525312 bytes)'
+      })
+    })
+  })
+
+  describe('and the value contains a NUL character', () => {
+    beforeEach(async () => {
+      response = await signedFetch(`${baseUrl}/values/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: `a${String.fromCharCode(0)}b` }),
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+    })
+
+    it('should respond with a 400 and a NUL character message', async () => {
+      const body = await response.json()
+      expect(response.status).toBe(400)
+      expect(body).toEqual({
+        error: 'Bad request',
+        message: 'Values must not contain the \\u0000 (NUL) character'
+      })
+    })
+  })
+
   describe('and the database throws an error', () => {
     beforeEach(async () => {
       stubComponents.worldStorage.setValue.mockRejectedValue(new Error('boom'))

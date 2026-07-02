@@ -30,7 +30,17 @@ ENV NODE_ENV production
 RUN apk add --no-cache tini
 
 WORKDIR /app
-COPY --from=builderenv /app /app
+# Copy only what the runtime needs: the compiled app, production dependencies, and the
+# default config. Copying the whole build stage would bake the source tree (and anything
+# else present at build time) into the shipped image.
+COPY --from=builderenv /app/package.json /app/package.json
+COPY --from=builderenv /app/node_modules /app/node_modules
+COPY --from=builderenv /app/dist /app/dist
+COPY --from=builderenv /app/.env.default /app/.env.default
+
+# Run as the unprivileged user provided by the node image; the service only needs to
+# listen on its port and read the files copied above.
+USER node
 
 # Please _DO NOT_ use a custom ENTRYPOINT because it may prevent signals
 # (i.e. SIGTERM) to reach the service

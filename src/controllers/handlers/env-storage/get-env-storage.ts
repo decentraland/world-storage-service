@@ -1,5 +1,6 @@
 import { NotFoundError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../../utils/errors'
+import { validateStorageKey } from '../commons/validateStorageKey'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 
@@ -19,6 +20,7 @@ export async function getEnvStorageHandler(
   const logger = logs.getLogger('get-env-storage-handler')
 
   const key = params.key
+  validateStorageKey(key)
 
   logger.debug('Processing get env storage request', {
     worldName,
@@ -28,7 +30,9 @@ export async function getEnvStorageHandler(
   try {
     const value = await envStorage.getValue(worldName, placeId, key)
 
-    if (!value) {
+    // Strict null check: an empty string is a legitimately stored value (the upsert schema
+    // accepts it), so a falsy check would 404 a key that exists and appears in the listing.
+    if (value === null) {
       logger.info('Env variable not found', {
         worldName,
         key

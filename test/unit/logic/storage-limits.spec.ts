@@ -135,7 +135,38 @@ describe('Storage Limits Component', () => {
 
       it('should call getSizeInfo with the world name and key', async () => {
         await component.validateWorldStorageUpsert(worldName, placeId, key, 'hello')
-        expect(worldStorage.getSizeInfo).toHaveBeenCalledWith(worldName, key)
+        expect(worldStorage.getSizeInfo).toHaveBeenCalledWith(worldName, placeId, key)
+      })
+    })
+
+    describe('and the value contains a NUL character', () => {
+      it('should reject with an invalid request error', async () => {
+        await expect(component.validateWorldStorageUpsert(worldName, placeId, key, 'a\u0000b')).rejects.toThrow(
+          'Values must not contain the \\u0000 (NUL) character'
+        )
+      })
+
+      it('should reject NUL characters nested inside objects', async () => {
+        await expect(
+          component.validateWorldStorageUpsert(worldName, placeId, key, { nested: ['x', 'y\u0000'] })
+        ).rejects.toThrow('Values must not contain the \\u0000 (NUL) character')
+      })
+
+      it('should not query storage usage', async () => {
+        await component.validateWorldStorageUpsert(worldName, placeId, key, 'a\u0000b').catch(() => undefined)
+        expect(worldStorage.getSizeInfo).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and the value contains the literal text backslash-u0000', () => {
+      beforeEach(() => {
+        worldStorage.getSizeInfo.mockResolvedValueOnce({ existingValueSize: 0, totalSize: 100 })
+      })
+
+      it('should resolve without throwing', async () => {
+        // The 6-character string "\u0000" (backslash, u, zeros) is legitimate text — only
+        // the escape that decodes to an actual NUL character is rejected.
+        await expect(component.validateWorldStorageUpsert(worldName, placeId, key, 'a\\u0000b')).resolves.not.toThrow()
       })
     })
   })
@@ -222,7 +253,7 @@ describe('Storage Limits Component', () => {
 
       it('should call getSizeInfo with the world name, player address, and key', async () => {
         await component.validatePlayerStorageUpsert(worldName, placeId, playerAddress, key, 'hello')
-        expect(playerStorage.getSizeInfo).toHaveBeenCalledWith(worldName, playerAddress, key)
+        expect(playerStorage.getSizeInfo).toHaveBeenCalledWith(worldName, placeId, playerAddress, key)
       })
     })
   })
@@ -302,7 +333,7 @@ describe('Storage Limits Component', () => {
 
       it('should call getSizeInfo with the world name and key', async () => {
         await component.validateEnvStorageUpsert(worldName, placeId, key, 'my-secret')
-        expect(envStorage.getSizeInfo).toHaveBeenCalledWith(worldName, key)
+        expect(envStorage.getSizeInfo).toHaveBeenCalledWith(worldName, placeId, key)
       })
     })
   })

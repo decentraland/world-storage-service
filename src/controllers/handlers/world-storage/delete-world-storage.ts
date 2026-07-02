@@ -1,4 +1,5 @@
 import { errorMessageOrDefault } from '../../../utils/errors'
+import { validateStorageKey } from '../commons/validateStorageKey'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { HTTPResponse } from '../../../types/http'
 
@@ -18,6 +19,7 @@ export async function deleteWorldStorageHandler(
   const logger = logs.getLogger('delete-world-storage-handler')
 
   const key = params.key
+  validateStorageKey(key)
 
   logger.debug('Processing delete world storage request', {
     worldName,

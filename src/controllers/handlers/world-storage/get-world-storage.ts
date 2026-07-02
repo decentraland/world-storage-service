@@ -1,6 +1,7 @@
 import { NotFoundError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../../utils/errors'
 import { rawJsonValueResponse } from '../../../utils/rawJsonResponse'
+import { validateStorageKey } from '../commons/validateStorageKey'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { RawJSONResponse } from '../../../types/http'
 
@@ -20,6 +21,7 @@ export async function getWorldStorageHandler(
   const logger = logs.getLogger('get-world-storage-handler')
 
   const key = params.key
+  validateStorageKey(key)
 
   logger.debug('Processing get world storage request', {
     worldName,

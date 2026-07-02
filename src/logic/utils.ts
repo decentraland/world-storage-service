@@ -18,7 +18,9 @@ export async function getDbConnectionString({
       config.requireString(`${prefix}PG_COMPONENT_PSQL_HOST`),
       config.requireString(`${prefix}PG_COMPONENT_PSQL_PASSWORD`)
     ])
-    databaseUrl = `postgres://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbDatabaseName}`
+    // Credentials are URL-encoded: a password containing `@`, `:` or `/` would otherwise
+    // produce a connection string that parses into the wrong host or fails outright.
+    databaseUrl = `postgres://${encodeURIComponent(dbUser)}:${encodeURIComponent(dbPassword)}@${dbHost}:${dbPort}/${dbDatabaseName}`
   }
 
   return databaseUrl

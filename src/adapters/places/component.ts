@@ -1,5 +1,7 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../utils/errors'
+import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
+import { isDclWorldName } from '../../utils/worldName'
 import type { IPlacesComponent } from './types'
 import type { AppComponents } from '../../types'
 
@@ -35,7 +37,7 @@ export async function createPlacesComponent(
     // Only `.dcl.eth` realms are Decentraland Worlds. Any other realmName
     // (e.g. `main` in prod, `artemis` in zone) is a Genesis City realm —
     // those scenes are identified by parcel position alone.
-    const isWorld = worldName.endsWith('.dcl.eth')
+    const isWorld = isDclWorldName(worldName)
 
     if (!isWorld) {
       return `${baseUrl}?positions=${encodedParcel}`
@@ -44,12 +46,29 @@ export async function createPlacesComponent(
     return `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${encodedParcel}`
   }
 
-  function extractPlaceId(body: PlacesApiResponse, worldName: string, parcel: string): string {
-    if (!body.data || body.data.length === 0) {
+  // Validates the upstream payload shape (rather than trusting a bare cast) and returns the
+  // resolved place id. Mirrors the worlds-content-server adapter's shape-assertion approach.
+  function extractPlaceId(body: unknown, worldName: string, parcel: string): string {
+    const data = (body as PlacesApiResponse | null)?.data
+
+    // A missing or empty result means the scene isn't registered in Places.
+    if (data === undefined || data === null || (Array.isArray(data) && data.length === 0)) {
       throw new InvalidRequestError(`Scene not found in Places API for world "${worldName}" at parcel "${parcel}"`)
     }
 
-    return body.data[0].id
+    // Anything present that isn't an array of entries is an upstream contract violation.
+    if (!Array.isArray(data)) {
+      throw new Error(`Places API returned an unexpected payload for world "${worldName}" at parcel "${parcel}"`)
+    }
+
+    const placeId = data[0]?.id
+    // Guard the upstream contract: an entry without an id would flow into `::uuid` SQL
+    // casts (and the cache) as `undefined`, producing 500s on every request for the scene.
+    if (typeof placeId !== 'string' || placeId.length === 0) {
+      throw new Error(`Places API returned a place without an id for world "${worldName}" at parcel "${parcel}"`)
+    }
+
+    return placeId
   }
 
   async function fetchPlaceId(worldName: string, parcel: string): Promise<string> {
@@ -57,13 +76,14 @@ export async function createPlacesComponent(
 
     logger.debug('Resolving place ID from Places API', { worldName, parcel, url })
 
-    const response = await fetcher.fetch(url)
+    const response = await fetcher.fetch(url, UPSTREAM_FETCH_OPTIONS)
 
     if (!response.ok) {
+      await discardResponseBody(response)
       throw new Error(`Places API returned HTTP ${response.status}`)
     }
 
-    const body: PlacesApiResponse = await response.json()
+    const body: unknown = await response.json()
 
     return extractPlaceId(body, worldName, parcel)
   }

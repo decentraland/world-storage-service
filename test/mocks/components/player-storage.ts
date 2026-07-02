@@ -11,6 +11,7 @@ export function createPlayerStorageMockedComponent(): jest.Mocked<IPlayerStorage
     countKeys: jest.fn(),
     listPlayers: jest.fn(),
     countPlayers: jest.fn(),
-    getSizeInfo: jest.fn()
+    getSizeInfo: jest.fn(),
+    invalidateValue: jest.fn()
   }
 }
