@@ -142,6 +142,10 @@ export async function createStorageLimitsComponent(
     },
 
     async validateEnvStorageUpsert(worldName: string, placeId: string, key: string, value: string): Promise<void> {
+      // No `rejectNulCharacters` here, unlike the world/player validators: env values are stored
+      // encrypted in a `bytea` column (never as jsonb), so the Postgres NUL restriction does not
+      // apply. If content validation that throws `InvalidValueError` is ever added here, also catch
+      // it in `upsertEnvStorageHandler` (which today only maps `StorageLimitExceededError`).
       const validate = createUpsertValidator(() => envStorage.getSizeInfo(worldName, placeId, key), envLimits)
       await validate(value)
     }

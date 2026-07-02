@@ -1,5 +1,5 @@
 import { errorMessageOrDefault } from '../../utils/errors'
-import { UPSTREAM_FETCH_OPTIONS } from '../../utils/upstreamFetch'
+import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import { isSharedRealmName } from '../../utils/worldName'
 import type { IWorldPermissionComponent } from './types'
 import type { WorldPermissions } from '../../adapters/worlds-content-server/types'
@@ -70,6 +70,7 @@ export async function createWorldPermissionComponent(
       )
 
       if (!response.ok) {
+        await discardResponseBody(response)
         logger.warn('LAMBDAS permission check returned non-ok status', {
           address,
           parcel,

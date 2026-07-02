@@ -1,6 +1,6 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../utils/errors'
-import { UPSTREAM_FETCH_OPTIONS } from '../../utils/upstreamFetch'
+import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import { isDclWorldName } from '../../utils/worldName'
 import type { IPlacesComponent } from './types'
 import type { AppComponents } from '../../types'
@@ -79,6 +79,7 @@ export async function createPlacesComponent(
     const response = await fetcher.fetch(url, UPSTREAM_FETCH_OPTIONS)
 
     if (!response.ok) {
+      await discardResponseBody(response)
       throw new Error(`Places API returned HTTP ${response.status}`)
     }
 

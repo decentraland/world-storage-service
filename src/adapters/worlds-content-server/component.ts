@@ -1,5 +1,5 @@
 import { errorMessageOrDefault } from '../../utils/errors'
-import { UPSTREAM_FETCH_OPTIONS } from '../../utils/upstreamFetch'
+import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { IWorldsContentServerComponent, WorldPermissions } from './types'
 import type { AppComponents } from '../../types'
 
@@ -70,6 +70,7 @@ export async function createWorldsContentServerComponent(
       }
 
       if (!response.ok) {
+        await discardResponseBody(response)
         logger.warn('Failed to fetch world permissions: non-OK response', {
           worldName,
           url,
