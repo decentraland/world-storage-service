@@ -85,13 +85,8 @@ describe('Storage Operations Component', () => {
         expect(lockStatement.values[0]).toBe(`world-storage:${WORLD_NAMES.DEFAULT}`)
       })
 
-      it('should write the committed value through to the read cache', () => {
-        expect(worldStorage.cacheValue).toHaveBeenCalledWith(
-          WORLD_NAMES.DEFAULT,
-          PLACE_IDS.DEFAULT,
-          KEY,
-          serializedValue
-        )
+      it('should invalidate the cached value after the commit', () => {
+        expect(worldStorage.invalidateValue).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, KEY)
       })
 
       it('should return the serialized value', () => {
@@ -119,12 +114,12 @@ describe('Storage Operations Component', () => {
         ;(storageLimits.validateWorldStorageUpsert as jest.Mock).mockRejectedValueOnce(validationError)
       })
 
-      it('should reject with the validation error and not write or cache anything', async () => {
+      it('should reject with the validation error and not write or invalidate anything', async () => {
         await expect(
           storageOperations.upsertWorldValue(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, KEY, 1)
         ).rejects.toThrow(validationError)
         expect(worldStorage.setValue).not.toHaveBeenCalled()
-        expect(worldStorage.cacheValue).not.toHaveBeenCalled()
+        expect(worldStorage.invalidateValue).not.toHaveBeenCalled()
       })
     })
 
@@ -134,11 +129,11 @@ describe('Storage Operations Component', () => {
         worldStorage.setValue.mockRejectedValueOnce(new Error('db error'))
       })
 
-      it('should reject and not prime the cache with the uncommitted value', async () => {
+      it('should reject without invalidating the cache after a failed write', async () => {
         await expect(
           storageOperations.upsertWorldValue(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, KEY, 1)
         ).rejects.toThrow('db error')
-        expect(worldStorage.cacheValue).not.toHaveBeenCalled()
+        expect(worldStorage.invalidateValue).not.toHaveBeenCalled()
       })
     })
   })
@@ -165,7 +160,7 @@ describe('Storage Operations Component', () => {
         expect(lockStatement.values[0]).toBe(`player-storage:${WORLD_NAMES.DEFAULT}:${ADDRESSES.PLAYER}`)
       })
 
-      it('should write the value and then write it through to the read cache', () => {
+      it('should write the value and then invalidate the cached entry after commit', () => {
         expect(playerStorage.setValue).toHaveBeenCalledWith(
           WORLD_NAMES.DEFAULT,
           PLACE_IDS.DEFAULT,
@@ -173,12 +168,11 @@ describe('Storage Operations Component', () => {
           KEY,
           serializedValue
         )
-        expect(playerStorage.cacheValue).toHaveBeenCalledWith(
+        expect(playerStorage.invalidateValue).toHaveBeenCalledWith(
           WORLD_NAMES.DEFAULT,
           PLACE_IDS.DEFAULT,
           ADDRESSES.PLAYER,
-          KEY,
-          serializedValue
+          KEY
         )
       })
 

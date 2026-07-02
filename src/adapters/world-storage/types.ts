@@ -93,16 +93,15 @@ export interface IWorldStorageComponent {
   ): Promise<{ existingValueSize: number; totalSize: number }>
 
   /**
-   * Write-through: stores an already-persisted value in the read cache.
+   * Invalidates the cached value for a key after a committed write.
    *
-   * Must only be called with values that are committed to the database (the
-   * storage-operations orchestrator calls it after its transaction commits).
-   * Values above the cache size cap are skipped.
+   * Called by the storage-operations orchestrator once its transaction commits. It removes
+   * (rather than write-through sets) the entry so concurrent writes/deletes to the same key
+   * cannot leave a stale value cached; the next read repopulates from the committed state.
    *
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param key - The storage key
-   * @param serializedValue - The committed value as JSON text
    */
-  cacheValue(worldName: string, placeId: string, key: string, serializedValue: string): Promise<void>
+  invalidateValue(worldName: string, placeId: string, key: string): Promise<void>
 }

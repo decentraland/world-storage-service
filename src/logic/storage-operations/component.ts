@@ -73,7 +73,9 @@ export async function createStorageOperationsComponent(
         return serialized
       })
 
-      await worldStorage.cacheValue(worldName, placeId, key, serializedValue)
+      // Invalidate after commit so a reader that repopulated the cache from the pre-write
+      // state during the transaction window does not keep serving it.
+      await worldStorage.invalidateValue(worldName, placeId, key)
 
       return serializedValue
     },
@@ -100,7 +102,9 @@ export async function createStorageOperationsComponent(
         }
       )
 
-      await playerStorage.cacheValue(worldName, placeId, playerAddress, key, serializedValue)
+      // Invalidate after commit so a reader that repopulated the cache from the pre-write
+      // state during the transaction window does not keep serving it.
+      await playerStorage.invalidateValue(worldName, placeId, playerAddress, key)
 
       return serializedValue
     },

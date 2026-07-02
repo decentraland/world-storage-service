@@ -9,6 +9,6 @@ export function createWorldStorageMockedComponent(): jest.Mocked<IWorldStorageCo
     listValues: jest.fn(),
     countKeys: jest.fn(),
     getSizeInfo: jest.fn(),
-    cacheValue: jest.fn()
+    invalidateValue: jest.fn()
   }
 }

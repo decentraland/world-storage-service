@@ -413,29 +413,27 @@ export const createPlayerStorageComponent = async ({
   }
 
   /**
-   * Write-through: stores an already-persisted value in the read cache.
+   * Invalidates the cached value for a key AFTER a committed write.
    *
-   * Called by the storage-operations orchestrator AFTER its transaction commits, so the
-   * cache is never primed with a value that could still roll back. Values above the cache
-   * size cap are skipped (the `setValue` invalidation already removed any previous entry).
+   * Called by the storage-operations orchestrator once its transaction commits. It is a
+   * plain removal rather than a write-through set on purpose: a set runs outside the quota
+   * advisory lock (and `deleteValue` takes no lock at all), so a concurrent delete's removal
+   * could land before a just-committed upsert's set and leave a stale value served for the
+   * whole TTL. Removals are idempotent and order-independent, so the next read always
+   * repopulates from the committed database state.
    *
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    * @param key - The storage key
-   * @param serializedValue - The committed value as JSON text
    */
-  async function cacheValue(
+  async function invalidateValue(
     worldName: string,
     placeId: string,
     playerAddress: string,
-    key: string,
-    serializedValue: string
+    key: string
   ): Promise<void> {
-    if (!cacheEnabled) return
-    if (calculateValueSizeInBytes(serializedValue) <= maxCachedValueSizeInBytes) {
-      await storageCache.set(valueCacheKey(worldName, placeId, playerAddress, key), serializedValue)
-    }
+    await invalidateKey(worldName, placeId, playerAddress, key)
   }
 
   return {
@@ -449,6 +447,6 @@ export const createPlayerStorageComponent = async ({
     listPlayers,
     countPlayers,
     getSizeInfo,
-    cacheValue
+    invalidateValue
   }
 }
