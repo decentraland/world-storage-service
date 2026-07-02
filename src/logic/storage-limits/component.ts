@@ -1,7 +1,16 @@
-import { StorageLimitExceededError } from './errors'
+import { InvalidValueError, StorageLimitExceededError } from './errors'
 import { calculateValueSizeInBytes } from '../../utils/calculateValueSizeInBytes'
 import type { IStorageLimitsComponent, StorageNamespaceLimits } from './types'
 import type { AppComponents } from '../../types'
+
+/**
+ * Matches a `\u0000` escape that encodes an actual NUL character: one not preceded by a
+ * backslash (an even number of backslashes before `\u0000` means the backslash itself is
+ * escaped text, e.g. the literal string `\\u0000`, which is fine). Postgres `jsonb` cannot
+ * store NUL characters and rejects such values with an internal error, so they are turned
+ * away here with a 400 instead.
+ */
+const NUL_ESCAPE_PATTERN = /(?<!\\)(?:\\\\)*\\u0000/
 
 /**
  * Creates a reusable upsert validation function for a given storage scope.
@@ -40,6 +49,20 @@ function createUpsertValidator(
 }
 
 /**
+ * Rejects JSON values that contain NUL characters, which Postgres `jsonb` cannot store.
+ * Checked on the serialized text (where `JSON.stringify` always encodes NUL as `\u0000`)
+ * so no extra traversal of the value is needed.
+ *
+ * @param serializedValue - The value serialized as JSON text
+ * @throws {InvalidValueError} If the value contains a NUL character
+ */
+function rejectNulCharacters(serializedValue: string): void {
+  if (NUL_ESCAPE_PATTERN.test(serializedValue)) {
+    throw new InvalidValueError('Values must not contain the \\u0000 (NUL) character')
+  }
+}
+
+/**
  * Creates the storage limits component that validates size limits
  * for all three storage namespaces.
  *
@@ -47,6 +70,10 @@ function createUpsertValidator(
  * 1. Reading required limits from environment variables at startup
  * 2. Querying storage adapters for current usage via a single optimised query
  * 3. Validating the upsert operation against the configured limits
+ *
+ * The quota scope of the size query is decided by the adapters: totals are per-world for
+ * `*.dcl.eth` worlds and per-place for shared Genesis City realms, and the existing-value
+ * credit is always resolved against the exact `(place_id, key)` row being replaced.
  *
  * @param components - Required components: config, logs, worldStorage, playerStorage, envStorage
  * @returns IStorageLimitsComponent implementation
@@ -79,11 +106,18 @@ export async function createStorageLimitsComponent(
   })
 
   return {
+    limits: {
+      env: envLimits,
+      world: worldLimits,
+      player: playerLimits
+    },
+
     async validateWorldStorageUpsert(worldName: string, placeId: string, key: string, value: unknown): Promise<string> {
       // Serialize once here and hand the string back to the caller so the storage write reuses it
       // instead of serializing the same value a second time.
       const serializedValue = JSON.stringify(value)
-      const validate = createUpsertValidator(() => worldStorage.getSizeInfo(worldName, key), worldLimits)
+      rejectNulCharacters(serializedValue)
+      const validate = createUpsertValidator(() => worldStorage.getSizeInfo(worldName, placeId, key), worldLimits)
       await validate(serializedValue)
       return serializedValue
     },
@@ -98,8 +132,9 @@ export async function createStorageLimitsComponent(
       // Serialize once here and hand the string back to the caller so the storage write reuses it
       // instead of serializing the same value a second time.
       const serializedValue = JSON.stringify(value)
+      rejectNulCharacters(serializedValue)
       const validate = createUpsertValidator(
-        () => playerStorage.getSizeInfo(worldName, playerAddress, key),
+        () => playerStorage.getSizeInfo(worldName, placeId, playerAddress, key),
         playerLimits
       )
       await validate(serializedValue)
@@ -107,7 +142,7 @@ export async function createStorageLimitsComponent(
     },
 
     async validateEnvStorageUpsert(worldName: string, placeId: string, key: string, value: string): Promise<void> {
-      const validate = createUpsertValidator(() => envStorage.getSizeInfo(worldName, key), envLimits)
+      const validate = createUpsertValidator(() => envStorage.getSizeInfo(worldName, placeId, key), envLimits)
       await validate(value)
     }
   }

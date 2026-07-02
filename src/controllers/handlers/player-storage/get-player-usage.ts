@@ -13,6 +13,7 @@ export async function getPlayerUsageHandler(
   const {
     params,
     worldName,
+    placeId,
     components: { logs, playerStorage, config }
   } = context
 
@@ -27,7 +28,7 @@ export async function getPlayerUsageHandler(
 
   try {
     const [{ totalSize: usedBytes }, maxTotalSizeBytes] = await Promise.all([
-      playerStorage.getSizeInfo(worldName, playerAddress),
+      playerStorage.getSizeInfo(worldName, placeId, playerAddress),
       config.requireNumber('PLAYER_STORAGE_MAX_TOTAL_SIZE_BYTES')
     ])
 

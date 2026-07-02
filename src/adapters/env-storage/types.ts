@@ -62,19 +62,26 @@ export interface IEnvStorageComponent {
   countKeys(worldName: string, placeId: string, options: Pick<PaginationOptions, 'prefix'>): Promise<number>
 
   /**
-   * Returns storage size info for env variables in a world in a single query.
+   * Returns storage size info for an env quota scope in a single query.
    *
-   * When `key` is provided, this includes the existing value size for that key
-   * plus total env usage for the world. Used by upsert limits validation.
+   * When `key` is provided, this includes the existing value size for that exact
+   * `(place_id, key)` row plus total env usage for the scope. Used by upsert
+   * limits validation.
    *
    * When `key` is omitted, `existingValueSize` is 0 and only total usage matters.
    * Used by usage endpoints.
    *
-   * Size aggregation is always per-world (across all scenes).
+   * Totals are aggregated per world (across all scenes) for `*.dcl.eth` worlds, and
+   * per place for shared Genesis City realms.
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param key - Optional environment variable key
    * @returns Existing value size and total storage size
    */
-  getSizeInfo(worldName: string, key?: string): Promise<{ existingValueSize: number; totalSize: number }>
+  getSizeInfo(
+    worldName: string,
+    placeId: string,
+    key?: string
+  ): Promise<{ existingValueSize: number; totalSize: number }>
 }

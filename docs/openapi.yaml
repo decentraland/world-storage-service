@@ -211,7 +211,7 @@ paths:
         The world identifier is resolved from the Signed Fetch metadata.
         
         Results are ordered alphabetically by key (ASC) for deterministic pagination.
-        Each item is returned as a single-key object: `{ key: value }`.
+        Each item is returned as an object with `key` and `value` properties: `{ "key": ..., "value": ... }`.
       parameters:
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/OffsetParam'
@@ -243,7 +243,7 @@ paths:
                       offset: 0
                       total: 0
         '400':
-          description: Signed fetch is missing or invalid
+          description: Signed fetch is missing or invalid, or the scene context metadata is invalid
           content:
             application/json:
               schema:
@@ -253,6 +253,10 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidParcel:
+                  value:
+                    error: Bad request
+                    message: 'Parcel must be two comma-separated integer coordinates, e.g. "10,-25"'
         '500':
           description: Unexpected error
           content:
@@ -322,8 +326,11 @@ paths:
         - name: key
           in: path
           required: true
+          description: The storage key. Must be between 1 and 255 characters.
           schema:
             type: string
+            minLength: 1
+            maxLength: 255
       responses:
         '200':
           description: Value found
@@ -332,7 +339,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StorageValueResponse'
         '400':
-          description: Signed fetch is missing or invalid
+          description: Signed fetch is missing or invalid, or the key is invalid
           content:
             application/json:
               schema:
@@ -342,6 +349,10 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidKey:
+                  value:
+                    error: Bad request
+                    message: Key must be between 1 and 255 characters
         '404':
           description: Value not found
           content:
@@ -366,12 +377,19 @@ paths:
         **Storage limits**: This endpoint enforces configurable size limits per world:
         - Maximum value size per key (default: 512 KB)
         - Maximum total storage size per world (default: 10 MB)
+
+        Requests must declare a valid `Content-Length` header (chunked bodies are rejected
+        with `411`). Bodies larger than the per-value limit plus 1 KB of JSON envelope slack
+        are rejected with `413` before being read.
       parameters:
         - name: key
           in: path
           required: true
+          description: The storage key. Must be between 1 and 255 characters.
           schema:
             type: string
+            minLength: 1
+            maxLength: 255
       requestBody:
         required: true
         content:
@@ -391,7 +409,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StorageValueResponse'
         '400':
-          description: Invalid signed fetch, request body, or storage limit exceeded
+          description: Invalid signed fetch, key, request body, or storage limit exceeded
           content:
             application/json:
               schema:
@@ -415,6 +433,36 @@ paths:
                   value:
                     error: Bad request
                     message: 'Total storage size would exceed the maximum allowed (10485760 bytes). Current usage: 10000000 bytes. Delete existing data to free up space'
+                invalidKey:
+                  value:
+                    error: Bad request
+                    message: Key must be between 1 and 255 characters
+                nulCharacter:
+                  value:
+                    error: Bad request
+                    message: 'Values must not contain the \u0000 (NUL) character'
+        '411':
+          description: Content-Length header is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                lengthRequired:
+                  value:
+                    error: Length Required
+                    message: Requests with a body must include a valid Content-Length header
+        '413':
+          description: Request body exceeds the maximum allowed size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                payloadTooLarge:
+                  value:
+                    error: Payload Too Large
+                    message: 'Request body exceeds the maximum allowed size (525312 bytes)'
         '500':
           description: Unexpected error
           content:
@@ -433,13 +481,16 @@ paths:
         - name: key
           in: path
           required: true
+          description: The storage key. Must be between 1 and 255 characters.
           schema:
             type: string
+            minLength: 1
+            maxLength: 255
       responses:
         '204':
           description: Deleted (or did not exist)
         '400':
-          description: Signed fetch is missing or invalid
+          description: Signed fetch is missing or invalid, or the key is invalid
           content:
             application/json:
               schema:
@@ -449,6 +500,10 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidKey:
+                  value:
+                    error: Bad request
+                    message: Key must be between 1 and 255 characters
         '500':
           description: Unexpected error
           content:
@@ -467,7 +522,7 @@ paths:
         The world identifier is resolved from the Signed Fetch metadata.
         
         Results are ordered alphabetically by key (ASC) for deterministic pagination.
-        Each item is returned as a single-key object: `{ key: value }`.
+        Each item is returned as an object with `key` and `value` properties: `{ "key": ..., "value": ... }`.
       parameters:
         - name: player_address
           in: path
@@ -506,7 +561,7 @@ paths:
                       offset: 0
                       total: 0
         '400':
-          description: Signed fetch is missing, invalid, or invalid player address
+          description: Signed fetch is missing or invalid, or the player address or scene context metadata is invalid
           content:
             application/json:
               schema:
@@ -520,6 +575,10 @@ paths:
                   value:
                     error: Bad request
                     message: Invalid player address
+                invalidParcel:
+                  value:
+                    error: Bad request
+                    message: 'Parcel must be two comma-separated integer coordinates, e.g. "10,-25"'
         '500':
           description: Unexpected error
           content:
@@ -552,7 +611,7 @@ paths:
         '204':
           description: All values for the player deleted successfully
         '400':
-          description: Signed fetch is missing, invalid, or confirmation header is missing
+          description: Signed fetch is missing, invalid, confirmation header is missing, or player address is invalid
           content:
             application/json:
               schema:
@@ -566,6 +625,10 @@ paths:
                   value:
                     error: Bad request
                     message: 'Missing required header: X-Confirm-Delete-All'
+                invalidAddress:
+                  value:
+                    error: Bad request
+                    message: Invalid player address
         '401':
           description: Unauthorized - signer is not authorized
           content:
@@ -603,8 +666,11 @@ paths:
         - name: key
           in: path
           required: true
+          description: The storage key. Must be between 1 and 255 characters.
           schema:
             type: string
+            minLength: 1
+            maxLength: 255
       responses:
         '200':
           description: Value found
@@ -613,7 +679,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StorageValueResponse'
         '400':
-          description: Signed fetch is missing or invalid
+          description: Signed fetch is missing or invalid, or the key is invalid
           content:
             application/json:
               schema:
@@ -623,6 +689,10 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidKey:
+                  value:
+                    error: Bad request
+                    message: Key must be between 1 and 255 characters
         '404':
           description: Value not found
           content:
@@ -647,6 +717,10 @@ paths:
         **Storage limits**: This endpoint enforces configurable size limits per player per world:
         - Maximum value size per key (default: 100 KB)
         - Maximum total storage size per player per world (default: 1 MB)
+
+        Requests must declare a valid `Content-Length` header (chunked bodies are rejected
+        with `411`). Bodies larger than the per-value limit plus 1 KB of JSON envelope slack
+        are rejected with `413` before being read.
       parameters:
         - name: player_address
           in: path
@@ -658,8 +732,11 @@ paths:
         - name: key
           in: path
           required: true
+          description: The storage key. Must be between 1 and 255 characters.
           schema:
             type: string
+            minLength: 1
+            maxLength: 255
       requestBody:
         required: true
         content:
@@ -680,7 +757,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StorageValueResponse'
         '400':
-          description: Invalid signed fetch, request body, or storage limit exceeded
+          description: Invalid signed fetch, key, request body, or storage limit exceeded
           content:
             application/json:
               schema:
@@ -704,6 +781,36 @@ paths:
                   value:
                     error: Bad request
                     message: 'Total storage size would exceed the maximum allowed (1048576 bytes). Current usage: 1000000 bytes. Delete existing data to free up space'
+                invalidKey:
+                  value:
+                    error: Bad request
+                    message: Key must be between 1 and 255 characters
+                nulCharacter:
+                  value:
+                    error: Bad request
+                    message: 'Values must not contain the \u0000 (NUL) character'
+        '411':
+          description: Content-Length header is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                lengthRequired:
+                  value:
+                    error: Length Required
+                    message: Requests with a body must include a valid Content-Length header
+        '413':
+          description: Request body exceeds the maximum allowed size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                payloadTooLarge:
+                  value:
+                    error: Payload Too Large
+                    message: 'Request body exceeds the maximum allowed size (103424 bytes)'
         '500':
           description: Unexpected error
           content:
@@ -729,13 +836,16 @@ paths:
         - name: key
           in: path
           required: true
+          description: The storage key. Must be between 1 and 255 characters.
           schema:
             type: string
+            minLength: 1
+            maxLength: 255
       responses:
         '204':
           description: Deleted (or did not exist)
         '400':
-          description: Signed fetch is missing or invalid
+          description: Signed fetch is missing or invalid, or the key is invalid
           content:
             application/json:
               schema:
@@ -745,6 +855,10 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidKey:
+                  value:
+                    error: Bad request
+                    message: Key must be between 1 and 255 characters
         '500':
           description: Unexpected error
           content:
@@ -901,7 +1015,7 @@ paths:
                       offset: 0
                       total: 0
         '400':
-          description: Signed fetch is missing, invalid, or invalid pagination parameters
+          description: Signed fetch is missing or invalid, or the scene context metadata is invalid
           content:
             application/json:
               schema:
@@ -911,14 +1025,14 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
-                invalidLimit:
+                missingSceneContext:
                   value:
                     error: Bad request
-                    message: limit must be a positive integer
-                limitExceeded:
+                    message: Request must include a realm name or a parcel
+                invalidParcel:
                   value:
                     error: Bad request
-                    message: limit cannot exceed 500
+                    message: 'Parcel must be two comma-separated integer coordinates, e.g. "10,-25"'
         '401':
           description: Unauthorized - signer is not owner or deployer
           content:
@@ -995,6 +1109,8 @@ paths:
         Retrieves the environment variable stored under `key` for the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
         Values are stored encrypted at rest.
+        An empty string is a valid stored value and is returned with `200`;
+        `404` is returned only when the key does not exist.
         
         **Authorization**: Only authorized addresses can access this endpoint.
         World owners and deployers are explicitly not allowed, even if they have permissions.
@@ -1002,9 +1118,11 @@ paths:
         - name: key
           in: path
           required: true
-          description: The environment variable key
+          description: The environment variable key. Must be between 1 and 255 characters.
           schema:
             type: string
+            minLength: 1
+            maxLength: 255
             example: 'API_SECRET'
       responses:
         '200':
@@ -1014,7 +1132,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvStorageValueResponse'
         '400':
-          description: Signed fetch is missing or invalid
+          description: Signed fetch is missing or invalid, or the key is invalid
           content:
             application/json:
               schema:
@@ -1024,6 +1142,10 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidKey:
+                  value:
+                    error: Bad request
+                    message: Key must be between 1 and 255 characters
         '401':
           description: Unauthorized - signer is not authorized
           content:
@@ -1062,13 +1184,19 @@ paths:
         **Storage limits**: This endpoint enforces configurable size limits per world:
         - Maximum value size per key (default: 10 KB)
         - Maximum total storage size per world (default: 256 KB)
+
+        Requests must declare a valid `Content-Length` header (chunked bodies are rejected
+        with `411`). Bodies larger than the per-value limit plus 1 KB of JSON envelope slack
+        are rejected with `413` before being read.
       parameters:
         - name: key
           in: path
           required: true
-          description: The environment variable key
+          description: The environment variable key. Must be between 1 and 255 characters.
           schema:
             type: string
+            minLength: 1
+            maxLength: 255
             example: 'API_SECRET'
       requestBody:
         required: true
@@ -1084,7 +1212,7 @@ paths:
         '204':
           description: Value upserted
         '400':
-          description: Invalid signed fetch, request body, or storage limit exceeded
+          description: Invalid signed fetch, key, request body, or storage limit exceeded
           content:
             application/json:
               schema:
@@ -1111,6 +1239,10 @@ paths:
                   value:
                     error: Bad request
                     message: 'Total storage size would exceed the maximum allowed (262144 bytes). Current usage: 250000 bytes. Delete existing data to free up space'
+                invalidKey:
+                  value:
+                    error: Bad request
+                    message: Key must be between 1 and 255 characters
         '401':
           description: Unauthorized - signer is not authorized
           content:
@@ -1121,6 +1253,28 @@ paths:
                 unauthorized:
                   value:
                     message: 'Unauthorized: Signer is not authorized to perform operations'
+        '411':
+          description: Content-Length header is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                lengthRequired:
+                  value:
+                    error: Length Required
+                    message: Requests with a body must include a valid Content-Length header
+        '413':
+          description: Request body exceeds the maximum allowed size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                payloadTooLarge:
+                  value:
+                    error: Payload Too Large
+                    message: 'Request body exceeds the maximum allowed size (11264 bytes)'
         '500':
           description: Unexpected error
           content:
@@ -1142,15 +1296,17 @@ paths:
         - name: key
           in: path
           required: true
-          description: The environment variable key
+          description: The environment variable key. Must be between 1 and 255 characters.
           schema:
             type: string
+            minLength: 1
+            maxLength: 255
             example: 'API_SECRET'
       responses:
         '204':
           description: Deleted (or did not exist)
         '400':
-          description: Signed fetch is missing or invalid
+          description: Signed fetch is missing or invalid, or the key is invalid
           content:
             application/json:
               schema:
@@ -1160,6 +1316,10 @@ paths:
                   value:
                     error: Invalid Auth Chain
                     message: This endpoint requires a signed fetch request. See ADR-44.
+                invalidKey:
+                  value:
+                    error: Bad request
+                    message: Key must be between 1 and 255 characters
         '401':
           description: Unauthorized - signer is not authorized
           content:
@@ -1230,6 +1390,8 @@ components:
       description: |
         Optional case-sensitive prefix filter applied to key names.
         Only keys starting with the given prefix (case-sensitive) will be returned.
+        The prefix is matched literally: wildcard characters such as `%` and `_` have
+        no special meaning.
       schema:
         type: string
       example: 'API_'

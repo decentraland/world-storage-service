@@ -119,24 +119,49 @@ export interface IPlayerStorageComponent {
   countPlayers(worldName: string, placeId: string): Promise<number>
 
   /**
-   * Returns storage size info for a player scope in a world in a single query.
+   * Returns storage size info for a player's quota scope in a single query.
    *
-   * When `key` is provided, this includes the existing value size for that key
-   * plus total usage for the player's scope. Used by upsert limits validation.
+   * When `key` is provided, this includes the existing value size for that exact
+   * `(place_id, key)` row plus total usage for the player's scope. Used by upsert
+   * limits validation.
    *
    * When `key` is omitted, `existingValueSize` is 0 and only total usage matters.
    * Used by usage endpoints.
    *
-   * Size aggregation is always per-world (across all scenes).
+   * Totals are aggregated per world (across all scenes) for `*.dcl.eth` worlds, and
+   * per place for shared Genesis City realms.
    *
    * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    * @param key - Optional storage key
    * @returns Existing value size and total storage size
    */
   getSizeInfo(
     worldName: string,
+    placeId: string,
     playerAddress: string,
     key?: string
   ): Promise<{ existingValueSize: number; totalSize: number }>
+
+  /**
+   * Write-through: stores an already-persisted value in the read cache.
+   *
+   * Must only be called with values that are committed to the database (the
+   * storage-operations orchestrator calls it after its transaction commits).
+   * Values above the cache size cap are skipped.
+   *
+   * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
+   * @param playerAddress - The player's wallet address
+   * @param key - The storage key
+   * @param serializedValue - The committed value as JSON text
+   */
+  cacheValue(
+    worldName: string,
+    placeId: string,
+    playerAddress: string,
+    key: string,
+    serializedValue: string
+  ): Promise<void>
 }

@@ -1,8 +1,9 @@
-import type { IConfigComponent, ILoggerComponent } from '@well-known-components/interfaces'
-import type { IFetchComponent } from '@dcl/core-commons'
 import { errorMessageOrDefault } from '../../utils/errors'
+import { UPSTREAM_FETCH_OPTIONS } from '../../utils/upstreamFetch'
+import { isSharedRealmName } from '../../utils/worldName'
 import type { IWorldPermissionComponent } from './types'
-import type { IWorldsContentServerComponent, WorldPermissions } from '../../adapters/worlds-content-server/types'
+import type { WorldPermissions } from '../../adapters/worlds-content-server/types'
+import type { AppComponents } from '../../types'
 
 interface LandsParcelPermissionsResponse {
   owner: boolean
@@ -16,29 +17,23 @@ interface LandsParcelPermissionsResponse {
  * Creates the world permission component that checks user permissions for worlds and Genesis City scenes.
  *
  * This component orchestrates permission checks by:
- * 1. Routing Genesis City scenes (`worldName === "main"`) through parcel-based permission validation.
+ * 1. Routing Genesis City scenes (shared realms such as `main`) through parcel-based permission validation.
  * 2. Checking LAMBDAS parcel permissions for owner/operator-style access.
  * 3. Routing worlds (`*.dcl.eth`) through worlds-content-server permission checks.
  * 4. Granting access when the address is either the world owner or an allowed deployer.
  *
  * @param components - Required components: worldsContentServer, fetcher, config, logs
- * @returns IWorldPermissionComponent implementation
+ * @returns Promise resolving to IWorldPermissionComponent implementation
  */
-export function createWorldPermissionComponent(components: {
-  worldsContentServer: IWorldsContentServerComponent
-  fetcher: IFetchComponent
-  config: IConfigComponent
-  logs: ILoggerComponent
-}): IWorldPermissionComponent {
+export async function createWorldPermissionComponent(
+  components: Pick<AppComponents, 'worldsContentServer' | 'fetcher' | 'config' | 'logs'>
+): Promise<IWorldPermissionComponent> {
   const { worldsContentServer, fetcher, config, logs } = components
   const logger = logs.getLogger('world-permission')
 
-  function isGenesisCityWorld(worldName: string): boolean {
-    // Any realm that is not a Decentraland World (`*.dcl.eth`) is treated as
-    // Genesis City — `main` in prod, `artemis` in zone, and anything else a
-    // catalyst might advertise as its realm name.
-    return !worldName.endsWith('.dcl.eth')
-  }
+  // Required at startup so a missing/typoed variable fails the deployment immediately
+  // instead of surfacing on the first Genesis City permission check.
+  const lambdasUrl = (await config.requireString('LAMBDAS_URL')).replace(/\/$/, '')
 
   function hasAnyLandPermission(permissions: LandsParcelPermissionsResponse): boolean {
     return (
@@ -62,12 +57,14 @@ export function createWorldPermissionComponent(components: {
     address: string,
     parcel: string
   ): Promise<LandsParcelPermissionsResponse | null> {
-    const lambdasUrl = await config.requireString('LAMBDAS_URL')
+    // The parcel format is validated by sceneContextMiddleware; the coordinates are still
+    // encoded here so this authorization-relevant URL can never be shaped by its input.
     const [x, y] = parcel.split(',')
 
     try {
       const response = await fetcher.fetch(
-        `${lambdasUrl.replace(/\/$/, '')}/users/${address}/parcels/${x}/${y}/permissions`
+        `${lambdasUrl}/users/${encodeURIComponent(address)}/parcels/${encodeURIComponent(x)}/${encodeURIComponent(y)}/permissions`,
+        UPSTREAM_FETCH_OPTIONS
       )
 
       if (!response.ok) {
@@ -172,7 +169,7 @@ export function createWorldPermissionComponent(components: {
         parcel
       })
 
-      if (isGenesisCityWorld(worldName)) {
+      if (isSharedRealmName(worldName)) {
         return await checkGenesisCityPermission(worldName, normalizedAddress, parcel)
       }
 

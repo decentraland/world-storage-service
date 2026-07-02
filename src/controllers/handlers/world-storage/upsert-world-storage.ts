@@ -1,14 +1,15 @@
 import { InvalidRequestError } from '@dcl/http-commons'
-import { StorageLimitExceededError } from '../../../logic/storage-limits'
+import { InvalidValueError, StorageLimitExceededError } from '../../../logic/storage-limits'
 import { errorMessageOrDefault } from '../../../utils/errors'
 import { rawJsonValueResponse } from '../../../utils/rawJsonResponse'
+import { validateStorageKey } from '../commons/validateStorageKey'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { RawJSONResponse } from '../../../types/http'
 import type { UpsertStorageBody } from '../schemas'
 
 export async function upsertWorldStorageHandler(
   context: Pick<
-    WorldHandlerContextWithPath<'logs' | 'worldStorage' | 'storageLimits', '/values/:key'>,
+    WorldHandlerContextWithPath<'logs' | 'storageOperations', '/values/:key'>,
     'url' | 'components' | 'params' | 'request' | 'worldName' | 'placeId'
   >
 ): Promise<RawJSONResponse> {
@@ -17,12 +18,13 @@ export async function upsertWorldStorageHandler(
     params,
     worldName,
     placeId,
-    components: { logs, worldStorage, storageLimits }
+    components: { logs, storageOperations }
   } = context
 
   const logger = logs.getLogger('upsert-world-storage-handler')
 
   const key = params.key
+  validateStorageKey(key)
 
   logger.debug('Processing upsert world storage request', {
     worldName,
@@ -32,10 +34,9 @@ export async function upsertWorldStorageHandler(
   const { value }: UpsertStorageBody = await request.json()
 
   try {
-    // Validation serializes the value once and returns the JSON text; reuse it for the write and
-    // the response so the value is never serialized more than once.
-    const serializedValue = await storageLimits.validateWorldStorageUpsert(worldName, placeId, key, value)
-    await worldStorage.setValue(worldName, placeId, key, serializedValue)
+    // Validation and write run atomically inside the storage-operations transaction; the returned
+    // JSON text is reused for the response so the value is never serialized more than once.
+    const serializedValue = await storageOperations.upsertWorldValue(worldName, placeId, key, value)
 
     logger.info('World storage value upserted successfully', {
       worldName,
@@ -44,7 +45,7 @@ export async function upsertWorldStorageHandler(
 
     return rawJsonValueResponse(serializedValue)
   } catch (error) {
-    if (error instanceof StorageLimitExceededError) {
+    if (error instanceof StorageLimitExceededError || error instanceof InvalidValueError) {
       throw new InvalidRequestError(error.message)
     }
 

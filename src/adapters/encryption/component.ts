@@ -42,6 +42,13 @@ const KEY_HEX_LENGTH = KEY_LENGTH * 2
 const HEX_REGEX = /^[0-9a-fA-F]+$/
 
 /**
+ * The development key committed in `.env.default`. Because that file ships a syntactically
+ * valid key, a production deployment that forgets to set its own would otherwise silently
+ * encrypt secrets with a publicly known key.
+ */
+const COMMITTED_DEV_KEY = '5233e02011b4a67f23f79f46dc832da7b2918fb8ea5997846d06ad4fe3cab38c'
+
+/**
  * Creates an encryption component that provides AES-256-GCM encryption/decryption.
  *
  * This factory function initializes the encryption component with a secret key
@@ -71,6 +78,11 @@ export async function createEncryptionComponent(
   const logger = logs.getLogger('encryption')
 
   const keyHex = await config.requireString('ENCRYPTION_KEY')
+
+  if ((await config.getString('NODE_ENV')) === 'production' && keyHex === COMMITTED_DEV_KEY) {
+    logger.error('Encryption key validation failed: production is running with the committed development key')
+    throw new Error('ENCRYPTION_KEY is set to the committed development default; set a unique key in production')
+  }
 
   // Validate hex format before parsing to provide clear error messages
   if (!HEX_REGEX.test(keyHex)) {

@@ -1,6 +1,7 @@
 import type { IHttpServerComponent } from '@dcl/core-commons'
 import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { InvalidRequestError } from '@dcl/http-commons'
+import { isDclWorldName } from '../../utils/worldName'
 import type { GlobalContext } from '../../types'
 
 export interface SceneAuthMetadata extends Record<string, unknown> {
@@ -14,6 +15,11 @@ export interface SceneAuthMetadata extends Record<string, unknown> {
  * lands, for instance). Treated as "not a .dcl.eth world" downstream, which is
  * all the Places resolution needs. */
 const GENESIS_CITY_REALM = 'main'
+
+/** Scene base parcels are `x,y` integer coordinates. The parcel reaches this service from
+ * client-supplied signed metadata and ends up spliced into upstream API paths (Places,
+ * LAMBDAS permissions), so anything that is not strictly two integers is rejected here. */
+const PARCEL_PATTERN = /^-?\d{1,10},-?\d{1,10}$/
 
 /**
  * Middleware that extracts and validates the `worldName` and `parcel` from the signed fetch metadata,
@@ -45,9 +51,16 @@ export const sceneContextMiddleware: IHttpServerComponent.IRequestHandler<
 
   const metadata = ctx.verification?.authMetadata
   // Normalize empty strings to undefined so a blank `realmName` behaves the same
-  // as a missing one — avoids hitting Places with `names=&positions=...`.
-  const realmFromMetadata = metadata?.realm?.serverName || metadata?.realmName || undefined
+  // as a missing one — avoids hitting Places with `names=&positions=...`. The realm is
+  // lowercased: it is client-supplied and used verbatim as `world_name` in every query,
+  // cache key, and quota scope, so `MyWorld.dcl.eth` and `myworld.dcl.eth` must not
+  // resolve to disjoint storage (or separate quotas).
+  const realmFromMetadata = (metadata?.realm?.serverName || metadata?.realmName || undefined)?.toLowerCase()
   const parcel = metadata?.parcel || undefined
+
+  if (parcel && !PARCEL_PATTERN.test(parcel)) {
+    throw new InvalidRequestError('Parcel must be two comma-separated integer coordinates, e.g. "10,-25"')
+  }
 
   logger.debug('Extracting scene context from request metadata', {
     hasRealmServerName: metadata?.realm?.serverName ? 'true' : 'false',
@@ -63,7 +76,7 @@ export const sceneContextMiddleware: IHttpServerComponent.IRequestHandler<
     throw new InvalidRequestError('Request must include a realm name or a parcel')
   }
 
-  const isWorld = realmFromMetadata?.endsWith('.dcl.eth') ?? false
+  const isWorld = realmFromMetadata ? isDclWorldName(realmFromMetadata) : false
   const worldName = isWorld && realmFromMetadata ? realmFromMetadata : GENESIS_CITY_REALM
   const resolvedParcel = parcel ?? '0,0'
 

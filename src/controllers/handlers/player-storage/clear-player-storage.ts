@@ -1,3 +1,5 @@
+import { InvalidRequestError } from '@dcl/http-commons'
+import { EthAddress } from '@dcl/schemas'
 import { errorMessageOrDefault } from '../../../utils/errors'
 import { validateConfirmDeleteAllHeader } from '../commons/confirmDeleteAll'
 import type { WorldHandlerContextWithPath } from '../../../types'
@@ -22,6 +24,10 @@ export async function clearPlayerStorageHandler(
   validateConfirmDeleteAllHeader(request)
 
   const playerAddress = params.player_address.toLowerCase()
+
+  if (!EthAddress.validate(playerAddress)) {
+    throw new InvalidRequestError('Invalid player address')
+  }
 
   logger.debug('Processing clear all player storage request', { worldName, playerAddress })
 

@@ -93,6 +93,35 @@ test('when getting an env storage value', function ({ components, stubComponents
     })
   })
 
+  describe('and the stored value is an empty string', () => {
+    beforeEach(async () => {
+      await signedFetch(`${baseUrl}/env/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: '' }),
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+    })
+
+    afterEach(async () => {
+      await signedFetch(`${baseUrl}/env/${key}`, { method: 'DELETE', identity, metadata: TEST_REALM_METADATA })
+    })
+
+    it('should respond with a 200 and the empty string instead of a 404', async () => {
+      const response = await signedFetch(`${baseUrl}/env/${key}`, {
+        method: 'GET',
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+      const body = await response.json()
+      expect(response.status).toBe(200)
+      expect(body).toEqual({
+        value: ''
+      })
+    })
+  })
+
   describe('and the database throws an error', () => {
     beforeEach(() => {
       stubComponents.envStorage.getValue.mockRejectedValue(new Error('boom'))

@@ -13,13 +13,15 @@ describe('World Permission Component', () => {
   let fetcher: jest.Mocked<IFetchComponent>
   let config: jest.Mocked<IConfigComponent>
 
-  beforeEach(() => {
+  beforeEach(async () => {
     getPermissionsMock = jest.fn()
     worldsContentServerMock = {
       getPermissions: getPermissionsMock
     }
     fetcher = createFetchMockedComponent() as jest.Mocked<IFetchComponent>
     config = createConfigMockedComponent() as jest.Mocked<IConfigComponent>
+    // LAMBDAS_URL is required at component init since the factory reads it at startup
+    config.requireString.mockResolvedValue('https://peer.decentraland.org/lambdas')
   })
 
   afterEach(() => {
@@ -43,7 +45,7 @@ describe('World Permission Component', () => {
     return response as Response
   }
 
-  function createComponent(): IWorldPermissionComponent {
+  function createComponent(): Promise<IWorldPermissionComponent> {
     return createWorldPermissionComponent({
       worldsContentServer: worldsContentServerMock,
       fetcher,
@@ -56,9 +58,9 @@ describe('World Permission Component', () => {
     describe('and the address is the world owner', () => {
       let component: IWorldPermissionComponent
 
-      beforeEach(() => {
+      beforeEach(async () => {
         getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
-        component = createComponent()
+        component = await createComponent()
       })
 
       it('should return true', async () => {
@@ -71,9 +73,9 @@ describe('World Permission Component', () => {
     describe('and the address is the world owner with different case', () => {
       let component: IWorldPermissionComponent
 
-      beforeEach(() => {
+      beforeEach(async () => {
         getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions({ owner: ADDRESSES.OWNER.toUpperCase() }))
-        component = createComponent()
+        component = await createComponent()
       })
 
       it('should return true (case-insensitive)', async () => {
@@ -86,7 +88,7 @@ describe('World Permission Component', () => {
     describe('and the address has deployer permissions', () => {
       let component: IWorldPermissionComponent
 
-      beforeEach(() => {
+      beforeEach(async () => {
         getPermissionsMock.mockResolvedValueOnce(
           buildWorldPermissions({
             permissions: {
@@ -97,7 +99,7 @@ describe('World Permission Component', () => {
             }
           })
         )
-        component = createComponent()
+        component = await createComponent()
       })
 
       it('should return true', async () => {
@@ -110,7 +112,7 @@ describe('World Permission Component', () => {
     describe('and the address has deployer permissions with different case', () => {
       let component: IWorldPermissionComponent
 
-      beforeEach(() => {
+      beforeEach(async () => {
         getPermissionsMock.mockResolvedValueOnce(
           buildWorldPermissions({
             permissions: {
@@ -121,7 +123,7 @@ describe('World Permission Component', () => {
             }
           })
         )
-        component = createComponent()
+        component = await createComponent()
       })
 
       it('should return true (case-insensitive)', async () => {
@@ -134,9 +136,9 @@ describe('World Permission Component', () => {
     describe('and the address is neither owner nor deployer', () => {
       let component: IWorldPermissionComponent
 
-      beforeEach(() => {
+      beforeEach(async () => {
         getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
-        component = createComponent()
+        component = await createComponent()
       })
 
       it('should return false', async () => {
@@ -149,7 +151,7 @@ describe('World Permission Component', () => {
     describe('and the deployment type is not allow-list', () => {
       let component: IWorldPermissionComponent
 
-      beforeEach(() => {
+      beforeEach(async () => {
         getPermissionsMock.mockResolvedValueOnce(
           buildWorldPermissions({
             permissions: {
@@ -160,7 +162,7 @@ describe('World Permission Component', () => {
             }
           })
         )
-        component = createComponent()
+        component = await createComponent()
       })
 
       it('should return false for non-owner addresses', async () => {
@@ -173,9 +175,9 @@ describe('World Permission Component', () => {
     describe('and the fetch fails', () => {
       let component: IWorldPermissionComponent
 
-      beforeEach(() => {
+      beforeEach(async () => {
         getPermissionsMock.mockRejectedValueOnce(new Error('Network error'))
-        component = createComponent()
+        component = await createComponent()
       })
 
       it('should propagate the error', async () => {
@@ -188,7 +190,7 @@ describe('World Permission Component', () => {
     describe('and the worldName is main (Genesis City)', () => {
       const LAMBDAS_URL = 'https://peer.decentraland.org/lambdas'
 
-      beforeEach(() => {
+      beforeEach(async () => {
         config.requireString.mockResolvedValue(LAMBDAS_URL)
       })
 
@@ -206,15 +208,22 @@ describe('World Permission Component', () => {
           })
         )
 
-        const component = createComponent()
+        const component = await createComponent()
         await component.hasWorldPermission('main', ADDRESSES.OWNER, PARCELS.GENESIS_CITY)
 
-        expect(fetcher.fetch).toHaveBeenCalledWith(`${LAMBDAS_URL}/users/${ADDRESSES.OWNER}/parcels/52/-10/permissions`)
+        expect(fetcher.fetch).toHaveBeenCalledWith(
+          `${LAMBDAS_URL}/users/${ADDRESSES.OWNER}/parcels/52/-10/permissions`,
+          {
+            timeout: 5000,
+            attempts: 3,
+            retryDelay: 200
+          }
+        )
         expect(getPermissionsMock).not.toHaveBeenCalled()
       })
 
       describe('and LAMBDAS returns owner:true', () => {
-        beforeEach(() => {
+        beforeEach(async () => {
           fetcher.fetch.mockResolvedValueOnce(
             mockResponse({
               ok: true,
@@ -230,7 +239,7 @@ describe('World Permission Component', () => {
         })
 
         it('should return true', async () => {
-          const component = createComponent()
+          const component = await createComponent()
           const result = await component.hasWorldPermission('main', ADDRESSES.OWNER, PARCELS.GENESIS_CITY)
 
           expect(result).toBe(true)
@@ -238,7 +247,7 @@ describe('World Permission Component', () => {
       })
 
       describe('and LAMBDAS returns operator:true', () => {
-        beforeEach(() => {
+        beforeEach(async () => {
           fetcher.fetch.mockResolvedValueOnce(
             mockResponse({
               ok: true,
@@ -254,7 +263,7 @@ describe('World Permission Component', () => {
         })
 
         it('should return true', async () => {
-          const component = createComponent()
+          const component = await createComponent()
           const result = await component.hasWorldPermission('main', ADDRESSES.OWNER, PARCELS.GENESIS_CITY)
 
           expect(result).toBe(true)
@@ -262,7 +271,7 @@ describe('World Permission Component', () => {
       })
 
       describe('and LAMBDAS returns all false', () => {
-        beforeEach(() => {
+        beforeEach(async () => {
           fetcher.fetch.mockResolvedValueOnce(
             mockResponse({
               ok: true,
@@ -278,7 +287,7 @@ describe('World Permission Component', () => {
         })
 
         it('should return false', async () => {
-          const component = createComponent()
+          const component = await createComponent()
           const result = await component.hasWorldPermission('main', ADDRESSES.OWNER, PARCELS.GENESIS_CITY)
 
           expect(result).toBe(false)
@@ -286,7 +295,7 @@ describe('World Permission Component', () => {
       })
 
       describe('and LAMBDAS returns a non-ok response', () => {
-        beforeEach(() => {
+        beforeEach(async () => {
           fetcher.fetch.mockResolvedValueOnce(
             mockResponse({
               ok: false,
@@ -296,7 +305,7 @@ describe('World Permission Component', () => {
         })
 
         it('should return false', async () => {
-          const component = createComponent()
+          const component = await createComponent()
           const result = await component.hasWorldPermission('main', ADDRESSES.OWNER, PARCELS.GENESIS_CITY)
 
           expect(result).toBe(false)
@@ -304,12 +313,12 @@ describe('World Permission Component', () => {
       })
 
       describe('and the LAMBDAS fetch fails', () => {
-        beforeEach(() => {
+        beforeEach(async () => {
           fetcher.fetch.mockRejectedValueOnce(new Error('LAMBDAS network error'))
         })
 
         it('should propagate the error', async () => {
-          const component = createComponent()
+          const component = await createComponent()
 
           await expect(component.hasWorldPermission('main', ADDRESSES.OWNER, PARCELS.GENESIS_CITY)).rejects.toThrow(
             'LAMBDAS network error'

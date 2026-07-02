@@ -1,15 +1,16 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { EthAddress } from '@dcl/schemas'
-import { StorageLimitExceededError } from '../../../logic/storage-limits'
+import { InvalidValueError, StorageLimitExceededError } from '../../../logic/storage-limits'
 import { errorMessageOrDefault } from '../../../utils/errors'
 import { rawJsonValueResponse } from '../../../utils/rawJsonResponse'
+import { validateStorageKey } from '../commons/validateStorageKey'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { RawJSONResponse } from '../../../types/http'
 import type { UpsertStorageBody } from '../schemas'
 
 export async function upsertPlayerStorageHandler(
   context: Pick<
-    WorldHandlerContextWithPath<'logs' | 'playerStorage' | 'storageLimits', '/players/:player_address/values/:key'>,
+    WorldHandlerContextWithPath<'logs' | 'storageOperations', '/players/:player_address/values/:key'>,
     'url' | 'components' | 'params' | 'request' | 'worldName' | 'placeId'
   >
 ): Promise<RawJSONResponse> {
@@ -18,13 +19,14 @@ export async function upsertPlayerStorageHandler(
     params,
     worldName,
     placeId,
-    components: { logs, playerStorage, storageLimits }
+    components: { logs, storageOperations }
   } = context
 
   const logger = logs.getLogger('upsert-player-storage-handler')
 
   const playerAddress = params.player_address.toLowerCase()
   const key = params.key
+  validateStorageKey(key)
 
   logger.debug('Processing upsert player storage request', {
     worldName,
@@ -39,16 +41,9 @@ export async function upsertPlayerStorageHandler(
   const { value }: UpsertStorageBody = await request.json()
 
   try {
-    // Validation serializes the value once and returns the JSON text; reuse it for the write and
-    // the response so the value is never serialized more than once.
-    const serializedValue = await storageLimits.validatePlayerStorageUpsert(
-      worldName,
-      placeId,
-      playerAddress,
-      key,
-      value
-    )
-    await playerStorage.setValue(worldName, placeId, playerAddress, key, serializedValue)
+    // Validation and write run atomically inside the storage-operations transaction; the returned
+    // JSON text is reused for the response so the value is never serialized more than once.
+    const serializedValue = await storageOperations.upsertPlayerValue(worldName, placeId, playerAddress, key, value)
 
     logger.info('Player storage value upserted successfully', {
       worldName,
@@ -58,7 +53,7 @@ export async function upsertPlayerStorageHandler(
 
     return rawJsonValueResponse(serializedValue)
   } catch (error) {
-    if (error instanceof StorageLimitExceededError) {
+    if (error instanceof StorageLimitExceededError || error instanceof InvalidValueError) {
       throw new InvalidRequestError(error.message)
     }
 

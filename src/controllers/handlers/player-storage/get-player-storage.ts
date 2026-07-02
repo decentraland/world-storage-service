@@ -2,6 +2,7 @@ import { InvalidRequestError, NotFoundError } from '@dcl/http-commons'
 import { EthAddress } from '@dcl/schemas'
 import { errorMessageOrDefault } from '../../../utils/errors'
 import { rawJsonValueResponse } from '../../../utils/rawJsonResponse'
+import { validateStorageKey } from '../commons/validateStorageKey'
 import type { WorldHandlerContextWithPath } from '../../../types'
 import type { RawJSONResponse } from '../../../types/http'
 
@@ -22,6 +23,7 @@ export async function getPlayerStorageHandler(
 
   const playerAddress = params.player_address.toLowerCase()
   const key = params.key
+  validateStorageKey(key)
 
   logger.debug('Processing get player storage request', {
     worldName,

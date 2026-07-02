@@ -10,6 +10,7 @@ export async function getEnvUsageHandler(
 ): Promise<HTTPStorageUsageResponse> {
   const {
     worldName,
+    placeId,
     components: { logs, envStorage, config }
   } = context
 
@@ -19,7 +20,7 @@ export async function getEnvUsageHandler(
 
   try {
     const [{ totalSize: usedBytes }, maxTotalSizeBytes] = await Promise.all([
-      envStorage.getSizeInfo(worldName),
+      envStorage.getSizeInfo(worldName, placeId),
       config.requireNumber('ENV_STORAGE_MAX_TOTAL_SIZE_BYTES')
     ])
 

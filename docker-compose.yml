@@ -1,7 +1,8 @@
 services:
   postgres:
     container_name: 'world_storage_db'
-    image: 'postgres:latest'
+    # Pinned major version: `latest` can silently jump majors and break the local data volume.
+    image: 'postgres:16'
     restart: always
     user: postgres
     volumes:

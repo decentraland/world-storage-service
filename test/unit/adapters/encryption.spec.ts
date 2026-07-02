@@ -23,9 +23,9 @@ describe('Encryption Component', () => {
     jest.resetAllMocks()
   })
 
-  async function createComponent(): Promise<IEncryptionComponent> {
+  async function createComponent(nodeEnv?: string): Promise<IEncryptionComponent> {
     return createEncryptionComponent({
-      config: { requireString: configRequireString },
+      config: { requireString: configRequireString, getString: jest.fn().mockResolvedValue(nodeEnv) },
       logs: createLogsMockedComponent()
     } as unknown as Pick<AppComponents, 'config' | 'logs'>)
   }
@@ -36,6 +36,28 @@ describe('Encryption Component', () => {
         expect(component).toBeDefined()
         expect(component.encrypt).toBeDefined()
         expect(component.decrypt).toBeDefined()
+      })
+    })
+
+    describe('and production is running with the committed development key', () => {
+      beforeEach(() => {
+        configRequireString.mockResolvedValue('5233e02011b4a67f23f79f46dc832da7b2918fb8ea5997846d06ad4fe3cab38c')
+      })
+
+      it('should throw an error indicating the development key must not be used', async () => {
+        await expect(createComponent('production')).rejects.toThrow(
+          'ENCRYPTION_KEY is set to the committed development default; set a unique key in production'
+        )
+      })
+    })
+
+    describe('and a non-production environment uses the committed development key', () => {
+      beforeEach(() => {
+        configRequireString.mockResolvedValue('5233e02011b4a67f23f79f46dc832da7b2918fb8ea5997846d06ad4fe3cab38c')
+      })
+
+      it('should create the component successfully', async () => {
+        await expect(createComponent('development')).resolves.toBeDefined()
       })
     })
 

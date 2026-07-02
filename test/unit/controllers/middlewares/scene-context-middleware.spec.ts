@@ -128,6 +128,56 @@ describe('sceneContextMiddleware', () => {
     })
   })
 
+  describe('when the realm name is provided with mixed casing', () => {
+    let metadata: SceneAuthMetadata
+
+    beforeEach(async () => {
+      next.mockResolvedValue({ status: 200 })
+      metadata = { realm: { serverName: 'Test-World.DCL.eth' } }
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
+      await sceneContextMiddleware(ctx, next)
+    })
+
+    it('should lowercase the world name so storage and quotas are not split by casing', () => {
+      expect(ctx.worldName).toBe('test-world.dcl.eth')
+    })
+
+    it('should still detect the .dcl.eth suffix case-insensitively', () => {
+      expect(places.resolvePlaceId).toHaveBeenCalledWith('test-world.dcl.eth', '0,0')
+    })
+  })
+
+  describe('when the parcel is not two comma-separated integers', () => {
+    let metadata: SceneAuthMetadata
+
+    beforeEach(() => {
+      metadata = { realm: { serverName: WORLD_NAMES.DEFAULT }, parcel: '10,-25/../../admin' }
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
+    })
+
+    it('should throw an InvalidRequestError without resolving the place', async () => {
+      await expect(sceneContextMiddleware(ctx, next)).rejects.toThrow(
+        new InvalidRequestError('Parcel must be two comma-separated integer coordinates, e.g. "10,-25"')
+      )
+      expect(places.resolvePlaceId).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('when the parcel has negative integer coordinates', () => {
+    let metadata: SceneAuthMetadata
+
+    beforeEach(async () => {
+      next.mockResolvedValue({ status: 200 })
+      metadata = { realm: { serverName: WORLD_NAMES.DEFAULT }, parcel: '-10,-25' }
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
+      await sceneContextMiddleware(ctx, next)
+    })
+
+    it('should accept the parcel and resolve the place with it', () => {
+      expect(places.resolvePlaceId).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, '-10,-25')
+    })
+  })
+
   describe('when the world name is provided via realmName fallback', () => {
     let metadata: SceneAuthMetadata
 
