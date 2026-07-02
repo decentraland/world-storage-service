@@ -36,12 +36,14 @@ export async function createWorldPermissionComponent(
   const lambdasUrl = (await config.requireString('LAMBDAS_URL')).replace(/\/$/, '')
 
   function hasAnyLandPermission(permissions: LandsParcelPermissionsResponse): boolean {
+    // Strict `=== true` so a malformed upstream payload with a truthy non-boolean field
+    // (e.g. `owner: "yes"`) fails closed instead of being read as a granted permission.
     return (
-      permissions.owner ||
-      permissions.operator ||
-      permissions.updateOperator ||
-      permissions.updateManager ||
-      permissions.approvedForAll
+      permissions.owner === true ||
+      permissions.operator === true ||
+      permissions.updateOperator === true ||
+      permissions.updateManager === true ||
+      permissions.approvedForAll === true
     )
   }
 
@@ -126,9 +128,10 @@ export async function createWorldPermissionComponent(
   }
 
   function hasDeployerPermission(permissions: WorldPermissions, address: string): boolean {
+    const { deployment } = permissions.permissions
     return (
-      permissions.permissions.deployment.type === 'allow-list' &&
-      permissions.permissions.deployment.wallets.map(wallet => wallet.toLowerCase()).includes(address)
+      deployment.type === 'allow-list' &&
+      (deployment.wallets ?? []).map(wallet => wallet.toLowerCase()).includes(address)
     )
   }
 

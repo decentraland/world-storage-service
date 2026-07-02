@@ -15,7 +15,11 @@ const MAX_KEY_LENGTH = 255
  * @throws {InvalidRequestError} If the key is empty or longer than 255 characters
  */
 export function validateStorageKey(key: string): void {
-  if (!key || [...key].length > MAX_KEY_LENGTH) {
+  // A string's UTF-16 length is an upper bound on its code-point count, so a key within the
+  // limit by that measure is definitely within it. Only keys that look too long fall back to
+  // the exact (array-allocating) code-point count — keeping this hot path allocation-free for
+  // the common case. Postgres counts varchar length in code points.
+  if (!key || (key.length > MAX_KEY_LENGTH && [...key].length > MAX_KEY_LENGTH)) {
     throw new InvalidRequestError(`Key must be between 1 and ${MAX_KEY_LENGTH} characters`)
   }
 }

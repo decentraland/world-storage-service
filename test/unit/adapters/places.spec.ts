@@ -142,6 +142,44 @@ describe('PlacesComponent', () => {
     })
   })
 
+  describe('when the Places API returns an entry without an id', () => {
+    beforeEach(() => {
+      fetcher.fetch.mockResolvedValue(
+        mockResponse({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            ok: true,
+            total: 1,
+            data: [{ title: 'no id here' }]
+          })
+        })
+      )
+    })
+
+    it('should throw an error about the missing id rather than resolving to undefined', async () => {
+      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')).rejects.toThrow(/without an id/)
+    })
+  })
+
+  describe('when the Places API returns a payload where data is not an array', () => {
+    beforeEach(() => {
+      fetcher.fetch.mockResolvedValue(
+        mockResponse({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            ok: true,
+            total: 1,
+            data: 'unexpected'
+          })
+        })
+      )
+    })
+
+    it('should throw an error about the unexpected payload', async () => {
+      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')).rejects.toThrow(/unexpected payload/)
+    })
+  })
+
   describe('when the Places API returns an HTTP error', () => {
     beforeEach(() => {
       fetcher.fetch.mockResolvedValueOnce(

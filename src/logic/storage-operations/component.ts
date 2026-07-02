@@ -53,6 +53,10 @@ export async function createStorageOperationsComponent(
    *
    * hashtextextended maps the scope string to the 64-bit advisory lock space; the lock is
    * transaction-scoped, so it is always released when the transaction commits or rolls back.
+   *
+   * These quota locks share the database-global advisory-lock space. The seed is fixed at 0
+   * and this is currently the only advisory-lock user; any future caller must draw keys from
+   * a disjoint space (or use a different mechanism) so it cannot collide with a quota lock.
    */
   async function withQuotaLock<T>(lockKey: string, operation: () => Promise<T>): Promise<T> {
     return pg.withAsyncContextTransaction(async () => {
