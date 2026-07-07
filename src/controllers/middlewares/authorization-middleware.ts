@@ -11,6 +11,11 @@ const AUTHORITATIVE_SCOPE_HEADER = 'x-authoritative-scope'
 export interface AuthorizationMiddlewareOptions {
   allowAuthorizedAddresses: boolean
   allowOwnersAndDeployers: boolean
+  // When true, a request signed by a throwaway ephemeral carrying a valid
+  // `x-authoritative-scope` claim (root-signed, bound to this scene) is authorized.
+  // Enabled ONLY on the /values/* routes — NOT on env routes, which stay strictly
+  // authoritative-server-only. Defaults to false.
+  allowScopedDelegation?: boolean
 }
 
 /**
@@ -47,7 +52,7 @@ export function createAuthorizationMiddleware(
 ): IHttpServerComponent.IRequestHandler<
   IHttpServerComponent.PathAwareContext<WorldStorageContext, string> & DecentralandSignatureContext
 > {
-  const { allowAuthorizedAddresses, allowOwnersAndDeployers } = options
+  const { allowAuthorizedAddresses, allowOwnersAndDeployers, allowScopedDelegation = false } = options
 
   return async (ctx, next) => {
     const {
@@ -94,15 +99,21 @@ export function createAuthorizationMiddleware(
       // World-scoped authoritative delegation: a request signed by a throwaway
       // ephemeral (not itself an authorized address) is allowed when it carries an
       // x-authoritative-scope claim, signed by a trusted authoritative address,
-      // that binds THIS ephemeral to THIS world and has not expired. This lets an
+      // that binds THIS ephemeral to THIS scene and has not expired. This lets an
       // authoritative scene worker write storage without ever holding the
-      // authoritative key, while confining a leaked worker credential to one world.
-      const scopeHeader = ctx.request.headers.get(AUTHORITATIVE_SCOPE_HEADER)
+      // authoritative key, while confining a leaked worker credential to one scene.
+      // Gated to the /values/* routes (allowScopedDelegation) so env routes remain
+      // strictly authoritative-server-only.
+      const scopeHeader = allowScopedDelegation ? ctx.request.headers.get(AUTHORITATIVE_SCOPE_HEADER) : null
       if (scopeHeader) {
         // Scope claims must be signed specifically by the authoritative server —
         // not by every entry in AUTHORIZED_ADDRESSES (least authority: an admin
-        // address with direct access is not thereby allowed to delegate).
-        const trustedScopeSigners = authoritativeServerAddress ? [authoritativeServerAddress.trim().toLowerCase()] : []
+        // address with direct access is not thereby allowed to delegate). Filter
+        // empties so a blank/whitespace AUTHORITATIVE_SERVER_ADDRESS yields no
+        // trusted signer (fail closed) rather than a `['']` that never matches.
+        const trustedScopeSigners = [authoritativeServerAddress]
+          .map(addr => addr?.trim().toLowerCase())
+          .filter((addr): addr is string => !!addr && addr.length > 0)
         // The claim is bound to a specific scene: `parcel` pins the placeId this
         // request resolves to, `sceneId` is the explicit scene identity (echoed by
         // the worker into the signed metadata). Both must match the claim.
@@ -164,10 +175,15 @@ export function createAuthorizationMiddleware(
  *
  * Use this for standard operations where both authorized addresses and world permissions
  * should have access. This is the default choice for most endpoints.
+ *
+ * This is the ONLY preset that accepts a world-scoped storage delegation (an
+ * authoritative scene worker signing for its own scene). Env routes use the
+ * stricter presets below and never accept a delegation.
  */
 export const authorizationMiddleware = createAuthorizationMiddleware({
   allowAuthorizedAddresses: true,
-  allowOwnersAndDeployers: true
+  allowOwnersAndDeployers: true,
+  allowScopedDelegation: true
 })
 
 /**

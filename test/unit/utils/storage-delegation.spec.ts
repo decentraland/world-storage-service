@@ -123,9 +123,53 @@ describe('verifyStorageDelegation', () => {
       expect(result.ok).toBe(false)
     })
 
+    it('rejects a JSON `null` payload without throwing (no 500)', async () => {
+      const header = Buffer.from('null', 'utf8').toString('base64')
+      const result = await verify(header)
+      expect(result).toEqual({ ok: false, reason: 'malformed scope header' })
+    })
+
+    it('rejects a JSON primitive/array payload', async () => {
+      await expect(verify(Buffer.from('5', 'utf8').toString('base64'))).resolves.toEqual({
+        ok: false,
+        reason: 'malformed scope header'
+      })
+      await expect(verify(Buffer.from('[]', 'utf8').toString('base64'))).resolves.toMatchObject({ ok: false })
+    })
+
     it('rejects an oversized header before decoding', async () => {
       const result = await verify('A'.repeat(5000))
       expect(result).toEqual({ ok: false, reason: 'scope header too large' })
+    })
+
+    it('rejects a claim with a duplicate field line', async () => {
+      const payload = [
+        PREFIX,
+        `Ephemeral: ${ephemeral.address.toLowerCase()}`,
+        `World: ${WORLD}`,
+        `SceneId: ${SCENE}`,
+        `SceneId: bafkrei-evil`,
+        `Parcel: ${PARCEL}`,
+        `Expiration: ${new Date(Date.now() + 3_600_000).toISOString()}`
+      ].join('\n')
+      const signature = Authenticator.createSignature(authoritative, payload)
+      const header = Buffer.from(JSON.stringify({ payload, signature }), 'utf8').toString('base64')
+      expect((await verify(header)).ok).toBe(false)
+    })
+
+    it('rejects a claim with an unknown/extra line', async () => {
+      const payload = [
+        PREFIX,
+        `Ephemeral: ${ephemeral.address.toLowerCase()}`,
+        `World: ${WORLD}`,
+        `SceneId: ${SCENE}`,
+        `Parcel: ${PARCEL}`,
+        `Expiration: ${new Date(Date.now() + 3_600_000).toISOString()}`,
+        `Extra: injected`
+      ].join('\n')
+      const signature = Authenticator.createSignature(authoritative, payload)
+      const header = Buffer.from(JSON.stringify({ payload, signature }), 'utf8').toString('base64')
+      expect((await verify(header)).ok).toBe(false)
     })
 
     it('rejects a claim missing the domain-separation prefix', async () => {

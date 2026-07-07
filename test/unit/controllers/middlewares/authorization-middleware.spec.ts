@@ -203,10 +203,29 @@ describe('Authorization Middleware', () => {
         }
 
         beforeEach(() => {
+          // Scoped delegation is only accepted on the /values preset (flag on).
+          middleware = createAuthorizationMiddleware({
+            allowAuthorizedAddresses: true,
+            allowOwnersAndDeployers: true,
+            allowScopedDelegation: true
+          })
           mockConfig({ AUTHORITATIVE_SERVER_ADDRESS: authoritative.address })
           // The ephemeral is neither an authorized address nor an owner/deployer,
           // so only the scoped-delegation path can authorize it.
           hasWorldPermissionMock.mockResolvedValue(false)
+        })
+
+        describe('and the middleware does not enable scoped delegation (e.g. env routes)', () => {
+          it('should ignore a valid scope header and deny (env stays authoritative-only)', async () => {
+            const envMiddleware = createAuthorizationMiddleware({
+              allowAuthorizedAddresses: true,
+              allowOwnersAndDeployers: false // authorizedAddressesOnly preset: no allowScopedDelegation
+            })
+            await expect(envMiddleware(buildScopedCtx(ephemeral.address, buildScopeHeader()), next)).rejects.toThrow(
+              NotAuthorizedError
+            )
+            expect(next).not.toHaveBeenCalled()
+          })
         })
 
         describe('and the delegation is valid', () => {

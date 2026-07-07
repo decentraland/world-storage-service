@@ -54,20 +54,30 @@ export interface StorageDelegationTarget {
  * Fields after the prefix line are matched by prefix (order-agnostic). Returns
  * null on any structural deviation.
  */
+const CLAIM_FIELDS = ['Ephemeral:', 'World:', 'SceneId:', 'Parcel:', 'Expiration:'] as const
+
 function parseClaim(payload: string): ParsedClaim | null {
   const lines = payload.split('\n')
   if (lines[0] !== STORAGE_DELEGATION_PREFIX) return null
 
-  const valueFor = (prefix: string): string | undefined => {
-    const line = lines.find(l => l.startsWith(prefix))
-    return line ? line.slice(prefix.length).trim() : undefined
+  // Require EXACTLY the known field lines, each present once — no unknown, extra,
+  // or duplicate lines. The payload is signature-checked afterwards so an attacker
+  // can't craft this, but strictness makes any minter/verifier format drift fail
+  // closed instead of silently binding an unexpected value. (No field prefix is a
+  // prefix of another, so the match is unambiguous.)
+  const values = new Map<string, string>()
+  for (const line of lines.slice(1)) {
+    const prefix = CLAIM_FIELDS.find(p => line.startsWith(p))
+    if (!prefix || values.has(prefix)) return null
+    values.set(prefix, line.slice(prefix.length).trim())
   }
+  if (values.size !== CLAIM_FIELDS.length) return null
 
-  const ephemeral = valueFor('Ephemeral:')?.toLowerCase()
-  const world = valueFor('World:')?.toLowerCase()
-  const sceneId = valueFor('SceneId:')
-  const parcel = valueFor('Parcel:')
-  const expirationIso = valueFor('Expiration:')
+  const ephemeral = values.get('Ephemeral:')?.toLowerCase()
+  const world = values.get('World:')?.toLowerCase()
+  const sceneId = values.get('SceneId:')
+  const parcel = values.get('Parcel:')
+  const expirationIso = values.get('Expiration:')
   if (!ephemeral || !world || !sceneId || !parcel || !expirationIso) return null
 
   const expiration = Date.parse(expirationIso)
@@ -106,14 +116,21 @@ export async function verifyStorageDelegation(
     return { ok: false, reason: 'scope header too large' }
   }
 
-  let parsed: { payload?: unknown; signature?: unknown }
+  let parsed: unknown
   try {
     parsed = JSON.parse(Buffer.from(scopeHeader, 'base64').toString('utf8'))
   } catch {
     return { ok: false, reason: 'malformed scope header' }
   }
 
-  const { payload, signature } = parsed
+  // JSON.parse('null') returns null (and primitives/arrays are also valid JSON),
+  // so guard the shape before destructuring — otherwise `null` throws a TypeError
+  // out of this function → 500, and also breaks the owner/deployer fall-through.
+  if (typeof parsed !== 'object' || parsed === null) {
+    return { ok: false, reason: 'malformed scope header' }
+  }
+
+  const { payload, signature } = parsed as { payload?: unknown; signature?: unknown }
   if (typeof payload !== 'string' || typeof signature !== 'string') {
     return { ok: false, reason: 'scope missing payload or signature' }
   }
