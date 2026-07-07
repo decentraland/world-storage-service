@@ -14,13 +14,20 @@ const WORLD = 'boedo.dcl.eth'
 function buildScopeHeader(params: {
   ephemeralAddress?: string
   world?: string
+  expiration?: number
   signer?: typeof authoritative
 } = {}): string {
   const ephemeralAddress = params.ephemeralAddress ?? ephemeral.address
   const world = params.world ?? WORLD
+  const expiration = params.expiration ?? Date.now() + 3_600_000
   const signer = params.signer ?? authoritative
 
-  const payload = [PREFIX, `Ephemeral: ${ephemeralAddress.toLowerCase()}`, `World: ${world}`].join('\n')
+  const payload = [
+    PREFIX,
+    `Ephemeral: ${ephemeralAddress.toLowerCase()}`,
+    `World: ${world}`,
+    `Expiration: ${new Date(expiration).toISOString()}`
+  ].join('\n')
   const signature = Authenticator.createSignature(signer, payload)
   return Buffer.from(JSON.stringify({ payload, signature }), 'utf8').toString('base64')
 }
@@ -51,6 +58,14 @@ describe('verifyStorageDelegation', () => {
   describe('when the claim world differs from the target world', () => {
     it('rejects', async () => {
       const header = buildScopeHeader({ world: 'other.dcl.eth' })
+      const result = await verifyStorageDelegation(header, ephemeral.address, WORLD, TRUSTED)
+      expect(result.ok).toBe(false)
+    })
+  })
+
+  describe('when the delegation has expired', () => {
+    it('rejects', async () => {
+      const header = buildScopeHeader({ expiration: Date.now() - 1_000 })
       const result = await verifyStorageDelegation(header, ephemeral.address, WORLD, TRUSTED)
       expect(result.ok).toBe(false)
     })
