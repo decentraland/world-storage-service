@@ -104,7 +104,7 @@ export function createAuthorizationMiddleware(
           logger.debug('Authorization granted via world-scoped storage delegation', { worldName })
           return await next()
         }
-        logger.warn('Rejected world-scoped storage delegation', { worldName, reason: result.reason })
+        logger.warn('Rejected world-scoped storage delegation', { worldName, reason: result.reason ?? 'unknown' })
       }
     }
 

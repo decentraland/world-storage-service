@@ -10,7 +10,7 @@ const STORAGE_DELEGATION_PREFIX = 'Decentraland Authoritative Storage Delegation
 // without relying on discriminated-union narrowing across an early return.
 export type StorageDelegationResult = { ok: boolean; reason?: string }
 
-type ParsedClaim = { ephemeral: string; world: string; expiration: number }
+type ParsedClaim = { ephemeral: string; world: string }
 
 /**
  * Parse the canonical, root-signed claim payload:
@@ -18,8 +18,9 @@ type ParsedClaim = { ephemeral: string; world: string; expiration: number }
  *   Decentraland Authoritative Storage Delegation
  *   Ephemeral: 0x<addr>
  *   World: <name>
- *   Expiration: <ISO8601>
  *
+ * There is no expiry: the ephemeral lives for the life of the scene worker, and
+ * a worker compromise is bounded by the world scope (revoke by rotating the key).
  * Returns null on any structural deviation.
  */
 function parseClaim(payload: string): ParsedClaim | null {
@@ -33,13 +34,9 @@ function parseClaim(payload: string): ParsedClaim | null {
 
   const ephemeral = valueFor('Ephemeral:')?.toLowerCase()
   const world = valueFor('World:')?.toLowerCase()
-  const expirationIso = valueFor('Expiration:')
-  if (!ephemeral || !world || !expirationIso) return null
+  if (!ephemeral || !world) return null
 
-  const expiration = Date.parse(expirationIso)
-  if (!Number.isFinite(expiration)) return null
-
-  return { ephemeral, world, expiration }
+  return { ephemeral, world }
 }
 
 /**
@@ -47,12 +44,14 @@ function parseClaim(payload: string): ParsedClaim | null {
  * `x-authoritative-scope` header (base64 JSON `{ payload, signature }`).
  *
  * A request is authorized when ALL hold:
- *  - the claim is well-formed and unexpired,
+ *  - the claim is well-formed,
  *  - its ephemeral == the request's actual signer (so a captured claim can't be
  *    replayed with a different signing key),
  *  - its world == the target world,
  *  - `signature` over `payload` was produced by one of the trusted authoritative
  *    addresses (an EOA personal signature).
+ *
+ * There is no expiry check: the delegation lives for the life of the scene worker.
  *
  * @param scopeHeader   raw `x-authoritative-scope` header value (base64)
  * @param requestSigner the request's recovered signer address, lowercased (the ephemeral)
@@ -89,9 +88,6 @@ export async function verifyStorageDelegation(
   }
   if (claim.world !== worldName.toLowerCase()) {
     return { ok: false, reason: 'claim world does not match target world' }
-  }
-  if (!(claim.expiration > Date.now())) {
-    return { ok: false, reason: 'delegation expired' }
   }
 
   // The claim must be personally signed by a trusted authoritative address. Reuse
