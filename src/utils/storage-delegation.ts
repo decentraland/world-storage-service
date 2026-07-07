@@ -1,4 +1,5 @@
-import { Authenticator, AuthLinkType } from '@dcl/crypto'
+import type { AuthChain } from '@dcl/crypto'
+import { AuthLinkType, Authenticator } from '@dcl/crypto'
 
 // Domain-separated prefix for the world-scoped storage delegation claim. Must
 // match the minter in sdk-multiplayer-server's comms-gatekeeper. Kept distinct
@@ -8,9 +9,16 @@ const STORAGE_DELEGATION_PREFIX = 'Decentraland Authoritative Storage Delegation
 
 // `reason` is optional (populated only on rejection) so callers can read it
 // without relying on discriminated-union narrowing across an early return.
-export type StorageDelegationResult = { ok: boolean; reason?: string }
+export interface StorageDelegationResult {
+  ok: boolean
+  reason?: string
+}
 
-type ParsedClaim = { ephemeral: string; world: string; expiration: number }
+interface ParsedClaim {
+  ephemeral: string
+  world: string
+  expiration: number
+}
 
 /**
  * Parse the canonical, root-signed claim payload:
@@ -98,12 +106,12 @@ export async function verifyStorageDelegation(
   // Authenticator.validateSignature with each candidate as the SIGNER so we lean
   // on vetted signature-verification code rather than hand-rolled ecrecover.
   for (const root of trustedSigners) {
-    const chain = [
+    const chain: AuthChain = [
       { type: AuthLinkType.SIGNER, payload: root, signature: '' },
       { type: AuthLinkType.ECDSA_PERSONAL_SIGNED_ENTITY, payload, signature }
     ]
     try {
-      const result = await Authenticator.validateSignature(payload, chain as any, null as any)
+      const result = await Authenticator.validateSignature(payload, chain, null)
       if (result.ok) return { ok: true }
     } catch {
       // Try the next trusted signer.

@@ -1,5 +1,5 @@
-import { Authenticator } from '@dcl/crypto'
 import { createUnsafeIdentity } from '@dcl/crypto/dist/crypto'
+import { Authenticator } from '@dcl/crypto'
 import { verifyStorageDelegation } from '../../../src/utils/storage-delegation'
 
 const PREFIX = 'Decentraland Authoritative Storage Delegation'
@@ -11,12 +11,14 @@ const ephemeral = createUnsafeIdentity()
 const TRUSTED = [authoritative.address.toLowerCase()]
 const WORLD = 'boedo.dcl.eth'
 
-function buildScopeHeader(params: {
-  ephemeralAddress?: string
-  world?: string
-  expiration?: number
-  signer?: typeof authoritative
-} = {}): string {
+function buildScopeHeader(
+  params: {
+    ephemeralAddress?: string
+    world?: string
+    expiration?: number
+    signer?: typeof authoritative
+  } = {}
+): string {
   const ephemeralAddress = params.ephemeralAddress ?? ephemeral.address
   const world = params.world ?? WORLD
   const expiration = params.expiration ?? Date.now() + 3_600_000
@@ -41,7 +43,12 @@ describe('verifyStorageDelegation', () => {
 
     it('is case-insensitive on the request signer and world', async () => {
       const header = buildScopeHeader()
-      const result = await verifyStorageDelegation(header, ephemeral.address.toUpperCase(), WORLD.toUpperCase(), TRUSTED)
+      const result = await verifyStorageDelegation(
+        header,
+        ephemeral.address.toUpperCase(),
+        WORLD.toUpperCase(),
+        TRUSTED
+      )
       expect(result).toEqual({ ok: true })
     })
   })
@@ -87,7 +94,11 @@ describe('verifyStorageDelegation', () => {
     })
 
     it('rejects a claim missing the domain-separation prefix', async () => {
-      const payload = [`Ephemeral: ${ephemeral.address}`, `World: ${WORLD}`, `Expiration: ${new Date().toISOString()}`].join('\n')
+      const payload = [
+        `Ephemeral: ${ephemeral.address}`,
+        `World: ${WORLD}`,
+        `Expiration: ${new Date().toISOString()}`
+      ].join('\n')
       const signature = Authenticator.createSignature(authoritative, payload)
       const header = Buffer.from(JSON.stringify({ payload, signature }), 'utf8').toString('base64')
       const result = await verifyStorageDelegation(header, ephemeral.address, WORLD, TRUSTED)

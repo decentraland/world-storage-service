@@ -1,6 +1,6 @@
-import { NotAuthorizedError } from '@dcl/http-commons'
-import { Authenticator } from '@dcl/crypto'
 import { createUnsafeIdentity } from '@dcl/crypto/dist/crypto'
+import { Authenticator } from '@dcl/crypto'
+import { NotAuthorizedError } from '@dcl/http-commons'
 import { createAuthorizationMiddleware } from '../../../../src/controllers/middlewares/authorization-middleware'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../../fixtures'
 import { createLogsMockedComponent } from '../../../mocks/components'

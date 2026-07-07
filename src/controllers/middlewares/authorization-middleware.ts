@@ -102,9 +102,7 @@ export function createAuthorizationMiddleware(
         // Scope claims must be signed specifically by the authoritative server —
         // not by every entry in AUTHORIZED_ADDRESSES (least authority: an admin
         // address with direct access is not thereby allowed to delegate).
-        const trustedScopeSigners = authoritativeServerAddress
-          ? [authoritativeServerAddress.trim().toLowerCase()]
-          : []
+        const trustedScopeSigners = authoritativeServerAddress ? [authoritativeServerAddress.trim().toLowerCase()] : []
         const result = await verifyStorageDelegation(scopeHeader, signerAddress, worldName, trustedScopeSigners)
         if (result.ok) {
           logger.debug('Authorization granted via world-scoped storage delegation', { worldName })
