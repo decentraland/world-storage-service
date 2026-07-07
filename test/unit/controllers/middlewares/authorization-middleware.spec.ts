@@ -1,4 +1,6 @@
 import { NotAuthorizedError } from '@dcl/http-commons'
+import { Authenticator } from '@dcl/crypto'
+import { createUnsafeIdentity } from '@dcl/crypto/dist/crypto'
 import { createAuthorizationMiddleware } from '../../../../src/controllers/middlewares/authorization-middleware'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../../fixtures'
 import { createLogsMockedComponent } from '../../../mocks/components'
@@ -144,6 +146,114 @@ describe('Authorization Middleware', () => {
           expect(hasWorldPermissionMock).not.toHaveBeenCalled()
           expect(next).toHaveBeenCalled()
           expect(result).toEqual({ status: 200 })
+        })
+      })
+
+      describe('and the request carries a world-scoped storage delegation', () => {
+        // Real keypairs: the authoritative server that signs the scope claim, and
+        // the throwaway ephemeral the worker signs its storage request with.
+        const authoritative = createUnsafeIdentity()
+        const ephemeral = createUnsafeIdentity()
+
+        function buildScopeHeader(
+          opts: { world?: string; ephemeralAddress?: string; expiration?: number; signer?: typeof authoritative } = {}
+        ): string {
+          const world = (opts.world ?? WORLD_NAMES.DEFAULT).toLowerCase()
+          const ephemeralAddress = (opts.ephemeralAddress ?? ephemeral.address).toLowerCase()
+          const expiration = opts.expiration ?? Date.now() + 3_600_000
+          const signer = opts.signer ?? authoritative
+          const payload = [
+            'Decentraland Authoritative Storage Delegation',
+            `Ephemeral: ${ephemeralAddress}`,
+            `World: ${world}`,
+            `Expiration: ${new Date(expiration).toISOString()}`
+          ].join('\n')
+          const signature = Authenticator.createSignature(signer, payload)
+          return Buffer.from(JSON.stringify({ payload, signature }), 'utf8').toString('base64')
+        }
+
+        function buildScopedCtx(auth: string, scopeHeader?: string): TestContext {
+          return buildTestContext({
+            worldName: WORLD_NAMES.DEFAULT,
+            parcel: PARCELS.DEFAULT,
+            verification: { auth, authMetadata: {} },
+            request: new Request('http://localhost/values/key', {
+              headers: scopeHeader ? { 'x-authoritative-scope': scopeHeader } : {}
+            }),
+            components: {
+              config: { getString: configGetString },
+              logs: createLogsMockedComponent(),
+              worldPermission: { hasWorldPermission: hasWorldPermissionMock }
+            } as unknown as BaseComponents
+          })
+        }
+
+        beforeEach(() => {
+          mockConfig({ AUTHORITATIVE_SERVER_ADDRESS: authoritative.address })
+          // The ephemeral is neither an authorized address nor an owner/deployer,
+          // so only the scoped-delegation path can authorize it.
+          hasWorldPermissionMock.mockResolvedValue(false)
+        })
+
+        describe('and the delegation is valid', () => {
+          beforeEach(() => {
+            next.mockResolvedValueOnce({ status: 200 })
+          })
+
+          it('should authorize without checking world permissions', async () => {
+            const result = await middleware(buildScopedCtx(ephemeral.address, buildScopeHeader()), next)
+
+            expect(hasWorldPermissionMock).not.toHaveBeenCalled()
+            expect(next).toHaveBeenCalled()
+            expect(result).toEqual({ status: 200 })
+          })
+        })
+
+        describe('and the claim is signed by an untrusted address', () => {
+          it('should not authorize', async () => {
+            const attacker = createUnsafeIdentity()
+            await expect(
+              middleware(buildScopedCtx(ephemeral.address, buildScopeHeader({ signer: attacker })), next)
+            ).rejects.toThrow(NotAuthorizedError)
+            expect(next).not.toHaveBeenCalled()
+          })
+        })
+
+        describe('and the claim binds a different ephemeral than the request signer', () => {
+          it('should not authorize (blocks replay with another key)', async () => {
+            const other = createUnsafeIdentity()
+            await expect(middleware(buildScopedCtx(other.address, buildScopeHeader()), next)).rejects.toThrow(
+              NotAuthorizedError
+            )
+            expect(next).not.toHaveBeenCalled()
+          })
+        })
+
+        describe('and the claim is for a different world', () => {
+          it('should not authorize', async () => {
+            await expect(
+              middleware(buildScopedCtx(ephemeral.address, buildScopeHeader({ world: 'other.dcl.eth' })), next)
+            ).rejects.toThrow(NotAuthorizedError)
+            expect(next).not.toHaveBeenCalled()
+          })
+        })
+
+        describe('and the delegation has expired', () => {
+          it('should not authorize', async () => {
+            await expect(
+              middleware(buildScopedCtx(ephemeral.address, buildScopeHeader({ expiration: Date.now() - 1_000 })), next)
+            ).rejects.toThrow(NotAuthorizedError)
+            expect(next).not.toHaveBeenCalled()
+          })
+        })
+
+        describe('and no scope header is present', () => {
+          it('should not authorize', async () => {
+            await expect(middleware(buildScopedCtx(ephemeral.address, undefined), next)).rejects.toThrow(
+              NotAuthorizedError
+            )
+            expect(next).not.toHaveBeenCalled()
+          })
         })
       })
 
