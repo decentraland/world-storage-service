@@ -2,7 +2,11 @@ import type { IHttpServerComponent } from '@dcl/core-commons'
 import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { NotAuthorizedError } from '@dcl/http-commons'
 import { isErrorWithMessage } from '../../utils/errors'
+import { verifyStorageDelegation } from '../../utils/storage-delegation'
 import type { WorldStorageContext } from '../../types'
+
+// Header carrying a world-scoped authoritative storage delegation (base64 JSON).
+const AUTHORITATIVE_SCOPE_HEADER = 'x-authoritative-scope'
 
 export interface AuthorizationMiddlewareOptions {
   allowAuthorizedAddresses: boolean
@@ -85,6 +89,22 @@ export function createAuthorizationMiddleware(
           worldName
         })
         return await next()
+      }
+
+      // World-scoped authoritative delegation: a request signed by a throwaway
+      // ephemeral (not itself an authorized address) is allowed when it carries an
+      // x-authoritative-scope claim, signed by a trusted authoritative address,
+      // that binds THIS ephemeral to THIS world and has not expired. This lets an
+      // authoritative scene worker write storage without ever holding the
+      // authoritative key, while confining a leaked worker credential to one world.
+      const scopeHeader = ctx.request.headers.get(AUTHORITATIVE_SCOPE_HEADER)
+      if (scopeHeader) {
+        const result = await verifyStorageDelegation(scopeHeader, signerAddress, worldName, allowedAddresses)
+        if (result.ok) {
+          logger.debug('Authorization granted via world-scoped storage delegation', { worldName })
+          return await next()
+        }
+        logger.warn('Rejected world-scoped storage delegation', { worldName, reason: result.reason })
       }
     }
 
