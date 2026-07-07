@@ -103,7 +103,18 @@ export function createAuthorizationMiddleware(
         // not by every entry in AUTHORIZED_ADDRESSES (least authority: an admin
         // address with direct access is not thereby allowed to delegate).
         const trustedScopeSigners = authoritativeServerAddress ? [authoritativeServerAddress.trim().toLowerCase()] : []
-        const result = await verifyStorageDelegation(scopeHeader, signerAddress, worldName, trustedScopeSigners)
+        // The claim is bound to a specific scene: `parcel` pins the placeId this
+        // request resolves to, `sceneId` is the explicit scene identity (echoed by
+        // the worker into the signed metadata). Both must match the claim.
+        const metadataSceneId = (ctx.verification?.authMetadata as { sceneId?: unknown } | undefined)?.sceneId
+        const targetSceneId = typeof metadataSceneId === 'string' ? metadataSceneId : ''
+        const result = await verifyStorageDelegation(scopeHeader, {
+          signer: signerAddress,
+          world: worldName,
+          sceneId: targetSceneId,
+          parcel,
+          trustedSigners: trustedScopeSigners
+        })
         if (result.ok) {
           logger.debug('Authorization granted via world-scoped storage delegation', { worldName })
           return await next()

@@ -154,11 +154,21 @@ describe('Authorization Middleware', () => {
         // the throwaway ephemeral the worker signs its storage request with.
         const authoritative = createUnsafeIdentity()
         const ephemeral = createUnsafeIdentity()
+        const SCENE_ID = 'bafkrei-scene'
 
         function buildScopeHeader(
-          opts: { world?: string; ephemeralAddress?: string; expiration?: number; signer?: typeof authoritative } = {}
+          opts: {
+            world?: string
+            sceneId?: string
+            parcel?: string
+            ephemeralAddress?: string
+            expiration?: number
+            signer?: typeof authoritative
+          } = {}
         ): string {
           const world = (opts.world ?? WORLD_NAMES.DEFAULT).toLowerCase()
+          const sceneId = opts.sceneId ?? SCENE_ID
+          const parcel = opts.parcel ?? PARCELS.DEFAULT
           const ephemeralAddress = (opts.ephemeralAddress ?? ephemeral.address).toLowerCase()
           const expiration = opts.expiration ?? Date.now() + 3_600_000
           const signer = opts.signer ?? authoritative
@@ -166,6 +176,8 @@ describe('Authorization Middleware', () => {
             'Decentraland Authoritative Storage Delegation',
             `Ephemeral: ${ephemeralAddress}`,
             `World: ${world}`,
+            `SceneId: ${sceneId}`,
+            `Parcel: ${parcel}`,
             `Expiration: ${new Date(expiration).toISOString()}`
           ].join('\n')
           const signature = Authenticator.createSignature(signer, payload)
@@ -176,7 +188,9 @@ describe('Authorization Middleware', () => {
           return buildTestContext({
             worldName: WORLD_NAMES.DEFAULT,
             parcel: PARCELS.DEFAULT,
-            verification: { auth, authMetadata: {} },
+            // The worker echoes the delegation's sceneId into the signed metadata;
+            // the middleware reads it back to match against the claim.
+            verification: { auth, authMetadata: { sceneId: SCENE_ID } },
             request: new Request('http://localhost/values/key', {
               headers: scopeHeader ? { 'x-authoritative-scope': scopeHeader } : {}
             }),
@@ -233,6 +247,24 @@ describe('Authorization Middleware', () => {
           it('should not authorize', async () => {
             await expect(
               middleware(buildScopedCtx(ephemeral.address, buildScopeHeader({ world: 'other.dcl.eth' })), next)
+            ).rejects.toThrow(NotAuthorizedError)
+            expect(next).not.toHaveBeenCalled()
+          })
+        })
+
+        describe('and the claim is for a different scene', () => {
+          it('should not authorize (confines the worker to its own scene)', async () => {
+            await expect(
+              middleware(buildScopedCtx(ephemeral.address, buildScopeHeader({ sceneId: 'bafkrei-other' })), next)
+            ).rejects.toThrow(NotAuthorizedError)
+            expect(next).not.toHaveBeenCalled()
+          })
+        })
+
+        describe('and the claim is for a different parcel', () => {
+          it('should not authorize (the parcel pins the placeId)', async () => {
+            await expect(
+              middleware(buildScopedCtx(ephemeral.address, buildScopeHeader({ parcel: '99,99' })), next)
             ).rejects.toThrow(NotAuthorizedError)
             expect(next).not.toHaveBeenCalled()
           })
