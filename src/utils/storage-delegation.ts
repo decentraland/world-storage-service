@@ -100,6 +100,14 @@ function parseClaim(payload: string): ParsedClaim | null {
  *  - `signature` over `payload` was produced by one of the trusted authoritative
  *    addresses (an EOA personal signature — contract-wallet signers are not supported).
  *
+ * Confinement model: the load-bearing binding is `parcel`, because the storage
+ * bucket is `placeId = f(world, parcel)` and the same request-supplied `parcel` is
+ * both resolved to the placeId AND checked against the claim — so a worker can only
+ * reach the place its claim names. `sceneId` is checked too but is defense-in-depth
+ * (nothing keys storage by it). If the Places API ever resolves several parcels of
+ * one scene to a single `placeId`, per-scene confinement degrades to per-place —
+ * still the intended floor, just coarser.
+ *
  * @param scopeHeader raw `x-authoritative-scope` header value (base64)
  * @param target      the request's signer + resolved world/scene/parcel + trusted signers
  */
@@ -154,21 +162,32 @@ export async function verifyStorageDelegation(
     return { ok: false, reason: 'delegation expired' }
   }
 
-  // The claim must be personally signed by a trusted authoritative address. Reuse
-  // Authenticator.validateSignature with each candidate as the SIGNER so we lean
-  // on vetted signature-verification code rather than hand-rolled ecrecover.
+  // The claim must be personally signed by a trusted authoritative address.
   for (const root of trustedSigners) {
-    const chain: AuthChain = [
-      { type: AuthLinkType.SIGNER, payload: root, signature: '' },
-      { type: AuthLinkType.ECDSA_PERSONAL_SIGNED_ENTITY, payload, signature }
-    ]
-    try {
-      const result = await Authenticator.validateSignature(payload, chain, null)
-      if (result.ok) return { ok: true }
-    } catch {
-      // Try the next trusted signer.
-    }
+    if (await isPersonalSignatureBy(root, payload, signature)) return { ok: true }
   }
 
   return { ok: false, reason: 'claim not signed by a trusted authoritative address' }
+}
+
+/**
+ * Whether `message` carries a valid EOA personal signature by `address`.
+ *
+ * Implemented by expressing it as a minimal `[SIGNER, ECDSA_PERSONAL_SIGNED_ENTITY]`
+ * auth-chain and delegating to the vetted `Authenticator.validateSignature`, rather
+ * than a hand-rolled ecrecover. Contained here behind a clear name so callers don't
+ * need to understand the auth-chain shape. Contract-wallet (EIP-1654) signers are
+ * intentionally unsupported (`provider = null`).
+ */
+async function isPersonalSignatureBy(address: string, message: string, signature: string): Promise<boolean> {
+  const chain: AuthChain = [
+    { type: AuthLinkType.SIGNER, payload: address, signature: '' },
+    { type: AuthLinkType.ECDSA_PERSONAL_SIGNED_ENTITY, payload: message, signature }
+  ]
+  try {
+    const result = await Authenticator.validateSignature(message, chain, null)
+    return result.ok
+  } catch {
+    return false
+  }
 }
