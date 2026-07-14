@@ -28,7 +28,7 @@ import { listWorldStorageHandler } from './handlers/world-storage/list-world-sto
 import { upsertWorldStorageHandler } from './handlers/world-storage/upsert-world-storage'
 import {
   authorizationMiddleware,
-  authorizedAddressesOnlyAuthorizationMiddleware,
+  authorizedAddressesOrScopedDelegationAuthorizationMiddleware,
   ownerAndDeployerOnlyAuthorizationMiddleware
 } from './middlewares/authorization-middleware'
 import { createBodySizeLimitMiddleware } from './middlewares/body-size-limit-middleware'
@@ -155,7 +155,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
   router.get(
     '/env/:key',
-    withSceneContext(authorizedAddressesOnlyAuthorizationMiddleware),
+    withSceneContext(authorizedAddressesOrScopedDelegationAuthorizationMiddleware),
     withSceneContext(getEnvStorageHandler)
   )
   router.put(
