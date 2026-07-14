@@ -215,15 +215,22 @@ describe('Authorization Middleware', () => {
           hasWorldPermissionMock.mockResolvedValue(false)
         })
 
-        describe('and the middleware does not enable scoped delegation (e.g. env routes)', () => {
-          it('should ignore a valid scope header and deny (env stays authoritative-only)', async () => {
-            const envMiddleware = createAuthorizationMiddleware({
+        describe('and the middleware does not enable scoped delegation', () => {
+          let noDelegationMiddleware: ReturnType<typeof createAuthorizationMiddleware>
+          let scopedCtx: TestContext
+
+          beforeEach(() => {
+            // allowScopedDelegation omitted → defaults to false, so the scope header
+            // is never consulted regardless of how valid it is.
+            noDelegationMiddleware = createAuthorizationMiddleware({
               allowAuthorizedAddresses: true,
-              allowOwnersAndDeployers: false // authorizedAddressesOnly preset: no allowScopedDelegation
+              allowOwnersAndDeployers: false
             })
-            await expect(envMiddleware(buildScopedCtx(ephemeral.address, buildScopeHeader()), next)).rejects.toThrow(
-              NotAuthorizedError
-            )
+            scopedCtx = buildScopedCtx(ephemeral.address, buildScopeHeader())
+          })
+
+          it('should ignore a valid scope header and deny', async () => {
+            await expect(noDelegationMiddleware(scopedCtx, next)).rejects.toThrow(NotAuthorizedError)
             expect(next).not.toHaveBeenCalled()
           })
         })

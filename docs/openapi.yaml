@@ -1112,8 +1112,10 @@ paths:
         An empty string is a valid stored value and is returned with `200`;
         `404` is returned only when the key does not exist.
         
-        **Authorization**: Only authorized addresses can access this endpoint.
-        World owners and deployers are explicitly not allowed, even if they have permissions.
+        **Authorization**: Authorized addresses (the authoritative server), or an
+        authoritative scene worker presenting a valid world-scoped storage delegation
+        (`x-authoritative-scope`) bound to its own scene. World owners and deployers are
+        not allowed here (they manage env via list/upsert/delete, not value reads).
       parameters:
         - name: key
           in: path

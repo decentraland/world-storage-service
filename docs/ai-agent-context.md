@@ -11,7 +11,7 @@ The World Storage Service is a standalone service that provides secure, isolated
 - **Key-Value Storage API**: Provides persistent storage with two namespaces:
   - **World storage**: Global key-value storage scoped to a world (`/values/:key`)
   - **Player storage**: Per-player key-value storage scoped to both world and player address (`/players/:player_address/values/:key`)
-- **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time (`/env/:key`). Values are encrypted at rest. GET operations are restricted to authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES) only, while write/delete operations (PUT/DELETE) are restricted to world owners and deployers only. This ensures sensitive secrets are only readable by the authoritative server while allowing owners to manage them.
+- **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time (`/env/:key`). Values are encrypted at rest. GET value reads are restricted to authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES) OR an authoritative scene worker presenting a valid scene-scoped storage delegation for its own scene, while write/delete operations (PUT/DELETE) are restricted to world owners and deployers only. This lets a headless authoritative worker consume its own scene's secrets (confined to its `place_id`) while keeping management in the owners' hands.
 - **Bulk Delete Operations**: Supports clearing all values in a storage namespace. These operations require a confirmation header (`X-Confirm-Delete-All`) to prevent accidental data loss.
 
 **Communication Pattern:**
@@ -42,7 +42,7 @@ HTTP REST API using signed fetch authentication. The service exposes REST endpoi
 - **Authorization**: The service validates authorization using a two-tier system: (1) checks if the signer address matches AUTHORITATIVE_SERVER_ADDRESS or is in the AUTHORIZED_ADDRESSES environment variable (comma-separated list), and (2) if not authorized via addresses, checks world permissions via Worlds Content Server to verify if the signer is the world owner or has deployer permissions. Different endpoints use different authorization policies based on sensitivity.
 - **World Isolation**: The world name is extracted exclusively from the signed fetch metadata, never from URL parameters or request body. This prevents world name spoofing and ensures data isolation between different worlds.
 - **Storage Namespaces**: Two distinct storage namespaces exist - world storage (global to the world) and player storage (scoped per player address). Both are further isolated by world name extracted from the signature.
-- **Environment Variables**: Secrets and configuration values are stored encrypted at rest. GET operations are restricted to authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES environment variable) only, ensuring only the authoritative server can read sensitive values. Write/delete operations (PUT/DELETE) are restricted to world owners and deployers, allowing them to manage these variables. These are set at deployment time via Creator Hub UI or CLI, not at runtime.
+- **Environment Variables**: Secrets and configuration values are stored encrypted at rest, keyed by `(world_name, place_id, key)` where `place_id = f(world, parcel)`. GET value reads (`/env/:key`) are restricted to authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES) OR an authoritative scene worker presenting a valid world-scoped storage delegation (`x-authoritative-scope`) bound to its own scene — so a headless worker can read its own scene's env values without holding the authoritative key, confined to its own `place_id` exactly as the `/values` routes are. Write/delete operations (PUT/DELETE) are restricted to world owners and deployers, allowing them to manage these variables. These are set at deployment time via Creator Hub UI or CLI, not at runtime.
 - **Stateless Service**: The service itself is stateless - all state is stored in PostgreSQL. This allows for horizontal scaling and independent scaling from scene execution.
 - **Request Flow**: Authoritative Server → Signed Fetch Request → World Storage Service → Signature Validation → World Name Extraction → Authorization Check → Database Query (with world_name from signature) → Response
 
@@ -57,14 +57,15 @@ The service uses three types of authorization middleware with different access l
 2. **Owner/Deployer Only** (`ownerAndDeployerOnlyAuthorizationMiddleware`): Used for sensitive bulk delete operations (DELETE `/values`, DELETE `/players/:player_address/values`, DELETE `/players`) and env variable write/delete operations (PUT/DELETE `/env/:key`, DELETE `/env`). Only allows:
    - World owners and deployers (authorized addresses are explicitly blocked)
 
-3. **Authorized Addresses Only** (`authorizedAddressesOnlyAuthorizationMiddleware`): Used exclusively for GET `/env/:key`. Only allows:
-   - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES)
+3. **Authorized Addresses or Scoped Delegation** (`authorizedAddressesOrScopedDelegationAuthorizationMiddleware`): Used exclusively for GET `/env/:key`. Allows:
+   - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES), and
+   - An authoritative scene worker presenting a valid world-scoped storage delegation (`x-authoritative-scope`) bound to its own scene (env is keyed by `place_id = f(world, parcel)`, the same scope the claim pins, so the worker reads only its own scene's env values)
    - World owners and deployers are explicitly blocked, even if they have permissions
 
 **Database notes:**
 
-- **World Storage Table**: `world_storage` with composite primary key (world_name, key). The `world_name` comes from the signed fetch metadata, ensuring isolation.
-- **Player Storage Table**: `player_storage` with composite primary key (world_name, player_addr, key). Both world_name and player_addr are used for scoping.
-- **Environment Variables Table**: `env_variables` with composite primary key (world_name, key). Values are stored encrypted (BYTEA type) for security.
+- **World Storage Table**: `world_storage` with composite primary key (world_name, place_id, key). The `world_name` comes from the signed fetch metadata and `place_id = f(world, parcel)`, ensuring per-scene isolation.
+- **Player Storage Table**: `player_storage` with composite primary key (world_name, place_id, player_addr, key). world_name, place_id, and player_addr are all used for scoping.
+- **Environment Variables Table**: `env_variables` with composite primary key (world_name, place_id, key). Values are stored encrypted (BYTEA type) for security.
 - **Isolation Guarantee**: All database queries MUST use `world_name` extracted from the signed fetch signature, never from request parameters. This is a critical security requirement.
 - **JSONB Storage**: Storage values use JSONB type for flexible JSON storage with PostgreSQL's JSON querying capabilities.

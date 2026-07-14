@@ -13,8 +13,9 @@ export interface AuthorizationMiddlewareOptions {
   allowOwnersAndDeployers: boolean
   // When true, a request signed by a throwaway ephemeral carrying a valid
   // `x-authoritative-scope` claim (root-signed, bound to this scene) is authorized.
-  // Enabled ONLY on the /values/* routes — NOT on env routes, which stay strictly
-  // authoritative-server-only. Defaults to false.
+  // Enabled on the /values/* routes and on GET /env/:key, so an authoritative scene
+  // worker can read its own scene's storage and env values without ever holding the
+  // authoritative key. Defaults to false.
   allowScopedDelegation?: boolean
 }
 
@@ -100,10 +101,12 @@ export function createAuthorizationMiddleware(
       // ephemeral (not itself an authorized address) is allowed when it carries an
       // x-authoritative-scope claim, signed by a trusted authoritative address,
       // that binds THIS ephemeral to THIS scene and has not expired. This lets an
-      // authoritative scene worker write storage without ever holding the
-      // authoritative key, while confining a leaked worker credential to one scene.
-      // Gated to the /values/* routes (allowScopedDelegation) so env routes remain
-      // strictly authoritative-server-only.
+      // authoritative scene worker read/write storage — and read its own scene's env
+      // values — without ever holding the authoritative key, while confining a leaked
+      // worker credential to one scene. Env values are keyed by placeId = f(world,
+      // parcel), the same scope the claim pins, so this grants no more reach than the
+      // /values routes already do. Gated by allowScopedDelegation (enabled on the
+      // /values/* routes and GET /env/:key).
       const scopeHeader = allowScopedDelegation ? ctx.request.headers.get(AUTHORITATIVE_SCOPE_HEADER) : null
       if (scopeHeader) {
         // Scope claims must be signed specifically by the authoritative server —
@@ -176,9 +179,10 @@ export function createAuthorizationMiddleware(
  * Use this for standard operations where both authorized addresses and world permissions
  * should have access. This is the default choice for most endpoints.
  *
- * This is the ONLY preset that accepts a world-scoped storage delegation (an
- * authoritative scene worker signing for its own scene). Env routes use the
- * stricter presets below and never accept a delegation.
+ * Accepts a world-scoped storage delegation (an authoritative scene worker signing for
+ * its own scene). Env VALUE reads (GET /env/:key) use the stricter
+ * `authorizedAddressesOrScopedDelegationAuthorizationMiddleware` below (no owners/
+ * deployers); the remaining env routes are owner/deployer-only and never accept a delegation.
  */
 export const authorizationMiddleware = createAuthorizationMiddleware({
   allowAuthorizedAddresses: true,
@@ -200,14 +204,18 @@ export const ownerAndDeployerOnlyAuthorizationMiddleware = createAuthorizationMi
 })
 
 /**
- * Restrictive authorization middleware that allows:
- * - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS and addresses in AUTHORIZED_ADDRESSES) only
+ * Authorization middleware for reading env VALUES (GET /env/:key). Allows:
+ * - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS and addresses in AUTHORIZED_ADDRESSES), and
+ * - An authoritative scene worker presenting a valid world-scoped storage delegation for its own scene.
  *
- * World owners and deployers are NOT allowed, even if they have permissions.
- * Use this for operations that should exclusively be accessible by the authoritative server,
- * such as GET requests for env variables.
+ * World owners and deployers are NOT allowed (they manage env via list/upsert/delete, not
+ * value reads). Env values are keyed by placeId = f(world, parcel) — the same scope the
+ * delegation claim pins — so a scene worker reads only its own scene's env values, exactly
+ * the confinement the /values routes already grant. This lets a headless authoritative
+ * worker consume its own scene's env secrets without ever holding the authoritative key.
  */
-export const authorizedAddressesOnlyAuthorizationMiddleware = createAuthorizationMiddleware({
+export const authorizedAddressesOrScopedDelegationAuthorizationMiddleware = createAuthorizationMiddleware({
   allowAuthorizedAddresses: true,
-  allowOwnersAndDeployers: false
+  allowOwnersAndDeployers: false,
+  allowScopedDelegation: true
 })

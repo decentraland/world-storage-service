@@ -10,6 +10,7 @@ This document describes the database schema for the World Storage Service. The s
 erDiagram
   world_storage {
     VARCHAR(255) world_name PK "World identifier (from signed fetch metadata)"
+    UUID place_id PK "Scene place ID (placeId = f(world, parcel))"
     VARCHAR(255) key PK "Storage key"
     JSONB value "Stored JSON value"
     TIMESTAMP created_at "Creation timestamp"
@@ -18,6 +19,7 @@ erDiagram
 
   player_storage {
     VARCHAR(255) world_name PK "World identifier (from signed fetch metadata)"
+    UUID place_id PK "Scene place ID (placeId = f(world, parcel))"
     VARCHAR(255) player_address PK "Player address"
     VARCHAR(255) key PK "Storage key"
     JSONB value "Stored JSON value"
@@ -27,6 +29,7 @@ erDiagram
 
   env_variables {
     VARCHAR(255) world_name PK "World identifier (from signed fetch metadata)"
+    UUID place_id PK "Scene place ID (placeId = f(world, parcel))"
     VARCHAR(255) key PK "Environment variable key"
     BYTEA value_enc "Encrypted value (bytes)"
     TIMESTAMP created_at "Creation timestamp"
@@ -40,33 +43,34 @@ The database contains the following tables:
 
 <!-- A list of tables, with their purpose -->
 
-1. **`world_storage`** - World-scoped key-value storage (JSON) isolated by `world_name`
-2. **`player_storage`** - Player-scoped key-value storage (JSON) isolated by `world_name` and `player_address`
-3. **`env_variables`** - Encrypted environment variables isolated by `world_name`
+1. **`world_storage`** - World-scoped key-value storage (JSON) isolated by `world_name` and `place_id`
+2. **`player_storage`** - Player-scoped key-value storage (JSON) isolated by `world_name`, `place_id`, and `player_address`
+3. **`env_variables`** - Encrypted environment variables isolated by `world_name` and `place_id`
 
 <!-- Description of each table in a section per table -->
 
 ## Table: `world_storage`
 
-Stores key-value pairs scoped to a world. Each record is uniquely identified by `(world_name, key)`.
+Stores key-value pairs scoped to a world and scene. Each record is uniquely identified by `(world_name, place_id, key)`.
 
 ### Columns
 
 | Column       | Type         | Nullable | Description |
 |--------------|--------------|----------|-------------|
 | `world_name` | VARCHAR(255)  | NOT NULL | **Primary Key (part 1)**. World identifier extracted from signed fetch metadata (never from request params/body). |
-| `key`        | VARCHAR(255)  | NOT NULL | **Primary Key (part 2)**. Storage key. |
+| `place_id`   | UUID          | NOT NULL | **Primary Key (part 2)**. Scene place ID (`placeId = f(world, parcel)`); scopes storage to a specific scene/place within the world. |
+| `key`        | VARCHAR(255)  | NOT NULL | **Primary Key (part 3)**. Storage key. |
 | `value`      | JSONB         | NOT NULL | Stored value as JSON. |
 | `created_at` | TIMESTAMP     | NOT NULL | Creation timestamp. Defaults to `current_timestamp`. |
 | `updated_at` | TIMESTAMP     | NOT NULL | Last update timestamp. Defaults to `current_timestamp`. |
 
 ### Indexes
 
-- **Composite Primary Key**: `(world_name, key)`
+- **Composite Primary Key**: `(world_name, place_id, key)`
 
 ### Constraints
 
-- **Primary Key**: `world_storage_pkey` on `(world_name, key)`
+- **Primary Key**: `world_storage_pkey` on `(world_name, place_id, key)`
 
 ### Business Rules
 
@@ -80,26 +84,27 @@ Stores key-value pairs scoped to a world. Each record is uniquely identified by 
 
 ## Table: `player_storage`
 
-Stores key-value pairs scoped to a world and a player. Each record is uniquely identified by `(world_name, player_address, key)`.
+Stores key-value pairs scoped to a world, scene, and player. Each record is uniquely identified by `(world_name, place_id, player_address, key)`.
 
 ### Columns
 
 | Column           | Type         | Nullable | Description |
 |------------------|--------------|----------|-------------|
 | `world_name`     | VARCHAR(255)  | NOT NULL | **Primary Key (part 1)**. World identifier extracted from signed fetch metadata (never from request params/body). |
-| `player_address` | VARCHAR(255)  | NOT NULL | **Primary Key (part 2)**. Player identifier (address). |
-| `key`            | VARCHAR(255)  | NOT NULL | **Primary Key (part 3)**. Storage key. |
+| `place_id`       | UUID          | NOT NULL | **Primary Key (part 2)**. Scene place ID (`placeId = f(world, parcel)`); scopes storage to a specific scene/place within the world. |
+| `player_address` | VARCHAR(255)  | NOT NULL | **Primary Key (part 3)**. Player identifier (address). |
+| `key`            | VARCHAR(255)  | NOT NULL | **Primary Key (part 4)**. Storage key. |
 | `value`          | JSONB         | NOT NULL | Stored value as JSON. |
 | `created_at`     | TIMESTAMP     | NOT NULL | Creation timestamp. Defaults to `current_timestamp`. |
 | `updated_at`     | TIMESTAMP     | NOT NULL | Last update timestamp. Defaults to `current_timestamp`. |
 
 ### Indexes
 
-- **Composite Primary Key**: `(world_name, player_address, key)`
+- **Composite Primary Key**: `(world_name, place_id, player_address, key)`
 
 ### Constraints
 
-- **Primary Key**: `player_storage_pkey` on `(world_name, player_address, key)`
+- **Primary Key**: `player_storage_pkey` on `(world_name, place_id, player_address, key)`
 
 ### Business Rules
 
@@ -114,25 +119,26 @@ Stores key-value pairs scoped to a world and a player. Each record is uniquely i
 
 ## Table: `env_variables`
 
-Stores encrypted environment variables scoped to a world. Each record is uniquely identified by `(world_name, key)`.
+Stores encrypted environment variables scoped to a world and scene. Each record is uniquely identified by `(world_name, place_id, key)`.
 
 ### Columns
 
 | Column       | Type         | Nullable | Description |
 |--------------|--------------|----------|-------------|
 | `world_name` | VARCHAR(255)  | NOT NULL | **Primary Key (part 1)**. World identifier extracted from signed fetch metadata (never from request params/body). |
-| `key`        | VARCHAR(255)  | NOT NULL | **Primary Key (part 2)**. Environment variable key. |
+| `place_id`   | UUID          | NOT NULL | **Primary Key (part 2)**. Scene place ID (`placeId = f(world, parcel)`); scopes env vars to a specific scene/place within the world. |
+| `key`        | VARCHAR(255)  | NOT NULL | **Primary Key (part 3)**. Environment variable key. |
 | `value_enc`  | BYTEA         | NOT NULL | Encrypted value stored as raw bytes. |
 | `created_at` | TIMESTAMP     | NOT NULL | Creation timestamp. Defaults to `current_timestamp`. |
 | `updated_at` | TIMESTAMP     | NOT NULL | Last update timestamp. Defaults to `current_timestamp`. |
 
 ### Indexes
 
-- **Composite Primary Key**: `(world_name, key)`
+- **Composite Primary Key**: `(world_name, place_id, key)`
 
 ### Constraints
 
-- **Primary Key**: `env_variables_pkey` on `(world_name, key)`
+- **Primary Key**: `env_variables_pkey` on `(world_name, place_id, key)`
 
 ### Business Rules
 

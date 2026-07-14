@@ -37,7 +37,8 @@ export async function createTestSetup(components: TestComponents, stubComponents
   stubComponents.places.resolvePlaceId.mockResolvedValue(PLACE_IDS.DEFAULT)
 
   // Mock config.getString to return the test identity's address as AUTHORITATIVE_SERVER_ADDRESS
-  // This is required for endpoints that use authorizedAddressesOnlyAuthorizationMiddleware
+  // This is required for endpoints that authorize by authorized-address match
+  // (e.g. GET /env/:key via authorizedAddressesOrScopedDelegationAuthorizationMiddleware)
   const originalGetString = components.config.getString.bind(components.config)
   const mockedGetString = async (key: string): Promise<string | undefined> => {
     if (key === 'AUTHORITATIVE_SERVER_ADDRESS') {
