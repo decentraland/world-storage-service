@@ -78,7 +78,7 @@ export interface IWorldStorageComponent {
    * When `key` is omitted, `existingValueSize` is always 0 and only total usage
    * is relevant. Used by usage endpoints.
    *
-   * Totals are aggregated per world (across all scenes) for `*.dcl.eth` worlds, and
+   * Totals are aggregated per world (across all scenes) for `*.eth` worlds, and
    * per place for shared Genesis City realms.
    *
    * @param worldName - The world identifier

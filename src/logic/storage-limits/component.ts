@@ -72,7 +72,7 @@ function rejectNulCharacters(serializedValue: string): void {
  * 3. Validating the upsert operation against the configured limits
  *
  * The quota scope of the size query is decided by the adapters: totals are per-world for
- * `*.dcl.eth` worlds and per-place for shared Genesis City realms, and the existing-value
+ * `*.eth` worlds and per-place for shared Genesis City realms, and the existing-value
  * credit is always resolved against the exact `(place_id, key)` row being replaced.
  *
  * @param components - Required components: config, logs, worldStorage, playerStorage, envStorage

@@ -19,7 +19,7 @@ interface LandsParcelPermissionsResponse {
  * This component orchestrates permission checks by:
  * 1. Routing Genesis City scenes (shared realms such as `main`) through parcel-based permission validation.
  * 2. Checking LAMBDAS parcel permissions for owner/operator-style access.
- * 3. Routing worlds (`*.dcl.eth`) through worlds-content-server permission checks.
+ * 3. Routing worlds (`*.eth`, DCL NAMEs and ENS) through worlds-content-server permission checks.
  * 4. Granting access when the address is either the world owner or an allowed deployer.
  *
  * @param components - Required components: worldsContentServer, fetcher, config, logs

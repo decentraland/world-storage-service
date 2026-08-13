@@ -7,7 +7,7 @@ import type { AppComponents } from '../../types'
  * Builds the advisory lock key for a quota scope.
  *
  * The lock granularity must match the scope the quota is computed over: per world for
- * `*.dcl.eth` worlds, per place for shared Genesis City realms (locking the whole `main`
+ * `*.eth` worlds, per place for shared Genesis City realms (locking the whole `main`
  * realm would serialize every Genesis City write globally), and additionally per player
  * for player storage.
  *

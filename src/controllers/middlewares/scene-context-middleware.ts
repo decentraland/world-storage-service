@@ -1,7 +1,7 @@
 import type { IHttpServerComponent } from '@dcl/core-commons'
 import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { InvalidRequestError } from '@dcl/http-commons'
-import { isDclWorldName } from '../../utils/worldName'
+import { isWorldName } from '../../utils/worldName'
 import type { GlobalContext } from '../../types'
 
 export interface SceneAuthMetadata extends Record<string, unknown> {
@@ -12,7 +12,7 @@ export interface SceneAuthMetadata extends Record<string, unknown> {
 
 /** Fallback realm name used to identify Genesis City when the caller does not
  * send a `realmName`/`realm.serverName` (admin tooling that writes env vars for
- * lands, for instance). Treated as "not a .dcl.eth world" downstream, which is
+ * lands, for instance). Treated as "not a world" downstream, which is
  * all the Places resolution needs. */
 const GENESIS_CITY_REALM = 'main'
 
@@ -76,7 +76,7 @@ export const sceneContextMiddleware: IHttpServerComponent.IRequestHandler<
     throw new InvalidRequestError('Request must include a realm name or a parcel')
   }
 
-  const isWorld = realmFromMetadata ? isDclWorldName(realmFromMetadata) : false
+  const isWorld = realmFromMetadata ? isWorldName(realmFromMetadata) : false
   const worldName = isWorld && realmFromMetadata ? realmFromMetadata : GENESIS_CITY_REALM
   const resolvedParcel = parcel ?? '0,0'
 

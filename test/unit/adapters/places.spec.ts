@@ -107,6 +107,53 @@ describe('PlacesComponent', () => {
     })
   })
 
+  describe('when resolving a place ID for an ENS world', () => {
+    beforeEach(() => {
+      fetcher.fetch.mockResolvedValueOnce(
+        mockResponse({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            ok: true,
+            total: 1,
+            data: [{ id: PLACE_IDS.DEFAULT }]
+          })
+        })
+      )
+    })
+
+    it('should query by world name rather than by position alone', async () => {
+      await places.resolvePlaceId(WORLD_NAMES.ENS, '0,0')
+      expect(fetcher.fetch).toHaveBeenCalledWith(
+        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.ENS)}&positions=${encodeURIComponent('0,0')}`,
+        { timeout: 5000, attempts: 3, retryDelay: 200 }
+      )
+    })
+
+    it('should cache the result under the ENS world name', async () => {
+      await places.resolvePlaceId(WORLD_NAMES.ENS, '0,0')
+      expect(cache.set).toHaveBeenCalledWith(`places:${WORLD_NAMES.ENS}:0,0`, PLACE_IDS.DEFAULT, 300)
+    })
+  })
+
+  describe('when an ENS world is not indexed by the Places API', () => {
+    beforeEach(() => {
+      fetcher.fetch.mockResolvedValue(
+        mockResponse({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            ok: true,
+            total: 0,
+            data: []
+          })
+        })
+      )
+    })
+
+    it('should fail closed with an InvalidRequestError instead of resolving a Genesis City place', async () => {
+      await expect(places.resolvePlaceId(WORLD_NAMES.ENS, '0,0')).rejects.toThrow(InvalidRequestError)
+    })
+  })
+
   describe('when the place ID is already cached', () => {
     beforeEach(() => {
       cache.get.mockResolvedValueOnce(PLACE_IDS.DEFAULT)
