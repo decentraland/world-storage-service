@@ -141,8 +141,11 @@ describe('sceneContextMiddleware', () => {
       await sceneContextMiddleware(ctx, next)
     })
 
-    it('should scope the world by its ENS name rather than by the client-supplied parcel', () => {
+    it('should keep the ENS name as the world name', () => {
       expect(ctx.worldName).toBe(WORLD_NAMES.ENS)
+    })
+
+    it('should resolve the place using the ENS world name and the supplied parcel', () => {
       expect(places.resolvePlaceId).toHaveBeenCalledWith(WORLD_NAMES.ENS, PARCELS.GENESIS_CITY)
     })
   })

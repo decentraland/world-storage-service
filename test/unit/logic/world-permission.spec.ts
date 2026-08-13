@@ -216,12 +216,29 @@ describe('World Permission Component', () => {
 
       beforeEach(async () => {
         getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+        // LAMBDAS is primed to grant, so a fallback to the Genesis City path would flip this to true
+        fetcher.fetch.mockResolvedValueOnce(
+          mockResponse({
+            ok: true,
+            json: async () => ({
+              owner: true,
+              operator: false,
+              updateOperator: false,
+              updateManager: false,
+              approvedForAll: false
+            })
+          })
+        )
         component = await createComponent()
         result = await component.hasWorldPermission(WORLD_NAMES.ENS, ADDRESSES.OTHER, PARCELS.DEFAULT)
       })
 
-      it('should return false even when the caller holds LAND at the base parcel', () => {
+      it('should return false even though LAND ownership at the base parcel would grant', () => {
         expect(result).toBe(false)
+      })
+
+      it('should not consult the LAND permission check', () => {
+        expect(fetcher.fetch).not.toHaveBeenCalled()
       })
     })
 
