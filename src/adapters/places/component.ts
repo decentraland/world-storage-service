@@ -1,7 +1,7 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
-import { isDclWorldName } from '../../utils/worldName'
+import { isWorldName } from '../../utils/worldName'
 import type { IPlacesComponent } from './types'
 import type { AppComponents } from '../../types'
 
@@ -34,10 +34,10 @@ export async function createPlacesComponent(
   function buildPlacesUrl(worldName: string, parcel: string): string {
     const baseUrl = `${placesUrl.replace(/\/$/, '')}/api/places`
     const encodedParcel = encodeURIComponent(parcel)
-    // Only `.dcl.eth` realms are Decentraland Worlds. Any other realmName
-    // (e.g. `main` in prod, `artemis` in zone) is a Genesis City realm —
-    // those scenes are identified by parcel position alone.
-    const isWorld = isDclWorldName(worldName)
+    // Only `.eth` realms are worlds. Any other realmName (e.g. `main` in prod,
+    // `artemis` in zone) is a Genesis City realm — those scenes are identified
+    // by parcel position alone.
+    const isWorld = isWorldName(worldName)
 
     if (!isWorld) {
       return `${baseUrl}?positions=${encodedParcel}`

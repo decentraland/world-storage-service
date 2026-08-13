@@ -128,7 +128,7 @@ export interface IPlayerStorageComponent {
    * When `key` is omitted, `existingValueSize` is 0 and only total usage matters.
    * Used by usage endpoints.
    *
-   * Totals are aggregated per world (across all scenes) for `*.dcl.eth` worlds, and
+   * Totals are aggregated per world (across all scenes) for `*.eth` worlds, and
    * per place for shared Genesis City realms.
    *
    * @param worldName - The world identifier

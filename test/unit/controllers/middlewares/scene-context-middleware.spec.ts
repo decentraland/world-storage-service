@@ -3,7 +3,7 @@ import {
   type SceneAuthMetadata,
   sceneContextMiddleware
 } from '../../../../src/controllers/middlewares/scene-context-middleware'
-import { PLACE_IDS, WORLD_NAMES } from '../../../fixtures'
+import { PARCELS, PLACE_IDS, WORLD_NAMES } from '../../../fixtures'
 import { createLogsMockedComponent } from '../../../mocks/components'
 import { buildTestContext } from '../../utils/context'
 import type { IPlacesComponent } from '../../../../src/adapters/places/types'
@@ -103,6 +103,80 @@ describe('sceneContextMiddleware', () => {
       expect(places.resolvePlaceId).toHaveBeenCalledWith('main', '-125,-96')
       expect(next).toHaveBeenCalled()
       expect(result).toEqual({ status: 200 })
+    })
+  })
+
+  describe('when an ENS realm name is provided', () => {
+    let metadata: SceneAuthMetadata
+
+    beforeEach(async () => {
+      next.mockResolvedValue({ status: 200 })
+      metadata = { realm: { serverName: WORLD_NAMES.ENS } }
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
+      result = (await sceneContextMiddleware(ctx, next)) as { status: number }
+    })
+
+    it('should keep the ENS name as the world name instead of rewriting it to Genesis City', () => {
+      expect(ctx.worldName).toBe(WORLD_NAMES.ENS)
+    })
+
+    it('should resolve the place by world name so the scope is not shared with the base parcel', () => {
+      expect(places.resolvePlaceId).toHaveBeenCalledWith(WORLD_NAMES.ENS, '0,0')
+    })
+
+    it('should call next with the resolved context', () => {
+      expect(next).toHaveBeenCalled()
+      expect(result).toEqual({ status: 200 })
+    })
+  })
+
+  describe('when an ENS realm name is provided with a parcel', () => {
+    let metadata: SceneAuthMetadata
+
+    beforeEach(async () => {
+      next.mockResolvedValue({ status: 200 })
+      places.resolvePlaceId.mockResolvedValueOnce(PLACE_IDS.SCENE_A)
+      metadata = { realm: { serverName: WORLD_NAMES.ENS }, parcel: PARCELS.GENESIS_CITY }
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
+      await sceneContextMiddleware(ctx, next)
+    })
+
+    it('should keep the ENS name as the world name', () => {
+      expect(ctx.worldName).toBe(WORLD_NAMES.ENS)
+    })
+
+    it('should resolve the place using the ENS world name and the supplied parcel', () => {
+      expect(places.resolvePlaceId).toHaveBeenCalledWith(WORLD_NAMES.ENS, PARCELS.GENESIS_CITY)
+    })
+  })
+
+  describe('when an ENS realm name is provided with mixed casing', () => {
+    let metadata: SceneAuthMetadata
+
+    beforeEach(async () => {
+      next.mockResolvedValue({ status: 200 })
+      metadata = { realm: { serverName: 'Test-World.ETH' } }
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
+      await sceneContextMiddleware(ctx, next)
+    })
+
+    it('should lowercase the world name and still detect it as a world', () => {
+      expect(ctx.worldName).toBe('test-world.eth')
+    })
+  })
+
+  describe('when an ENS subdomain realm name is provided', () => {
+    let metadata: SceneAuthMetadata
+
+    beforeEach(async () => {
+      next.mockResolvedValue({ status: 200 })
+      metadata = { realm: { serverName: 'arcade.daohq.dappcraft.eth' } }
+      ctx = buildCtx({ auth: 'signature', authMetadata: metadata })
+      await sceneContextMiddleware(ctx, next)
+    })
+
+    it('should keep the subdomain as the world name', () => {
+      expect(ctx.worldName).toBe('arcade.daohq.dappcraft.eth')
     })
   })
 

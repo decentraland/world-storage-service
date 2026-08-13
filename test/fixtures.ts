@@ -24,6 +24,8 @@ export const ADDRESSES = {
 export const WORLD_NAMES = {
   DEFAULT: 'test-world.dcl.eth',
   FALLBACK: 'fallback.dcl.eth',
+  // ENS world: served by worlds-content-server when ALLOW_ENS_DOMAINS is enabled
+  ENS: 'test-world.eth',
   WITH_SPECIAL_CHARS: 'test world/name'
 } as const
 

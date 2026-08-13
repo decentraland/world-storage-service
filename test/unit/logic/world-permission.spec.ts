@@ -187,6 +187,61 @@ describe('World Permission Component', () => {
       })
     })
 
+    describe('and the worldName is an ENS world', () => {
+      let component: IWorldPermissionComponent
+      let result: boolean
+
+      beforeEach(async () => {
+        getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+        component = await createComponent()
+        result = await component.hasWorldPermission(WORLD_NAMES.ENS, ADDRESSES.OWNER, PARCELS.DEFAULT)
+      })
+
+      it('should resolve permissions from the content server for the ENS name', () => {
+        expect(getPermissionsMock).toHaveBeenCalledWith(WORLD_NAMES.ENS)
+      })
+
+      it('should not fall back to a LAND permission check at the base parcel', () => {
+        expect(fetcher.fetch).not.toHaveBeenCalled()
+      })
+
+      it('should return true for the world owner', () => {
+        expect(result).toBe(true)
+      })
+    })
+
+    describe('and the worldName is an ENS world and the address holds no world permission', () => {
+      let component: IWorldPermissionComponent
+      let result: boolean
+
+      beforeEach(async () => {
+        getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+        // LAMBDAS is primed to grant, so a fallback to the Genesis City path would flip this to true
+        fetcher.fetch.mockResolvedValueOnce(
+          mockResponse({
+            ok: true,
+            json: async () => ({
+              owner: true,
+              operator: false,
+              updateOperator: false,
+              updateManager: false,
+              approvedForAll: false
+            })
+          })
+        )
+        component = await createComponent()
+        result = await component.hasWorldPermission(WORLD_NAMES.ENS, ADDRESSES.OTHER, PARCELS.DEFAULT)
+      })
+
+      it('should return false even though LAND ownership at the base parcel would grant', () => {
+        expect(result).toBe(false)
+      })
+
+      it('should not consult the LAND permission check', () => {
+        expect(fetcher.fetch).not.toHaveBeenCalled()
+      })
+    })
+
     describe('and the worldName is main (Genesis City)', () => {
       const LAMBDAS_URL = 'https://peer.decentraland.org/lambdas'
 

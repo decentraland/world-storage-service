@@ -186,7 +186,7 @@ export const createEnvStorageComponent = ({
    * `(place_id, key)` row and the total env usage for the scope. If `key` is
    * omitted, `existingValueSize` is set to 0.
    *
-   * Totals are aggregated per world (across all scenes) for `*.dcl.eth` worlds, and
+   * Totals are aggregated per world (across all scenes) for `*.eth` worlds, and
    * per place for shared Genesis City realms — unrelated land scenes must not compete
    * for (or disclose) a single realm-wide pool.
    *
