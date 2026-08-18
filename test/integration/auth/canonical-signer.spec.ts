@@ -80,14 +80,23 @@ test('when a request carries a scene signer', function ({ components, stubCompon
   // signature verifies and no third party can add or strip the padding in flight. These are
   // therefore signed as delivered rather than tampered with.
   //
-  // REOPENED GAP (@dcl/crypto-middleware 6): 5.1.0 rejected these with 400 `Invalid chain
+  // BEHAVIOUR CHANGE (@dcl/crypto-middleware 6): 5.1.0 rejected these with 400 `Invalid chain
   // metadata` via a canonical-value guard requiring `signer`/`intent` to equal their own
-  // `trim().toLowerCase()`. Version 6 drops that guard. Binding the metadata bytes to the
-  // signature closes the re-casing hole above, but says nothing about a value that was already
-  // padded when it was signed. So a padded scene signer once again passes the strict `!==` in
-  // routes.ts and is served as an ordinary user-signed request — a silent misclassification
-  // rather than a signature bypass. These cases pin that behaviour; closing it again means
-  // trimming before the comparison in routes.ts, which is a deliberate change of its own.
+  // `trim().toLowerCase()`. Version 6 drops that guard, and binding the metadata bytes to the
+  // signature says nothing about a value that was already padded when signed. So a padded scene
+  // signer now passes the strict `!==` in routes.ts and is served as an ordinary user-signed
+  // request.
+  //
+  // This is not a privilege escalation. Producing a padded value requires holding the identity
+  // key, and a key holder can simply omit `signer` altogether — which 5.1.0 permitted too, since
+  // its guard only inspected `typeof value === 'string'` and absent values always passed. The
+  // guard rejected one spelling of a self-declared label while leaving omission open, so it never
+  // established the invariant it appeared to. `signer` is a self-declared role; the authenticated
+  // fact is the address recovered from the auth chain.
+  //
+  // Canonical form is therefore a client-side contract. A service that wants it enforced does so
+  // in `metadataValidator`, which runs before signature verification. These cases pin the current
+  // behaviour so a future change to it is deliberate rather than accidental.
   describe.each([
     ['a leading space', ' decentraland-kernel-scene'],
     ['a trailing space', 'decentraland-kernel-scene '],
