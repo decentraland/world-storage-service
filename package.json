@@ -15,7 +15,7 @@
   "dependencies": {
     "@dcl/core-commons": "^0.10.1",
     "@dcl/crypto": "3.7.0",
-    "@dcl/crypto-middleware": "^6.0.0",
+    "@dcl/crypto-middleware": "^6.1.0",
     "@dcl/http-commons": "^2.0.0",
     "@dcl/http-requests-logger-component": "^1.0.0",
     "@dcl/http-server": "^2.1.0",

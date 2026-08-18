@@ -1,5 +1,5 @@
 import type { IHttpServerComponent } from '@dcl/core-commons'
-import { wellKnownComponents } from '@dcl/crypto-middleware'
+import { rejectIfSigner, wellKnownComponents } from '@dcl/crypto-middleware'
 import { errorHandler } from '@dcl/http-commons'
 import type { RoutedContext } from '@dcl/http-server'
 import { Router } from '@dcl/http-server'
@@ -65,7 +65,9 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
         error: (err.statusCode ?? 500) >= 500 ? 'Internal error' : err.message,
         message: 'This endpoint requires a signed fetch request. See ADR-44.'
       }),
-      metadataValidator: metadata => metadata?.signer !== 'decentraland-kernel-scene' // prevent requests from scenes
+      // Refuses scene-signed requests, and refuses a `signer` that is not already canonical rather
+      // than comparing it — a padded or re-cased value would otherwise read as "not a scene".
+      metadataValidator: rejectIfSigner('decentraland-kernel-scene')
     })
 
   // Reject oversized bodies before anything buffers or parses them; each PUT route is

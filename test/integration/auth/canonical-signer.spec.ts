@@ -64,39 +64,32 @@ test('when a request carries a scene signer', function ({ components, stubCompon
       })
     })
 
-    it('should respond with a 401 and an invalid signature error rather than let it past the scene gate', async () => {
+    it('should reject it rather than let it past the scene gate', async () => {
       const body = await response.json()
 
-      // The metadata validator in routes.ts runs before signature verification and lets this
-      // through: the mixed-case spelling fails its strict `!== 'decentraland-kernel-scene'`
-      // check, so the request reads as a directly user-signed one. The signature is what
-      // refuses it now — the delivered metadata bytes are not the ones that were signed.
-      expect(response.status).toBe(401)
-      expect(body.error).toMatch(/^Invalid signature/)
+      // Two layers refuse this and the earlier one wins. `rejectIfSigner` refuses a non-canonical
+      // signer, and `metadataValidator` runs before signature verification, so the gate answers
+      // first with a 400. The signature would refuse it a step later anyway — the delivered bytes
+      // are not the ones that were signed — but it never gets that far, which is the cheaper
+      // outcome since no crypto runs.
+      expect(response.status).toBe(400)
+      expect(body.error).toMatch(/^Invalid metadata content: /)
     })
   })
 
   // Whitespace is signature-bound: the padded value is signed exactly as delivered, so the
   // signature verifies and no third party can add or strip the padding in flight. These are
-  // therefore signed as delivered rather than tampered with.
+  // therefore signed as delivered rather than tampered with, and the signature cannot refuse them.
   //
-  // BEHAVIOUR CHANGE (@dcl/crypto-middleware 6): 5.1.0 rejected these with 400 `Invalid chain
-  // metadata` via a canonical-value guard requiring `signer`/`intent` to equal their own
-  // `trim().toLowerCase()`. Version 6 drops that guard, and binding the metadata bytes to the
-  // signature says nothing about a value that was already padded when signed. So a padded scene
-  // signer now passes the strict `!==` in routes.ts and is served as an ordinary user-signed
-  // request.
+  // `rejectIfSigner` does. It refuses a `signer` that is not already canonical instead of
+  // comparing it, so a padded value never reaches the comparison it would otherwise slip past by
+  // reading as "not the scene signer". Nothing is folded — the value is rejected, not rewritten.
   //
-  // This is not a privilege escalation. Producing a padded value requires holding the identity
-  // key, and a key holder can simply omit `signer` altogether — which 5.1.0 permitted too, since
-  // its guard only inspected `typeof value === 'string'` and absent values always passed. The
-  // guard rejected one spelling of a self-declared label while leaving omission open, so it never
-  // established the invariant it appeared to. `signer` is a self-declared role; the authenticated
-  // fact is the address recovered from the auth chain.
-  //
-  // Canonical form is therefore a client-side contract. A service that wants it enforced does so
-  // in `metadataValidator`, which runs before signature verification. These cases pin the current
-  // behaviour so a future change to it is deliberate rather than accidental.
+  // Between 5.1.0 and this, the library briefly had no view on it: 6.0.0 dropped the canonical
+  // guard, and binding metadata bytes to the signature says nothing about a value that was already
+  // non-canonical when signed. That gap was never an escalation — producing such a value needs the
+  // identity key, and a key holder can simply omit `signer`, which every version has allowed — but
+  // it is closed here, at the service, which is where the canonical contract belongs.
   describe.each([
     ['a leading space', ' decentraland-kernel-scene'],
     ['a trailing space', 'decentraland-kernel-scene '],
@@ -112,11 +105,11 @@ test('when a request carries a scene signer', function ({ components, stubCompon
       })
     })
 
-    it('should authenticate and reach the handler, misread as a user-signed request', async () => {
+    it('should reject it rather than let it read as a user-signed request', async () => {
       const body = await response.json()
 
-      expect(response.status).toBe(404)
-      expect(body).toEqual({ error: 'Not Found', message: 'Value not found' })
+      expect(response.status).toBe(400)
+      expect(body.error).toMatch(/^Invalid metadata content: /)
     })
   })
 
