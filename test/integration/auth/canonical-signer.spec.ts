@@ -12,10 +12,11 @@ const SIGNED_METADATA = { ...TEST_REALM_METADATA, signer: 'decentraland-kernel-s
 const DELIVERED_METADATA = JSON.stringify({ ...TEST_REALM_METADATA, signer: 'Decentraland-Kernel-Scene' })
 
 /**
- * Delivers a metadata header that differs from the one `signedFetch` actually signed. The canonical
- * payload is lowercased before signing, so a value differing only in case shares the signature —
- * the request arrives genuinely authentic while reading differently to any case-sensitive
- * comparison downstream. This is the attack, not a mock: nothing here weakens the signature.
+ * Delivers a metadata header that differs from the one `signedFetch` actually signed. As of
+ * @dcl/crypto-middleware 6 the metadata is joined into the signed payload verbatim, so rewriting
+ * any of its bytes — casing included — no longer shares the original signature. This is still a
+ * genuine in-flight tamper rather than a mock: nothing here weakens the signature, the rewrite is
+ * simply now caught by signature verification instead of by a metadata guard.
  */
 function createTamperingFetch(localFetch: IFetchComponent, deliveredMetadata: string): typeof fetch {
   return (async (input: Request): Promise<Response> => {
@@ -63,22 +64,30 @@ test('when a request carries a scene signer', function ({ components, stubCompon
       })
     })
 
-    it('should reject the request rather than let it past the scene gate', async () => {
+    it('should respond with a 401 and an invalid signature error rather than let it past the scene gate', async () => {
       const body = await response.json()
 
-      // Without this guard the mixed-case spelling fails the strict `!== 'decentraland-kernel-scene'`
-      // check in routes.ts, so the scene request is read as a directly user-signed one and served.
-      expect(response.status).toBe(400)
-      // The raw metadata is echoed back truncated at 64 characters, so match the prefix.
-      expect(body.error).toMatch(/^Invalid chain metadata: /)
+      // The metadata validator in routes.ts runs before signature verification and lets this
+      // through: the mixed-case spelling fails its strict `!== 'decentraland-kernel-scene'`
+      // check, so the request reads as a directly user-signed one. The signature is what
+      // refuses it now — the delivered metadata bytes are not the ones that were signed.
+      expect(response.status).toBe(401)
+      expect(body.error).toMatch(/^Invalid signature/)
     })
   })
 
-  // Whitespace is signature-bound: `createPayload` lowercases but never trims, so a padded value
-  // changes the signed bytes and no third party can add or strip it in flight. These are therefore
-  // signed as delivered rather than tampered with. What they pin is the other half of the guard —
-  // a padded value used to pass the strict `!==` in routes.ts and be read as user-signed, which is
-  // a silent misclassification rather than a signature bypass.
+  // Whitespace is signature-bound: the padded value is signed exactly as delivered, so the
+  // signature verifies and no third party can add or strip the padding in flight. These are
+  // therefore signed as delivered rather than tampered with.
+  //
+  // REOPENED GAP (@dcl/crypto-middleware 6): 5.1.0 rejected these with 400 `Invalid chain
+  // metadata` via a canonical-value guard requiring `signer`/`intent` to equal their own
+  // `trim().toLowerCase()`. Version 6 drops that guard. Binding the metadata bytes to the
+  // signature closes the re-casing hole above, but says nothing about a value that was already
+  // padded when it was signed. So a padded scene signer once again passes the strict `!==` in
+  // routes.ts and is served as an ordinary user-signed request — a silent misclassification
+  // rather than a signature bypass. These cases pin that behaviour; closing it again means
+  // trimming before the comparison in routes.ts, which is a deliberate change of its own.
   describe.each([
     ['a leading space', ' decentraland-kernel-scene'],
     ['a trailing space', 'decentraland-kernel-scene '],
@@ -94,11 +103,11 @@ test('when a request carries a scene signer', function ({ components, stubCompon
       })
     })
 
-    it('should be rejected by the guard rather than reaching the scene gate', async () => {
+    it('should authenticate and reach the handler, misread as a user-signed request', async () => {
       const body = await response.json()
 
-      expect(response.status).toBe(400)
-      expect(body.error).toMatch(/^Invalid chain metadata: /)
+      expect(response.status).toBe(404)
+      expect(body).toEqual({ error: 'Not Found', message: 'Value not found' })
     })
   })
 
