@@ -12,10 +12,11 @@ const SIGNED_METADATA = { ...TEST_REALM_METADATA, signer: 'decentraland-kernel-s
 const DELIVERED_METADATA = JSON.stringify({ ...TEST_REALM_METADATA, signer: 'Decentraland-Kernel-Scene' })
 
 /**
- * Delivers a metadata header that differs from the one `signedFetch` actually signed. The canonical
- * payload is lowercased before signing, so a value differing only in case shares the signature —
- * the request arrives genuinely authentic while reading differently to any case-sensitive
- * comparison downstream. This is the attack, not a mock: nothing here weakens the signature.
+ * Delivers a metadata header that differs from the one `signedFetch` actually signed. As of
+ * @dcl/crypto-middleware 6 the metadata is joined into the signed payload verbatim, so rewriting
+ * any of its bytes — casing included — no longer shares the original signature. This is still a
+ * genuine in-flight tamper rather than a mock: nothing here weakens the signature, the rewrite is
+ * simply now caught by signature verification instead of by a metadata guard.
  */
 function createTamperingFetch(localFetch: IFetchComponent, deliveredMetadata: string): typeof fetch {
   return (async (input: Request): Promise<Response> => {
@@ -63,22 +64,32 @@ test('when a request carries a scene signer', function ({ components, stubCompon
       })
     })
 
-    it('should reject the request rather than let it past the scene gate', async () => {
+    it('should reject it rather than let it past the scene gate', async () => {
       const body = await response.json()
 
-      // Without this guard the mixed-case spelling fails the strict `!== 'decentraland-kernel-scene'`
-      // check in routes.ts, so the scene request is read as a directly user-signed one and served.
+      // Two layers refuse this and the earlier one wins. `rejectIfSigner` refuses a non-canonical
+      // signer, and `metadataValidator` runs before signature verification, so the gate answers
+      // first with a 400. The signature would refuse it a step later anyway — the delivered bytes
+      // are not the ones that were signed — but it never gets that far, which is the cheaper
+      // outcome since no crypto runs.
       expect(response.status).toBe(400)
-      // The raw metadata is echoed back truncated at 64 characters, so match the prefix.
-      expect(body.error).toMatch(/^Invalid chain metadata: /)
+      expect(body.error).toMatch(/^Invalid metadata content: /)
     })
   })
 
-  // Whitespace is signature-bound: `createPayload` lowercases but never trims, so a padded value
-  // changes the signed bytes and no third party can add or strip it in flight. These are therefore
-  // signed as delivered rather than tampered with. What they pin is the other half of the guard —
-  // a padded value used to pass the strict `!==` in routes.ts and be read as user-signed, which is
-  // a silent misclassification rather than a signature bypass.
+  // Whitespace is signature-bound: the padded value is signed exactly as delivered, so the
+  // signature verifies and no third party can add or strip the padding in flight. These are
+  // therefore signed as delivered rather than tampered with, and the signature cannot refuse them.
+  //
+  // `rejectIfSigner` does. It refuses a `signer` that is not already canonical instead of
+  // comparing it, so a padded value never reaches the comparison it would otherwise slip past by
+  // reading as "not the scene signer". Nothing is folded — the value is rejected, not rewritten.
+  //
+  // Between 5.1.0 and this, the library briefly had no view on it: 6.0.0 dropped the canonical
+  // guard, and binding metadata bytes to the signature says nothing about a value that was already
+  // non-canonical when signed. That gap was never an escalation — producing such a value needs the
+  // identity key, and a key holder can simply omit `signer`, which every version has allowed — but
+  // it is closed here, at the service, which is where the canonical contract belongs.
   describe.each([
     ['a leading space', ' decentraland-kernel-scene'],
     ['a trailing space', 'decentraland-kernel-scene '],
@@ -94,11 +105,11 @@ test('when a request carries a scene signer', function ({ components, stubCompon
       })
     })
 
-    it('should be rejected by the guard rather than reaching the scene gate', async () => {
+    it('should reject it rather than let it read as a user-signed request', async () => {
       const body = await response.json()
 
       expect(response.status).toBe(400)
-      expect(body.error).toMatch(/^Invalid chain metadata: /)
+      expect(body.error).toMatch(/^Invalid metadata content: /)
     })
   })
 
