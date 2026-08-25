@@ -100,15 +100,27 @@ describe('when an explorer signs the pre-6.0.0 folded payload', () => {
     })
   })
 
+  /**
+   * The third column names the guard that answers, and `signer` differs from the rest on purpose.
+   *
+   * Since @dcl/crypto-middleware 6.3.0 `rejectIfSigner` treats a key case-folding to `signer` as a
+   * rejection rather than an absence, and `metadataValidator` runs ahead of signature verification.
+   * So a re-spelled `signer` is refused by the scene gate first -- on both payload formats, which
+   * is the point of that upgrade -- and `assertLegacyMetadataKeys` never gets to it. The other
+   * three are read by this service but not by the gate, so the declared-key guard is still what
+   * refuses them, and still only on this path.
+   *
+   * Both are 400s and both refuse the request; which layer answers is the whole difference.
+   */
   describe.each([
-    ['signer', 'Signer'],
-    ['realmName', 'RealmName'],
-    ['parcel', 'Parcel'],
-    ['sceneId', 'SceneId']
-  ])('and the delivered metadata spells %s as %s', (declared, respelled) => {
+    ['signer', 'Signer', 'Invalid metadata content'],
+    ['realmName', 'RealmName', 'Invalid chain metadata'],
+    ['parcel', 'Parcel', 'Invalid chain metadata'],
+    ['sceneId', 'SceneId', 'Invalid chain metadata']
+  ])('and the delivered metadata spells %s as %s', (declared, respelled, expectedError) => {
     it('should be refused rather than authorized on a field the signature never pinned', async () => {
       await expect(run(EXPLORER_METADATA, respell(EXPLORER_METADATA, declared, respelled))).rejects.toThrow(
-        'Invalid chain metadata'
+        expectedError
       )
     })
   })
