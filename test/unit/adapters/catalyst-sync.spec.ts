@@ -1,3 +1,4 @@
+import { START_COMPONENT, STOP_COMPONENT } from '@well-known-components/interfaces'
 import type { IFetchComponent } from '@dcl/core-commons'
 import { createConfigMockedComponent, createFetchMockedComponent } from '@dcl/core-commons'
 import type { IPgComponent } from '@dcl/pg-component'
@@ -24,17 +25,19 @@ describe('CatalystSyncComponent', () => {
   }
 
   async function startCatalystSync(component: ICatalystSyncComponent): Promise<void> {
-    if (!component.start) {
-      throw new Error('catalystSync component does not implement start')
+    const start = component[START_COMPONENT]
+    if (!start) {
+      throw new Error('catalystSync component does not implement START_COMPONENT')
     }
-    await component.start({ started: () => true, live: () => true, getComponents: () => ({}) })
+    await start({ started: () => true, live: () => true, getComponents: () => ({}) })
   }
 
   async function stopCatalystSync(component: ICatalystSyncComponent): Promise<void> {
-    if (!component.stop) {
-      throw new Error('catalystSync component does not implement stop')
+    const stop = component[STOP_COMPONENT]
+    if (!stop) {
+      throw new Error('catalystSync component does not implement STOP_COMPONENT')
     }
-    await component.stop()
+    await stop()
   }
 
   function buildScene(overrides: Partial<WatcherScene> & { logsPermissions?: string[] } = {}): {
@@ -120,7 +123,7 @@ describe('CatalystSyncComponent', () => {
       it('should upsert the scene with lowercased addresses and realmKind genesis', () => {
         expect(sceneLogsAccess.upsertForScene).toHaveBeenCalledWith({
           sceneId: scene.sceneId,
-          worldName: 'genesis',
+          worldName: 'main',
           baseParcel: scene.base,
           title: scene.title,
           realmKind: 'genesis',

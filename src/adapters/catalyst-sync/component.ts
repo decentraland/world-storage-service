@@ -1,4 +1,5 @@
 import { SQL } from 'sql-template-strings'
+import { START_COMPONENT, STOP_COMPONENT } from '@well-known-components/interfaces'
 import { EntityType } from '@dcl/schemas'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
@@ -7,7 +8,7 @@ import type { AppComponents } from '../../types'
 import type { WorldScene } from '../worlds-content-server/types'
 
 const CURSOR_NAME = 'catalyst-pointer-changes'
-const GENESIS_WORLD_NAME = 'genesis'
+const GENESIS_WORLD_NAME = 'main'
 const SNAPSHOT_FETCH_OPTIONS = { ...UPSTREAM_FETCH_OPTIONS, timeout: 30_000 }
 
 type JsonRecord = Record<string, unknown>
@@ -332,7 +333,7 @@ export async function createCatalystSyncComponent(
   }
 
   return {
-    start,
-    stop
+    [START_COMPONENT]: start,
+    [STOP_COMPONENT]: stop
   }
 }
