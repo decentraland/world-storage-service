@@ -10,6 +10,7 @@ import type { IQueueConsumerComponent } from '@dcl/queue-consumer-component'
 import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
 import type { IQueueComponent } from '@dcl/sqs-component'
 import type { ICatalystContentComponent } from '../adapters/catalyst-content/types'
+import type { ICatalystSyncComponent } from '../adapters/catalyst-sync/types'
 import type { IDeploymentConsumerComponent } from '../adapters/deployment-consumer/types'
 import type { IEncryptionComponent } from '../adapters/encryption/types'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'
@@ -59,6 +60,7 @@ export interface BaseComponents {
   sqs: IQueueComponent
   queueConsumer: IQueueConsumerComponent
   deploymentConsumer: IDeploymentConsumerComponent
+  catalystSync: ICatalystSyncComponent
 }
 
 // components used in runtime

@@ -18,6 +18,7 @@ import type { IQueueComponent } from '@dcl/sqs-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
 import { createTracerComponent } from '@dcl/tracer-component'
 import { createCatalystContentComponent } from './adapters/catalyst-content'
+import { createCatalystSyncComponent } from './adapters/catalyst-sync'
 import { createDeploymentConsumerComponent } from './adapters/deployment-consumer'
 import { createEncryptionComponent } from './adapters/encryption'
 import { createEnvStorageComponent } from './adapters/env-storage'
@@ -168,6 +169,14 @@ export async function initComponents(): Promise<AppComponents> {
     worldsContentServer,
     sceneLogsAccess
   })
+  const catalystSync = await createCatalystSyncComponent({
+    config,
+    logs,
+    fetcher,
+    pg,
+    catalystContent,
+    sceneLogsAccess
+  })
 
   return {
     fetcher,
@@ -193,6 +202,7 @@ export async function initComponents(): Promise<AppComponents> {
     sceneLogsAccess,
     sqs,
     queueConsumer,
-    deploymentConsumer
+    deploymentConsumer,
+    catalystSync
   }
 }
