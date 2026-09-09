@@ -3,24 +3,33 @@ import type { IFetchComponent } from '@dcl/core-commons'
 import { createConfigMockedComponent, createFetchMockedComponent } from '@dcl/core-commons'
 import { createWorldPermissionComponent } from '../../../src/logic/world-permission'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../fixtures'
-import { createLogsMockedComponent } from '../../mocks/components'
-import type { IWorldsContentServerComponent, WorldPermissions } from '../../../src/adapters/worlds-content-server'
+import { createCatalystContentMockedComponent, createLogsMockedComponent } from '../../mocks/components'
+import type { ICatalystContentComponent } from '../../../src/adapters/catalyst-content'
+import type {
+  IWorldsContentServerComponent,
+  WorldPermissions,
+  WorldScene
+} from '../../../src/adapters/worlds-content-server'
 import type { IWorldPermissionComponent } from '../../../src/logic/world-permission'
 
 describe('World Permission Component', () => {
   let getPermissionsMock: jest.Mock
+  let getScenesMock: jest.Mock
   let worldsContentServerMock: IWorldsContentServerComponent
+  let catalystContent: jest.Mocked<ICatalystContentComponent>
   let fetcher: jest.Mocked<IFetchComponent>
   let config: jest.Mocked<IConfigComponent>
 
   beforeEach(async () => {
     getPermissionsMock = jest.fn()
+    getScenesMock = jest.fn()
     worldsContentServerMock = {
-      getPermissions: getPermissionsMock
+      getPermissions: getPermissionsMock,
+      getScenes: getScenesMock
     }
+    catalystContent = createCatalystContentMockedComponent()
     fetcher = createFetchMockedComponent() as jest.Mocked<IFetchComponent>
     config = createConfigMockedComponent() as jest.Mocked<IConfigComponent>
-    // LAMBDAS_URL is required at component init since the factory reads it at startup
     config.requireString.mockResolvedValue('https://peer.decentraland.org/lambdas')
   })
 
@@ -48,10 +57,22 @@ describe('World Permission Component', () => {
   function createComponent(): Promise<IWorldPermissionComponent> {
     return createWorldPermissionComponent({
       worldsContentServer: worldsContentServerMock,
+      catalystContent,
       fetcher,
       config,
       logs: createLogsMockedComponent()
     })
+  }
+
+  function buildWorldScene(overrides: Partial<WorldScene> = {}): WorldScene {
+    return {
+      sceneId: 'scene-id',
+      base: PARCELS.DEFAULT,
+      parcels: [PARCELS.DEFAULT],
+      title: 'Test scene',
+      logsPermissions: [],
+      ...overrides
+    }
   }
 
   describe('when calling hasWorldPermission', () => {
@@ -379,6 +400,145 @@ describe('World Permission Component', () => {
             'LAMBDAS network error'
           )
         })
+      })
+    })
+  })
+
+  describe('when calling getLogsReadableScene', () => {
+    describe('and the worldName is a world', () => {
+      describe('and one scene covers the parcel and lists the address in logsPermissions', () => {
+        let component: IWorldPermissionComponent
+        let scene: WorldScene
+        let result: WorldScene | null
+
+        beforeEach(async () => {
+          scene = buildWorldScene({ logsPermissions: [ADDRESSES.PLAYER.toLowerCase()] })
+          getScenesMock.mockResolvedValueOnce([scene])
+          component = await createComponent()
+          result = await component.getLogsReadableScene(WORLD_NAMES.DEFAULT, ADDRESSES.PLAYER, PARCELS.DEFAULT)
+        })
+
+        it('should return the matched scene', () => {
+          expect(result).toBe(scene)
+        })
+      })
+
+      describe('and the address is absent from logsPermissions', () => {
+        let component: IWorldPermissionComponent
+        let result: WorldScene | null
+
+        beforeEach(async () => {
+          getScenesMock.mockResolvedValueOnce([buildWorldScene({ logsPermissions: [ADDRESSES.OWNER] })])
+          component = await createComponent()
+          result = await component.getLogsReadableScene(WORLD_NAMES.DEFAULT, ADDRESSES.PLAYER, PARCELS.DEFAULT)
+        })
+
+        it('should return null', () => {
+          expect(result).toBeNull()
+        })
+      })
+
+      describe('and the metadata address casing differs from the lowercased signer', () => {
+        let component: IWorldPermissionComponent
+        let scene: WorldScene
+        let result: WorldScene | null
+
+        beforeEach(async () => {
+          scene = buildWorldScene({ logsPermissions: [ADDRESSES.PLAYER.toLowerCase()] })
+          getScenesMock.mockResolvedValueOnce([scene])
+          component = await createComponent()
+          result = await component.getLogsReadableScene(
+            WORLD_NAMES.DEFAULT,
+            ADDRESSES.PLAYER.toUpperCase(),
+            PARCELS.DEFAULT
+          )
+        })
+
+        it('should return the matched scene (case-insensitive)', () => {
+          expect(result).toBe(scene)
+        })
+      })
+
+      describe('and zero scenes cover the parcel', () => {
+        let component: IWorldPermissionComponent
+        let result: WorldScene | null
+
+        beforeEach(async () => {
+          getScenesMock.mockResolvedValueOnce([buildWorldScene({ base: PARCELS.SCENE_A, parcels: [PARCELS.SCENE_A] })])
+          component = await createComponent()
+          result = await component.getLogsReadableScene(WORLD_NAMES.DEFAULT, ADDRESSES.PLAYER, PARCELS.DEFAULT)
+        })
+
+        it('should return null', () => {
+          expect(result).toBeNull()
+        })
+      })
+
+      describe('and two scenes cover the parcel (ambiguous match)', () => {
+        let component: IWorldPermissionComponent
+        let result: WorldScene | null
+
+        beforeEach(async () => {
+          getScenesMock.mockResolvedValueOnce([
+            buildWorldScene({ sceneId: 'scene-a', logsPermissions: [ADDRESSES.PLAYER] }),
+            buildWorldScene({ sceneId: 'scene-b', logsPermissions: [ADDRESSES.PLAYER] })
+          ])
+          component = await createComponent()
+          result = await component.getLogsReadableScene(WORLD_NAMES.DEFAULT, ADDRESSES.PLAYER, PARCELS.DEFAULT)
+        })
+
+        it('should return null', () => {
+          expect(result).toBeNull()
+        })
+      })
+    })
+
+    describe('and the worldName is main (Genesis City)', () => {
+      describe('and the active scene entity lists the address in logsPermissions', () => {
+        let component: IWorldPermissionComponent
+        let scene: WorldScene
+        let result: WorldScene | null
+
+        beforeEach(async () => {
+          scene = buildWorldScene({ base: PARCELS.GENESIS_CITY, logsPermissions: [ADDRESSES.PLAYER.toLowerCase()] })
+          catalystContent.getActiveSceneEntity.mockResolvedValueOnce(scene)
+          component = await createComponent()
+          result = await component.getLogsReadableScene('main', ADDRESSES.PLAYER, PARCELS.GENESIS_CITY)
+        })
+
+        it('should return the matched scene', () => {
+          expect(result).toBe(scene)
+        })
+      })
+
+      describe('and getActiveSceneEntity returns null', () => {
+        let component: IWorldPermissionComponent
+        let result: WorldScene | null
+
+        beforeEach(async () => {
+          catalystContent.getActiveSceneEntity.mockResolvedValueOnce(null)
+          component = await createComponent()
+          result = await component.getLogsReadableScene('main', ADDRESSES.PLAYER, PARCELS.GENESIS_CITY)
+        })
+
+        it('should return null', () => {
+          expect(result).toBeNull()
+        })
+      })
+    })
+
+    describe('and the upstream throws', () => {
+      let component: IWorldPermissionComponent
+      let result: WorldScene | null
+
+      beforeEach(async () => {
+        getScenesMock.mockRejectedValueOnce(new Error('Network error'))
+        component = await createComponent()
+        result = await component.getLogsReadableScene(WORLD_NAMES.DEFAULT, ADDRESSES.PLAYER, PARCELS.DEFAULT)
+      })
+
+      it('should return null (fail closed)', () => {
+        expect(result).toBeNull()
       })
     })
   })

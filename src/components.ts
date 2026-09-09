@@ -96,9 +96,15 @@ export async function initComponents(): Promise<AppComponents> {
   })
   const cache = createInMemoryCacheComponent()
   const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config, cache, logs })
-  const worldPermission = await createWorldPermissionComponent({ worldsContentServer, fetcher, config, logs })
   const places = await createPlacesComponent({ fetcher, config, cache, logs })
   const catalystContent = await createCatalystContentComponent({ fetcher, config, cache, logs })
+  const worldPermission = await createWorldPermissionComponent({
+    worldsContentServer,
+    catalystContent,
+    fetcher,
+    config,
+    logs
+  })
 
   return {
     fetcher,
