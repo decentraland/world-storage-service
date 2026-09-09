@@ -11,10 +11,14 @@ import { createHttpTracerComponent } from '@dcl/http-tracer-component'
 import { createInMemoryCacheComponent } from '@dcl/memory-cache-component'
 import { createMetricsComponent } from '@dcl/metrics'
 import { createPgComponent } from '@dcl/pg-component'
+import { createQueueConsumerComponent } from '@dcl/queue-consumer-component'
 import { createSchemaValidatorComponent } from '@dcl/schema-validator-component'
+import { createSqsComponent } from '@dcl/sqs-component'
+import type { IQueueComponent } from '@dcl/sqs-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
 import { createTracerComponent } from '@dcl/tracer-component'
 import { createCatalystContentComponent } from './adapters/catalyst-content'
+import { createDeploymentConsumerComponent } from './adapters/deployment-consumer'
 import { createEncryptionComponent } from './adapters/encryption'
 import { createEnvStorageComponent } from './adapters/env-storage'
 import { createPlacesComponent } from './adapters/places'
@@ -28,6 +32,51 @@ import { getDbConnectionString } from './logic/utils'
 import { createWorldPermissionComponent } from './logic/world-permission'
 import { metricDeclarations } from './metrics'
 import type { AppComponents, GlobalContext } from './types'
+
+/**
+ * A single-process, in-memory stand-in for the real SQS-backed queue, used for local
+ * development when `AWS_SQS_QUEUE_URL` is unset. Messages sent are held in an array and
+ * handed back in FIFO order; there is no cross-process delivery, redelivery, or
+ * visibility-timeout enforcement.
+ *
+ * @returns An IQueueComponent implementation backed by an in-memory array
+ */
+function createLocalDevQueueComponent(): IQueueComponent {
+  const pending: Array<{ id: string; body: string }> = []
+  let nextId = 0
+
+  return {
+    async sendMessage(message) {
+      pending.push({ id: `${++nextId}`, body: JSON.stringify(message) })
+    },
+    async receiveMessages(amount = 10) {
+      return pending.splice(0, amount).map(message => ({
+        MessageId: message.id,
+        ReceiptHandle: message.id,
+        Body: message.body
+      }))
+    },
+    async deleteMessage() {
+      return undefined
+    },
+    async deleteMessages() {
+      return undefined
+    },
+    async changeMessageVisibility() {
+      return undefined
+    },
+    async changeMessagesVisibility() {
+      return undefined
+    },
+    async getStatus() {
+      return {
+        ApproximateNumberOfMessages: `${pending.length}`,
+        ApproximateNumberOfMessagesNotVisible: '0',
+        ApproximateNumberOfMessagesDelayed: '0'
+      }
+    }
+  }
+}
 
 // Initialize all the components of the app
 export async function initComponents(): Promise<AppComponents> {
@@ -108,6 +157,18 @@ export async function initComponents(): Promise<AppComponents> {
     logs
   })
 
+  const queueUrl = await config.getString('AWS_SQS_QUEUE_URL')
+  const sqs = queueUrl ? await createSqsComponent(config) : createLocalDevQueueComponent()
+  const queueConsumer = createQueueConsumerComponent({ sqs, logs })
+  const deploymentConsumer = await createDeploymentConsumerComponent({
+    config,
+    logs,
+    fetcher,
+    queueConsumer,
+    worldsContentServer,
+    sceneLogsAccess
+  })
+
   return {
     fetcher,
     config,
@@ -129,6 +190,9 @@ export async function initComponents(): Promise<AppComponents> {
     places,
     catalystContent,
     schemaValidator,
-    sceneLogsAccess
+    sceneLogsAccess,
+    sqs,
+    queueConsumer,
+    deploymentConsumer
   }
 }

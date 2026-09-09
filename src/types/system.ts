@@ -6,8 +6,11 @@ import type {
 } from '@well-known-components/interfaces'
 import type { ICacheStorageComponent, IFetchComponent, IHttpServerComponent } from '@dcl/core-commons'
 import type { IPgComponent } from '@dcl/pg-component'
+import type { IQueueConsumerComponent } from '@dcl/queue-consumer-component'
 import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
+import type { IQueueComponent } from '@dcl/sqs-component'
 import type { ICatalystContentComponent } from '../adapters/catalyst-content/types'
+import type { IDeploymentConsumerComponent } from '../adapters/deployment-consumer/types'
 import type { IEncryptionComponent } from '../adapters/encryption/types'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'
 import type { IPlacesComponent } from '../adapters/places/types'
@@ -53,6 +56,9 @@ export interface BaseComponents {
   storageOperations: IStorageOperationsComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
   sceneLogsAccess: ISceneLogsAccessComponent
+  sqs: IQueueComponent
+  queueConsumer: IQueueConsumerComponent
+  deploymentConsumer: IDeploymentConsumerComponent
 }
 
 // components used in runtime
