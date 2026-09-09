@@ -34,6 +34,8 @@ tags:
     description: Endpoints for encrypted environment variable storage (scoped by world)
   - name: Usage
     description: Storage usage and limits for each namespace
+  - name: Watcher
+    description: Discovery of the scenes a wallet may watch via `logsPermissions`
 
 security:
   - SignedFetch: []
@@ -1346,6 +1348,74 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /watcher:
+    get:
+      operationId: listWatcherScenes
+      tags:
+        - Watcher
+      summary: List scenes the signed-in wallet may watch
+      description: |
+        Returns the scenes where the signed-fetch signer appears in `logsPermissions`, for a
+        "watch the logs" style discovery view. Self-scoped: there is no address parameter, so a
+        signer can only ever list its own scenes. Does not require realm/parcel context.
+
+        This is a discovery index only: rows may lag behind or hold stale-positive entries
+        (e.g. a wallet since removed from `logsPermissions`). The actual storage read endpoints
+        always re-verify `logsPermissions` live, independently of this list.
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+      responses:
+        '200':
+          description: Paginated list of watchable scenes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWatcherScenesResponse'
+              examples:
+                withScenes:
+                  value:
+                    data:
+                      - worldName: 'example.eth'
+                        baseParcel: '0,0'
+                        sceneId: 'bafybeib2yz...'
+                        title: 'Example Scene'
+                        realmKind: 'world'
+                    pagination:
+                      limit: 100
+                      offset: 0
+                      total: 1
+                empty:
+                  value:
+                    data: []
+                    pagination:
+                      limit: 100
+                      offset: 0
+                      total: 0
+        '400':
+          description: Signed fetch is invalid, or limit/offset are invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Signed fetch is missing, or no signer address could be recovered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                signedFetchRequired:
+                  value:
+                    error: Invalid Auth Chain
+                    message: This endpoint requires a signed fetch request. See ADR-44.
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     SignedFetch:
@@ -1515,6 +1585,54 @@ components:
       description: |
         Paginated response for listing player addresses that have stored values in the world.
         Addresses are sorted alphabetically (ASC) for deterministic pagination.
+    WatcherScene:
+      type: object
+      properties:
+        worldName:
+          type: string
+          description: The world or realm name the scene belongs to
+          example: 'example.eth'
+        baseParcel:
+          type: string
+          description: The scene's base parcel coordinates
+          example: '0,0'
+        sceneId:
+          type: string
+          description: The scene's entity id
+          example: 'bafybeib2yz...'
+        title:
+          type: string
+          nullable: true
+          description: The scene's title, if known
+          example: 'Example Scene'
+        realmKind:
+          type: string
+          enum: [world, genesis]
+          description: Whether the scene lives in a World or in Genesis City
+      required:
+        - worldName
+        - baseParcel
+        - sceneId
+        - title
+        - realmKind
+      description: A scene identifier the signer may watch. Never carries storage values.
+    ListWatcherScenesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WatcherScene'
+          description: Array of scenes the signer may watch
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - data
+        - pagination
+      description: |
+        Paginated response listing the scenes the signed-fetch signer appears in via
+        `logsPermissions`. Discovery-only: authorization for the actual storage reads is always
+        re-verified live and may differ from this list.
     ListStorageItemsResponse:
       type: object
       properties:
