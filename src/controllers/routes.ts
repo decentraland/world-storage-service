@@ -28,10 +28,9 @@ import { getWorldUsageHandler } from './handlers/world-storage/get-world-usage'
 import { listWorldStorageHandler } from './handlers/world-storage/list-world-storage'
 import { upsertWorldStorageHandler } from './handlers/world-storage/upsert-world-storage'
 import {
-  authorizationMiddleware,
   authorizedAddressesOrScopedDelegationAuthorizationMiddleware,
-  ownerAndDeployerOnlyAuthorizationMiddleware,
-  readAccessAuthorizationMiddleware
+  logsAccessAuthorizationMiddleware,
+  ownerAndDeployerOnlyAuthorizationMiddleware
 } from './middlewares/authorization-middleware'
 import { createBodySizeLimitMiddleware } from './middlewares/body-size-limit-middleware'
 import { sceneContextMiddleware } from './middlewares/scene-context-middleware'
@@ -87,12 +86,12 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   // Usage endpoints
   router.get(
     '/usage/world',
-    withSceneContext(readAccessAuthorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     withSceneContext(getWorldUsageHandler)
   )
   router.get(
     '/usage/players/:player_address',
-    withSceneContext(readAccessAuthorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     withSceneContext(getPlayerUsageHandler)
   )
   router.get(
@@ -102,10 +101,10 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
 
   // World storage endpoints
-  router.get('/values', withSceneContext(readAccessAuthorizationMiddleware), withSceneContext(listWorldStorageHandler))
+  router.get('/values', withSceneContext(logsAccessAuthorizationMiddleware), withSceneContext(listWorldStorageHandler))
   router.get(
     '/values/:key',
-    withSceneContext(readAccessAuthorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     withSceneContext(getWorldStorageHandler)
   )
   // Authorization runs before schema validation so unauthorized callers cannot make the
@@ -113,11 +112,15 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   router.put(
     '/values/:key',
     worldBodySizeLimitMiddleware,
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
     withSceneContext(upsertWorldStorageHandler)
   )
-  router.delete('/values/:key', withSceneContext(authorizationMiddleware), withSceneContext(deleteWorldStorageHandler))
+  router.delete(
+    '/values/:key',
+    withSceneContext(logsAccessAuthorizationMiddleware),
+    withSceneContext(deleteWorldStorageHandler)
+  )
   router.delete(
     '/values',
     withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
@@ -125,27 +128,27 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
 
   // Player storage endpoints
-  router.get('/players', withSceneContext(readAccessAuthorizationMiddleware), withSceneContext(listPlayersHandler))
+  router.get('/players', withSceneContext(logsAccessAuthorizationMiddleware), withSceneContext(listPlayersHandler))
   router.get(
     '/players/:player_address/values',
-    withSceneContext(readAccessAuthorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     withSceneContext(listPlayerStorageHandler)
   )
   router.get(
     '/players/:player_address/values/:key',
-    withSceneContext(readAccessAuthorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     withSceneContext(getPlayerStorageHandler)
   )
   router.put(
     '/players/:player_address/values/:key',
     playerBodySizeLimitMiddleware,
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
     withSceneContext(upsertPlayerStorageHandler)
   )
   router.delete(
     '/players/:player_address/values/:key',
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     withSceneContext(deletePlayerStorageHandler)
   )
   router.delete(

@@ -378,6 +378,8 @@ paths:
       summary: Upsert a world storage value
       description: |
         Creates or updates the value stored under `key` for the calling world.
+        A wallet listed in the scene's `logsPermissions` may also write or delete this value.
+
         The world identifier is resolved from the Signed Fetch metadata.
 
         **Storage limits**: This endpoint enforces configurable size limits per world:
@@ -482,6 +484,8 @@ paths:
       summary: Delete a world storage value
       description: |
         Deletes the value stored under `key` for the calling world.
+        A wallet listed in the scene's `logsPermissions` may also write or delete this value.
+
         The world identifier is resolved from the Signed Fetch metadata.
       parameters:
         - name: key
@@ -720,6 +724,8 @@ paths:
       summary: Upsert a player storage value
       description: |
         Creates or updates the value stored under `key` for the specified player within the calling world.
+        A wallet listed in the scene's `logsPermissions` may also write or delete this value.
+
         The world identifier is resolved from the Signed Fetch metadata.
 
         **Storage limits**: This endpoint enforces configurable size limits per player per world:
@@ -832,6 +838,8 @@ paths:
       summary: Delete a player storage value
       description: |
         Deletes the value stored under `key` for the specified player within the calling world.
+        A wallet listed in the scene's `logsPermissions` may also write or delete this value.
+
         The world identifier is resolved from the Signed Fetch metadata.
       parameters:
         - name: player_address

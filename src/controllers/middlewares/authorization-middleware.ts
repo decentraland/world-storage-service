@@ -15,8 +15,8 @@ export interface AuthorizationMiddlewareOptions {
   allowOwnersAndDeployers: boolean
   /** Accepts a valid `x-authoritative-scope` delegation claim as authorization. Defaults to false. */
   allowScopedDelegation?: boolean
-  /** Grants read-only access to a wallet listed in the scene's `logsPermissions`. Defaults to false. */
-  allowLogsRead?: boolean
+  /** Grants access to a wallet listed in the scene's `logsPermissions`. Defaults to false. */
+  allowLogsAccess?: boolean
 }
 
 /**
@@ -46,7 +46,7 @@ function safeAddress(signerAddress: string, authoritativeServerAddress: string |
  * Authorization flow:
  * 1. If `allowAuthorizedAddresses` is true and signer is in AUTHORITATIVE_SERVER_ADDRESS or AUTHORIZED_ADDRESSES → allowed
  * 2. If `allowOwnersAndDeployers` is true and the signer address is the owner or has deployer permissions → allowed
- * 3. If `allowLogsRead` is true and the signer is granted read access via the scene's `logsPermissions` → allowed
+ * 3. If `allowLogsAccess` is true and the signer is listed in the scene's `logsPermissions` → allowed
  * 4. Otherwise → unauthorized error
  */
 export function createAuthorizationMiddleware(
@@ -58,7 +58,7 @@ export function createAuthorizationMiddleware(
     allowAuthorizedAddresses,
     allowOwnersAndDeployers,
     allowScopedDelegation = false,
-    allowLogsRead = false
+    allowLogsAccess = false
   } = options
 
   return async (ctx, next) => {
@@ -166,21 +166,21 @@ export function createAuthorizationMiddleware(
       }
     }
 
-    if (allowLogsRead) {
+    if (allowLogsAccess) {
       let logsScene: WorldScene | null
       try {
-        logsScene = await worldPermission.getLogsReadableScene(worldName, signerAddress, parcel)
+        logsScene = await worldPermission.getLogsAccessibleScene(worldName, signerAddress, parcel)
       } catch (error) {
-        logger.warn('Logs-read authorization check failed', {
+        logger.warn('Logs-access authorization check failed', {
           worldName,
           signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
           error: isErrorWithMessage(error) ? error.message : 'Unknown error'
         })
-        throw new NotAuthorizedError('Unauthorized: Failed to verify logs-read permission')
+        throw new NotAuthorizedError('Unauthorized: Failed to verify logs-access permission')
       }
 
       if (logsScene) {
-        logger.debug('Authorization granted via logs-read permission', { worldName })
+        logger.debug('Authorization granted via logs-access permission', { worldName })
         void ctx.components.sceneLogsAccess
           .touch({
             address: signerAddress,
@@ -258,13 +258,10 @@ export const authorizedAddressesOrScopedDelegationAuthorizationMiddleware = crea
   allowScopedDelegation: true
 })
 
-/**
- * Authorization preset for GET Scene/Player storage routes: the default preset
- * plus `allowLogsRead`.
- */
-export const readAccessAuthorizationMiddleware = createAuthorizationMiddleware({
+/** Default preset plus `allowLogsAccess`, for Scene/Player GET reads and per-key PUT/DELETE writes (not bulk clear-all or `/env`). */
+export const logsAccessAuthorizationMiddleware = createAuthorizationMiddleware({
   allowAuthorizedAddresses: true,
   allowOwnersAndDeployers: true,
   allowScopedDelegation: true,
-  allowLogsRead: true
+  allowLogsAccess: true
 })

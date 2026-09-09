@@ -4,7 +4,7 @@ import { NotAuthorizedError } from '@dcl/http-commons'
 import {
   authorizationMiddleware,
   createAuthorizationMiddleware,
-  readAccessAuthorizationMiddleware
+  logsAccessAuthorizationMiddleware
 } from '../../../../src/controllers/middlewares/authorization-middleware'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../../fixtures'
 import { createLogsMockedComponent } from '../../../mocks/components'
@@ -26,13 +26,13 @@ describe('Authorization Middleware', () => {
   let middleware: ReturnType<typeof createAuthorizationMiddleware>
   let configGetString: jest.Mock
   let hasWorldPermissionMock: jest.Mock
-  let getLogsReadableSceneMock: jest.Mock
+  let getLogsAccessibleSceneMock: jest.Mock
   let touchMock: jest.Mock
 
   beforeEach(() => {
     configGetString = jest.fn()
     hasWorldPermissionMock = jest.fn()
-    getLogsReadableSceneMock = jest.fn()
+    getLogsAccessibleSceneMock = jest.fn()
     touchMock = jest.fn().mockResolvedValue(undefined)
   })
 
@@ -52,7 +52,10 @@ describe('Authorization Middleware', () => {
       components: {
         config: { getString: configGetString },
         logs: createLogsMockedComponent(),
-        worldPermission: { hasWorldPermission: hasWorldPermissionMock, getLogsReadableScene: getLogsReadableSceneMock },
+        worldPermission: {
+          hasWorldPermission: hasWorldPermissionMock,
+          getLogsAccessibleScene: getLogsAccessibleSceneMock
+        },
         sceneLogsAccess: { touch: touchMock }
       } as unknown as BaseComponents
     })
@@ -217,7 +220,7 @@ describe('Authorization Middleware', () => {
               logs: createLogsMockedComponent(),
               worldPermission: {
                 hasWorldPermission: hasWorldPermissionMock,
-                getLogsReadableScene: getLogsReadableSceneMock
+                getLogsAccessibleScene: getLogsAccessibleSceneMock
               }
             } as unknown as BaseComponents
           })
@@ -468,26 +471,26 @@ describe('Authorization Middleware', () => {
     })
   })
 
-  describe('when allowLogsRead is true', () => {
+  describe('when allowLogsAccess is true', () => {
     beforeEach(() => {
       middleware = createAuthorizationMiddleware({
         allowAuthorizedAddresses: false,
         allowOwnersAndDeployers: false,
-        allowLogsRead: true
+        allowLogsAccess: true
       })
       hasWorldPermissionMock.mockResolvedValue(false)
     })
 
-    describe('and getLogsReadableScene resolves a scene', () => {
+    describe('and getLogsAccessibleScene resolves a scene', () => {
       beforeEach(() => {
-        getLogsReadableSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+        getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
         next.mockResolvedValueOnce({ status: 200 })
       })
 
       it('should allow the request', async () => {
         const result = await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
 
-        expect(getLogsReadableSceneMock).toHaveBeenCalledWith(
+        expect(getLogsAccessibleSceneMock).toHaveBeenCalledWith(
           WORLD_NAMES.DEFAULT,
           ADDRESSES.UNAUTHORIZED.toLowerCase(),
           PARCELS.DEFAULT
@@ -513,7 +516,7 @@ describe('Authorization Middleware', () => {
 
     describe('and the watcher backfill upsert rejects', () => {
       beforeEach(() => {
-        getLogsReadableSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+        getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
         touchMock.mockRejectedValueOnce(new Error('insert failed'))
         next.mockResolvedValueOnce({ status: 200 })
       })
@@ -527,9 +530,9 @@ describe('Authorization Middleware', () => {
       })
     })
 
-    describe('and getLogsReadableScene resolves null', () => {
+    describe('and getLogsAccessibleScene resolves null', () => {
       beforeEach(() => {
-        getLogsReadableSceneMock.mockResolvedValueOnce(null)
+        getLogsAccessibleSceneMock.mockResolvedValueOnce(null)
       })
 
       it('should throw a NotAuthorizedError', async () => {
@@ -545,21 +548,21 @@ describe('Authorization Middleware', () => {
       })
     })
 
-    describe('and getLogsReadableScene rejects', () => {
+    describe('and getLogsAccessibleScene rejects', () => {
       beforeEach(() => {
-        getLogsReadableSceneMock.mockRejectedValueOnce(new Error('Failed to resolve scene'))
+        getLogsAccessibleSceneMock.mockRejectedValueOnce(new Error('Failed to resolve scene'))
       })
 
       it('should throw a NotAuthorizedError', async () => {
         await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
-          new NotAuthorizedError('Unauthorized: Failed to verify logs-read permission')
+          new NotAuthorizedError('Unauthorized: Failed to verify logs-access permission')
         )
         expect(next).not.toHaveBeenCalled()
       })
     })
   })
 
-  describe('when allowLogsRead is false (default)', () => {
+  describe('when allowLogsAccess is false (default)', () => {
     beforeEach(() => {
       middleware = createAuthorizationMiddleware({
         allowAuthorizedAddresses: false,
@@ -568,19 +571,19 @@ describe('Authorization Middleware', () => {
       hasWorldPermissionMock.mockResolvedValue(false)
     })
 
-    it('should never consult getLogsReadableScene', async () => {
+    it('should never consult getLogsAccessibleScene', async () => {
       await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
-      expect(getLogsReadableSceneMock).not.toHaveBeenCalled()
+      expect(getLogsAccessibleSceneMock).not.toHaveBeenCalled()
     })
   })
 
-  describe('the readAccessAuthorizationMiddleware preset', () => {
-    it('should grant access when getLogsReadableScene resolves a scene', async () => {
+  describe('the logsAccessAuthorizationMiddleware preset', () => {
+    it('should grant access when getLogsAccessibleScene resolves a scene', async () => {
       hasWorldPermissionMock.mockResolvedValueOnce(false)
-      getLogsReadableSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+      getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
       next.mockResolvedValueOnce({ status: 200 })
 
-      const result = await readAccessAuthorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+      const result = await logsAccessAuthorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
 
       expect(next).toHaveBeenCalled()
       expect(result).toEqual({ status: 200 })
@@ -588,12 +591,12 @@ describe('Authorization Middleware', () => {
   })
 
   describe('the authorizationMiddleware preset', () => {
-    it('should never consult getLogsReadableScene, even when it would grant access', async () => {
+    it('should never consult getLogsAccessibleScene, even when it would grant access', async () => {
       hasWorldPermissionMock.mockResolvedValueOnce(false)
-      getLogsReadableSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+      getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
 
       await expect(authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
-      expect(getLogsReadableSceneMock).not.toHaveBeenCalled()
+      expect(getLogsAccessibleSceneMock).not.toHaveBeenCalled()
       expect(next).not.toHaveBeenCalled()
     })
   })

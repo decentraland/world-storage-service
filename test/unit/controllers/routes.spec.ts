@@ -1,11 +1,15 @@
 import { NotAuthorizedError } from '@dcl/http-commons'
+import { deletePlayerStorageHandler } from '../../../src/controllers/handlers/player-storage/delete-player-storage'
 import { getPlayerStorageHandler } from '../../../src/controllers/handlers/player-storage/get-player-storage'
 import { getPlayerUsageHandler } from '../../../src/controllers/handlers/player-storage/get-player-usage'
 import { listPlayerStorageHandler } from '../../../src/controllers/handlers/player-storage/list-player-storage'
 import { listPlayersHandler } from '../../../src/controllers/handlers/player-storage/list-players'
+import { upsertPlayerStorageHandler } from '../../../src/controllers/handlers/player-storage/upsert-player-storage'
+import { deleteWorldStorageHandler } from '../../../src/controllers/handlers/world-storage/delete-world-storage'
 import { getWorldStorageHandler } from '../../../src/controllers/handlers/world-storage/get-world-storage'
 import { getWorldUsageHandler } from '../../../src/controllers/handlers/world-storage/get-world-usage'
 import { listWorldStorageHandler } from '../../../src/controllers/handlers/world-storage/list-world-storage'
+import { upsertWorldStorageHandler } from '../../../src/controllers/handlers/world-storage/upsert-world-storage'
 import { setupRouter } from '../../../src/controllers/routes'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../fixtures'
 import { createLogsMockedComponent } from '../../mocks/components'
@@ -26,6 +30,12 @@ jest.mock('../../../src/controllers/handlers/world-storage/list-world-storage', 
 jest.mock('../../../src/controllers/handlers/world-storage/get-world-storage', () => ({
   getWorldStorageHandler: jest.fn()
 }))
+jest.mock('../../../src/controllers/handlers/world-storage/upsert-world-storage', () => ({
+  upsertWorldStorageHandler: jest.fn()
+}))
+jest.mock('../../../src/controllers/handlers/world-storage/delete-world-storage', () => ({
+  deleteWorldStorageHandler: jest.fn()
+}))
 jest.mock('../../../src/controllers/handlers/player-storage/list-players', () => ({
   listPlayersHandler: jest.fn()
 }))
@@ -34,6 +44,12 @@ jest.mock('../../../src/controllers/handlers/player-storage/list-player-storage'
 }))
 jest.mock('../../../src/controllers/handlers/player-storage/get-player-storage', () => ({
   getPlayerStorageHandler: jest.fn()
+}))
+jest.mock('../../../src/controllers/handlers/player-storage/upsert-player-storage', () => ({
+  upsertPlayerStorageHandler: jest.fn()
+}))
+jest.mock('../../../src/controllers/handlers/player-storage/delete-player-storage', () => ({
+  deletePlayerStorageHandler: jest.fn()
 }))
 
 interface RouterLayer {
@@ -48,7 +64,7 @@ interface RouterWithStack {
 
 const HANDLER_RESPONSE = { status: 200, body: { value: 'from-handler' } }
 
-const LOGS_READABLE_SCENE: WorldScene = {
+const LOGS_ACCESSIBLE_SCENE: WorldScene = {
   sceneId: 'bafkrei-logs-scene',
   base: PARCELS.DEFAULT,
   parcels: [PARCELS.DEFAULT],
@@ -56,22 +72,22 @@ const LOGS_READABLE_SCENE: WorldScene = {
   logsPermissions: [ADDRESSES.UNAUTHORIZED]
 }
 
-const READ_ROUTES: Array<{ method: string; path: string; handler: jest.Mock }> = [
+const LOGS_ACCESS_ROUTES: Array<{ method: string; path: string; handler: jest.Mock }> = [
   { method: 'GET', path: '/usage/world', handler: getWorldUsageHandler as jest.Mock },
   { method: 'GET', path: '/usage/players/:player_address', handler: getPlayerUsageHandler as jest.Mock },
   { method: 'GET', path: '/values', handler: listWorldStorageHandler as jest.Mock },
   { method: 'GET', path: '/values/:key', handler: getWorldStorageHandler as jest.Mock },
+  { method: 'PUT', path: '/values/:key', handler: upsertWorldStorageHandler as jest.Mock },
+  { method: 'DELETE', path: '/values/:key', handler: deleteWorldStorageHandler as jest.Mock },
   { method: 'GET', path: '/players', handler: listPlayersHandler as jest.Mock },
   { method: 'GET', path: '/players/:player_address/values', handler: listPlayerStorageHandler as jest.Mock },
-  { method: 'GET', path: '/players/:player_address/values/:key', handler: getPlayerStorageHandler as jest.Mock }
+  { method: 'GET', path: '/players/:player_address/values/:key', handler: getPlayerStorageHandler as jest.Mock },
+  { method: 'PUT', path: '/players/:player_address/values/:key', handler: upsertPlayerStorageHandler as jest.Mock },
+  { method: 'DELETE', path: '/players/:player_address/values/:key', handler: deletePlayerStorageHandler as jest.Mock }
 ]
 
-const WRITE_AND_ENV_ROUTES: Array<{ method: string; path: string }> = [
-  { method: 'PUT', path: '/values/:key' },
-  { method: 'DELETE', path: '/values/:key' },
+const DENY_ROUTES: Array<{ method: string; path: string }> = [
   { method: 'DELETE', path: '/values' },
-  { method: 'PUT', path: '/players/:player_address/values/:key' },
-  { method: 'DELETE', path: '/players/:player_address/values/:key' },
   { method: 'DELETE', path: '/players/:player_address/values' },
   { method: 'DELETE', path: '/players' },
   { method: 'GET', path: '/usage/env' },
@@ -98,7 +114,7 @@ describe('Route authorization policy', () => {
   const terminalNext = jest.fn()
   let router: RouterWithStack
   let hasWorldPermissionMock: jest.Mock
-  let getLogsReadableSceneMock: jest.Mock
+  let getLogsAccessibleSceneMock: jest.Mock
 
   function buildRouteCtx(method: string): TestContext {
     return buildTestContext({
@@ -112,7 +128,10 @@ describe('Route authorization policy', () => {
       components: {
         config: { getString: jest.fn() },
         logs: createLogsMockedComponent(),
-        worldPermission: { hasWorldPermission: hasWorldPermissionMock, getLogsReadableScene: getLogsReadableSceneMock },
+        worldPermission: {
+          hasWorldPermission: hasWorldPermissionMock,
+          getLogsAccessibleScene: getLogsAccessibleSceneMock
+        },
         sceneLogsAccess: { touch: jest.fn().mockResolvedValue(undefined) }
       } as unknown as BaseComponents
     })
@@ -120,7 +139,7 @@ describe('Route authorization policy', () => {
 
   beforeEach(async () => {
     hasWorldPermissionMock = jest.fn().mockResolvedValue(false)
-    getLogsReadableSceneMock = jest.fn().mockResolvedValue(LOGS_READABLE_SCENE)
+    getLogsAccessibleSceneMock = jest.fn().mockResolvedValue(LOGS_ACCESSIBLE_SCENE)
 
     const globalContext = {
       components: {
@@ -140,7 +159,7 @@ describe('Route authorization policy', () => {
 
     router = (await setupRouter(globalContext)) as unknown as RouterWithStack
 
-    for (const route of READ_ROUTES) {
+    for (const route of LOGS_ACCESS_ROUTES) {
       route.handler.mockReset().mockResolvedValue(HANDLER_RESPONSE)
     }
   })
@@ -149,14 +168,14 @@ describe('Route authorization policy', () => {
     jest.clearAllMocks()
   })
 
-  describe('when a logs-read wallet requests a GET Scene/Player storage route', () => {
-    it.each(READ_ROUTES)(
-      'should grant access on $method $path via getLogsReadableScene',
+  describe('when a logsPermissions wallet requests a Scene/Player read or per-key write route', () => {
+    it.each(LOGS_ACCESS_ROUTES)(
+      'should grant access on $method $path via getLogsAccessibleScene',
       async ({ method, path, handler }) => {
         const handlerFn = getRouteHandler(router, method, path)
         const result = await handlerFn(buildRouteCtx(method), terminalNext)
 
-        expect(getLogsReadableSceneMock).toHaveBeenCalledWith(
+        expect(getLogsAccessibleSceneMock).toHaveBeenCalledWith(
           WORLD_NAMES.DEFAULT,
           ADDRESSES.UNAUTHORIZED.toLowerCase(),
           PARCELS.DEFAULT
@@ -167,14 +186,14 @@ describe('Route authorization policy', () => {
     )
   })
 
-  describe('when a logs-read wallet requests a write or /env route', () => {
-    it.each(WRITE_AND_ENV_ROUTES)(
-      'should deny access on $method $path without consulting getLogsReadableScene',
+  describe('when a logsPermissions wallet requests a bulk clear-all or /env route', () => {
+    it.each(DENY_ROUTES)(
+      'should deny access on $method $path without consulting getLogsAccessibleScene',
       async ({ method, path }) => {
         const handlerFn = getRouteHandler(router, method, path)
 
         await expect(handlerFn(buildRouteCtx(method), terminalNext)).rejects.toThrow(NotAuthorizedError)
-        expect(getLogsReadableSceneMock).not.toHaveBeenCalled()
+        expect(getLogsAccessibleSceneMock).not.toHaveBeenCalled()
       }
     )
   })

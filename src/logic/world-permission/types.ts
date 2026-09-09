@@ -26,5 +26,5 @@ export interface IWorldPermissionComponent {
    * @param parcel - The parcel coordinate of the scene
    * @returns The matched `WorldScene` when the address is granted read access, else `null` (fails closed)
    */
-  getLogsReadableScene(worldName: string, address: string, parcel: string): Promise<WorldScene | null>
+  getLogsAccessibleScene(worldName: string, address: string, parcel: string): Promise<WorldScene | null>
 }

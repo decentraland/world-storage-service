@@ -184,7 +184,7 @@ export async function createWorldPermissionComponent(
       return await checkWorldPermission(worldName, normalizedAddress)
     },
 
-    getLogsReadableScene: async (worldName: string, address: string, parcel: string): Promise<WorldScene | null> => {
+    getLogsAccessibleScene: async (worldName: string, address: string, parcel: string): Promise<WorldScene | null> => {
       const normalizedAddress = address.toLowerCase()
       try {
         let scene: WorldScene | null
