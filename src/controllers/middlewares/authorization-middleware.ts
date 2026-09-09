@@ -3,6 +3,7 @@ import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { NotAuthorizedError } from '@dcl/http-commons'
 import { isErrorWithMessage } from '../../utils/errors'
 import { verifyStorageDelegation } from '../../utils/storage-delegation'
+import { isSharedRealmName } from '../../utils/worldName'
 import type { WorldScene } from '../../adapters/worlds-content-server/types'
 import type { WorldStorageContext } from '../../types'
 
@@ -180,6 +181,20 @@ export function createAuthorizationMiddleware(
 
       if (logsScene) {
         logger.debug('Authorization granted via logs-read permission', { worldName })
+        void ctx.components.sceneLogsAccess
+          .touch({
+            address: signerAddress,
+            sceneId: logsScene.sceneId,
+            worldName,
+            baseParcel: logsScene.base,
+            title: logsScene.title,
+            realmKind: isSharedRealmName(worldName) ? 'genesis' : 'world'
+          })
+          .catch(error =>
+            logger.debug('watcher backfill upsert failed (non-fatal)', {
+              error: isErrorWithMessage(error) ? error.message : 'Unknown error'
+            })
+          )
         return await next()
       }
     }
