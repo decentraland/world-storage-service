@@ -195,7 +195,7 @@ export async function createWorldPermissionComponent(
           const matches = scenes.filter(candidate => sceneCoversParcel(candidate, parcel))
           scene = matches.length === 1 ? matches[0] : null
         }
-        if (!scene || !scene.logsPermissions.includes(normalizedAddress)) {
+        if (!scene?.logsPermissions.includes(normalizedAddress)) {
           return null
         }
         return scene
