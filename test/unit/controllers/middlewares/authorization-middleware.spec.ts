@@ -27,11 +27,13 @@ describe('Authorization Middleware', () => {
   let configGetString: jest.Mock
   let hasWorldPermissionMock: jest.Mock
   let getLogsReadableSceneMock: jest.Mock
+  let touchMock: jest.Mock
 
   beforeEach(() => {
     configGetString = jest.fn()
     hasWorldPermissionMock = jest.fn()
     getLogsReadableSceneMock = jest.fn()
+    touchMock = jest.fn().mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -50,7 +52,8 @@ describe('Authorization Middleware', () => {
       components: {
         config: { getString: configGetString },
         logs: createLogsMockedComponent(),
-        worldPermission: { hasWorldPermission: hasWorldPermissionMock, getLogsReadableScene: getLogsReadableSceneMock }
+        worldPermission: { hasWorldPermission: hasWorldPermissionMock, getLogsReadableScene: getLogsReadableSceneMock },
+        sceneLogsAccess: { touch: touchMock }
       } as unknown as BaseComponents
     })
   }
@@ -492,6 +495,36 @@ describe('Authorization Middleware', () => {
         expect(next).toHaveBeenCalled()
         expect(result).toEqual({ status: 200 })
       })
+
+      it('should fire-and-forget a watcher backfill upsert with the scene and lowercased signer', async () => {
+        await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+
+        expect(touchMock).toHaveBeenCalledTimes(1)
+        expect(touchMock).toHaveBeenCalledWith({
+          address: ADDRESSES.UNAUTHORIZED.toLowerCase(),
+          sceneId: LOGS_READABLE_SCENE.sceneId,
+          worldName: WORLD_NAMES.DEFAULT,
+          baseParcel: LOGS_READABLE_SCENE.base,
+          title: LOGS_READABLE_SCENE.title,
+          realmKind: 'world'
+        })
+      })
+    })
+
+    describe('and the watcher backfill upsert rejects', () => {
+      beforeEach(() => {
+        getLogsReadableSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+        touchMock.mockRejectedValueOnce(new Error('insert failed'))
+        next.mockResolvedValueOnce({ status: 200 })
+      })
+
+      it('should still allow the request', async () => {
+        const result = await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+        await Promise.resolve()
+
+        expect(next).toHaveBeenCalled()
+        expect(result).toEqual({ status: 200 })
+      })
     })
 
     describe('and getLogsReadableScene resolves null', () => {
@@ -504,6 +537,11 @@ describe('Authorization Middleware', () => {
           new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
         )
         expect(next).not.toHaveBeenCalled()
+      })
+
+      it('should never call the watcher backfill upsert', async () => {
+        await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
+        expect(touchMock).not.toHaveBeenCalled()
       })
     })
 
