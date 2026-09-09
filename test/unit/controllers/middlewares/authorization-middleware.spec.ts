@@ -1,22 +1,37 @@
 import { createUnsafeIdentity } from '@dcl/crypto/dist/crypto'
 import { Authenticator } from '@dcl/crypto'
 import { NotAuthorizedError } from '@dcl/http-commons'
-import { createAuthorizationMiddleware } from '../../../../src/controllers/middlewares/authorization-middleware'
+import {
+  authorizationMiddleware,
+  createAuthorizationMiddleware,
+  readAccessAuthorizationMiddleware
+} from '../../../../src/controllers/middlewares/authorization-middleware'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../../fixtures'
 import { createLogsMockedComponent } from '../../../mocks/components'
 import { buildTestContext } from '../../utils/context'
+import type { WorldScene } from '../../../../src/adapters/worlds-content-server/types'
 import type { BaseComponents } from '../../../../src/types'
 import type { TestContext } from '../../utils/context'
+
+const LOGS_READABLE_SCENE: WorldScene = {
+  sceneId: 'bafkrei-logs-scene',
+  base: PARCELS.DEFAULT,
+  parcels: [PARCELS.DEFAULT],
+  title: 'Test scene',
+  logsPermissions: [ADDRESSES.UNAUTHORIZED]
+}
 
 describe('Authorization Middleware', () => {
   const next = jest.fn()
   let middleware: ReturnType<typeof createAuthorizationMiddleware>
   let configGetString: jest.Mock
   let hasWorldPermissionMock: jest.Mock
+  let getLogsReadableSceneMock: jest.Mock
 
   beforeEach(() => {
     configGetString = jest.fn()
     hasWorldPermissionMock = jest.fn()
+    getLogsReadableSceneMock = jest.fn()
   })
 
   afterEach(() => {
@@ -35,7 +50,7 @@ describe('Authorization Middleware', () => {
       components: {
         config: { getString: configGetString },
         logs: createLogsMockedComponent(),
-        worldPermission: { hasWorldPermission: hasWorldPermissionMock }
+        worldPermission: { hasWorldPermission: hasWorldPermissionMock, getLogsReadableScene: getLogsReadableSceneMock }
       } as unknown as BaseComponents
     })
   }
@@ -197,7 +212,10 @@ describe('Authorization Middleware', () => {
             components: {
               config: { getString: configGetString },
               logs: createLogsMockedComponent(),
-              worldPermission: { hasWorldPermission: hasWorldPermissionMock }
+              worldPermission: {
+                hasWorldPermission: hasWorldPermissionMock,
+                getLogsReadableScene: getLogsReadableSceneMock
+              }
             } as unknown as BaseComponents
           })
         }
@@ -444,6 +462,101 @@ describe('Authorization Middleware', () => {
           })
         })
       })
+    })
+  })
+
+  describe('when allowLogsRead is true', () => {
+    beforeEach(() => {
+      middleware = createAuthorizationMiddleware({
+        allowAuthorizedAddresses: false,
+        allowOwnersAndDeployers: false,
+        allowLogsRead: true
+      })
+      hasWorldPermissionMock.mockResolvedValue(false)
+    })
+
+    describe('and getLogsReadableScene resolves a scene', () => {
+      beforeEach(() => {
+        getLogsReadableSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+        next.mockResolvedValueOnce({ status: 200 })
+      })
+
+      it('should allow the request', async () => {
+        const result = await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+
+        expect(getLogsReadableSceneMock).toHaveBeenCalledWith(
+          WORLD_NAMES.DEFAULT,
+          ADDRESSES.UNAUTHORIZED.toLowerCase(),
+          PARCELS.DEFAULT
+        )
+        expect(next).toHaveBeenCalled()
+        expect(result).toEqual({ status: 200 })
+      })
+    })
+
+    describe('and getLogsReadableScene resolves null', () => {
+      beforeEach(() => {
+        getLogsReadableSceneMock.mockResolvedValueOnce(null)
+      })
+
+      it('should throw a NotAuthorizedError', async () => {
+        await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
+          new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
+        )
+        expect(next).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and getLogsReadableScene rejects', () => {
+      beforeEach(() => {
+        getLogsReadableSceneMock.mockRejectedValueOnce(new Error('Failed to resolve scene'))
+      })
+
+      it('should throw a NotAuthorizedError', async () => {
+        await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
+          new NotAuthorizedError('Unauthorized: Failed to verify logs-read permission')
+        )
+        expect(next).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('when allowLogsRead is false (default)', () => {
+    beforeEach(() => {
+      middleware = createAuthorizationMiddleware({
+        allowAuthorizedAddresses: false,
+        allowOwnersAndDeployers: false
+      })
+      hasWorldPermissionMock.mockResolvedValue(false)
+    })
+
+    it('should never consult getLogsReadableScene', async () => {
+      await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
+      expect(getLogsReadableSceneMock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('the readAccessAuthorizationMiddleware preset', () => {
+    it('should grant access when getLogsReadableScene resolves a scene', async () => {
+      hasWorldPermissionMock.mockResolvedValueOnce(false)
+      getLogsReadableSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+      next.mockResolvedValueOnce({ status: 200 })
+
+      const result = await readAccessAuthorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+
+      expect(next).toHaveBeenCalled()
+      expect(result).toEqual({ status: 200 })
+    })
+  })
+
+  describe('the authorizationMiddleware preset', () => {
+    it('should never consult getLogsReadableScene, even when it would grant access', async () => {
+      hasWorldPermissionMock.mockResolvedValueOnce(false)
+      getLogsReadableSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+
+      await expect(authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
+      expect(getLogsReadableSceneMock).not.toHaveBeenCalled()
+      expect(next).not.toHaveBeenCalled()
     })
   })
 })

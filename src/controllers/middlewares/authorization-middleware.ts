@@ -3,6 +3,7 @@ import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { NotAuthorizedError } from '@dcl/http-commons'
 import { isErrorWithMessage } from '../../utils/errors'
 import { verifyStorageDelegation } from '../../utils/storage-delegation'
+import type { WorldScene } from '../../adapters/worlds-content-server/types'
 import type { WorldStorageContext } from '../../types'
 
 // Header carrying a world-scoped authoritative storage delegation (base64 JSON).
@@ -11,12 +12,10 @@ const AUTHORITATIVE_SCOPE_HEADER = 'x-authoritative-scope'
 export interface AuthorizationMiddlewareOptions {
   allowAuthorizedAddresses: boolean
   allowOwnersAndDeployers: boolean
-  // When true, a request signed by a throwaway ephemeral carrying a valid
-  // `x-authoritative-scope` claim (root-signed, bound to this scene) is authorized.
-  // Enabled on the /values/* routes and on GET /env/:key, so an authoritative scene
-  // worker can read its own scene's storage and env values without ever holding the
-  // authoritative key. Defaults to false.
+  /** Accepts a valid `x-authoritative-scope` delegation claim as authorization. Defaults to false. */
   allowScopedDelegation?: boolean
+  /** Grants read-only access to a wallet listed in the scene's `logsPermissions`. Defaults to false. */
+  allowLogsRead?: boolean
 }
 
 /**
@@ -46,14 +45,20 @@ function safeAddress(signerAddress: string, authoritativeServerAddress: string |
  * Authorization flow:
  * 1. If `allowAuthorizedAddresses` is true and signer is in AUTHORITATIVE_SERVER_ADDRESS or AUTHORIZED_ADDRESSES → allowed
  * 2. If `allowOwnersAndDeployers` is true and the signer address is the owner or has deployer permissions → allowed
- * 3. Otherwise → unauthorized error
+ * 3. If `allowLogsRead` is true and the signer is granted read access via the scene's `logsPermissions` → allowed
+ * 4. Otherwise → unauthorized error
  */
 export function createAuthorizationMiddleware(
   options: AuthorizationMiddlewareOptions
 ): IHttpServerComponent.IRequestHandler<
   IHttpServerComponent.PathAwareContext<WorldStorageContext, string> & DecentralandSignatureContext
 > {
-  const { allowAuthorizedAddresses, allowOwnersAndDeployers, allowScopedDelegation = false } = options
+  const {
+    allowAuthorizedAddresses,
+    allowOwnersAndDeployers,
+    allowScopedDelegation = false,
+    allowLogsRead = false
+  } = options
 
   return async (ctx, next) => {
     const {
@@ -160,7 +165,25 @@ export function createAuthorizationMiddleware(
       }
     }
 
-    // 3. Otherwise, deny access
+    if (allowLogsRead) {
+      let logsScene: WorldScene | null
+      try {
+        logsScene = await worldPermission.getLogsReadableScene(worldName, signerAddress, parcel)
+      } catch (error) {
+        logger.warn('Logs-read authorization check failed', {
+          worldName,
+          signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
+          error: isErrorWithMessage(error) ? error.message : 'Unknown error'
+        })
+        throw new NotAuthorizedError('Unauthorized: Failed to verify logs-read permission')
+      }
+
+      if (logsScene) {
+        logger.debug('Authorization granted via logs-read permission', { worldName })
+        return await next()
+      }
+    }
+
     logger.warn('Authorization denied: signer has no permission for this world', {
       signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
       worldName,
@@ -218,4 +241,15 @@ export const authorizedAddressesOrScopedDelegationAuthorizationMiddleware = crea
   allowAuthorizedAddresses: true,
   allowOwnersAndDeployers: false,
   allowScopedDelegation: true
+})
+
+/**
+ * Authorization preset for GET Scene/Player storage routes: the default preset
+ * plus `allowLogsRead`.
+ */
+export const readAccessAuthorizationMiddleware = createAuthorizationMiddleware({
+  allowAuthorizedAddresses: true,
+  allowOwnersAndDeployers: true,
+  allowScopedDelegation: true,
+  allowLogsRead: true
 })

@@ -29,7 +29,8 @@ import { upsertWorldStorageHandler } from './handlers/world-storage/upsert-world
 import {
   authorizationMiddleware,
   authorizedAddressesOrScopedDelegationAuthorizationMiddleware,
-  ownerAndDeployerOnlyAuthorizationMiddleware
+  ownerAndDeployerOnlyAuthorizationMiddleware,
+  readAccessAuthorizationMiddleware
 } from './middlewares/authorization-middleware'
 import { createBodySizeLimitMiddleware } from './middlewares/body-size-limit-middleware'
 import { sceneContextMiddleware } from './middlewares/scene-context-middleware'
@@ -82,10 +83,14 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   // The withSceneContext helper casts handlers to be compatible with the router's GlobalContext type.
 
   // Usage endpoints
-  router.get('/usage/world', withSceneContext(authorizationMiddleware), withSceneContext(getWorldUsageHandler))
+  router.get(
+    '/usage/world',
+    withSceneContext(readAccessAuthorizationMiddleware),
+    withSceneContext(getWorldUsageHandler)
+  )
   router.get(
     '/usage/players/:player_address',
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(readAccessAuthorizationMiddleware),
     withSceneContext(getPlayerUsageHandler)
   )
   router.get(
@@ -95,8 +100,12 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
 
   // World storage endpoints
-  router.get('/values', withSceneContext(authorizationMiddleware), withSceneContext(listWorldStorageHandler))
-  router.get('/values/:key', withSceneContext(authorizationMiddleware), withSceneContext(getWorldStorageHandler))
+  router.get('/values', withSceneContext(readAccessAuthorizationMiddleware), withSceneContext(listWorldStorageHandler))
+  router.get(
+    '/values/:key',
+    withSceneContext(readAccessAuthorizationMiddleware),
+    withSceneContext(getWorldStorageHandler)
+  )
   // Authorization runs before schema validation so unauthorized callers cannot make the
   // server buffer and parse request bodies.
   router.put(
@@ -114,15 +123,15 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
 
   // Player storage endpoints
-  router.get('/players', withSceneContext(authorizationMiddleware), withSceneContext(listPlayersHandler))
+  router.get('/players', withSceneContext(readAccessAuthorizationMiddleware), withSceneContext(listPlayersHandler))
   router.get(
     '/players/:player_address/values',
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(readAccessAuthorizationMiddleware),
     withSceneContext(listPlayerStorageHandler)
   )
   router.get(
     '/players/:player_address/values/:key',
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(readAccessAuthorizationMiddleware),
     withSceneContext(getPlayerStorageHandler)
   )
   router.put(
