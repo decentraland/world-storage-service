@@ -7,6 +7,7 @@ import type {
 import type { ICacheStorageComponent, IFetchComponent, IHttpServerComponent } from '@dcl/core-commons'
 import type { IPgComponent } from '@dcl/pg-component'
 import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
+import type { ICatalystContentComponent } from '../adapters/catalyst-content/types'
 import type { IEncryptionComponent } from '../adapters/encryption/types'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'
 import type { IPlacesComponent } from '../adapters/places/types'
@@ -46,6 +47,7 @@ export interface BaseComponents {
   // so per-scene read churn never evicts the long-lived place-id entries.
   storageCache: ICacheStorageComponent
   places: IPlacesComponent
+  catalystContent: ICatalystContentComponent
   storageLimits: IStorageLimitsComponent
   storageOperations: IStorageOperationsComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>

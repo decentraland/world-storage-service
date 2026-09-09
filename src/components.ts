@@ -14,6 +14,7 @@ import { createPgComponent } from '@dcl/pg-component'
 import { createSchemaValidatorComponent } from '@dcl/schema-validator-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
 import { createTracerComponent } from '@dcl/tracer-component'
+import { createCatalystContentComponent } from './adapters/catalyst-content'
 import { createEncryptionComponent } from './adapters/encryption'
 import { createEnvStorageComponent } from './adapters/env-storage'
 import { createPlacesComponent } from './adapters/places'
@@ -97,6 +98,7 @@ export async function initComponents(): Promise<AppComponents> {
   const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config, cache, logs })
   const worldPermission = await createWorldPermissionComponent({ worldsContentServer, fetcher, config, logs })
   const places = await createPlacesComponent({ fetcher, config, cache, logs })
+  const catalystContent = await createCatalystContentComponent({ fetcher, config, cache, logs })
 
   return {
     fetcher,
@@ -117,6 +119,7 @@ export async function initComponents(): Promise<AppComponents> {
     cache,
     storageCache,
     places,
+    catalystContent,
     schemaValidator
   }
 }

@@ -1,8 +1,12 @@
 import type { ICacheStorageComponent } from '@dcl/core-commons'
 import { createWorldsContentServerComponent } from '../../../src/adapters/worlds-content-server'
-import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
+import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../fixtures'
 import { createCacheMockedComponent, createLogsMockedComponent } from '../../mocks/components'
-import type { IWorldsContentServerComponent, WorldPermissions } from '../../../src/adapters/worlds-content-server'
+import type {
+  IWorldsContentServerComponent,
+  WorldPermissions,
+  WorldScene
+} from '../../../src/adapters/worlds-content-server'
 import type { AppComponents } from '../../../src/types'
 
 describe('Worlds Content Server Component', () => {
@@ -194,6 +198,187 @@ describe('Worlds Content Server Component', () => {
       it('should throw an error instead of treating it as an empty allow-list', async () => {
         await expect(component.getPermissions(WORLD_NAMES.DEFAULT)).rejects.toThrow(
           `Worlds content server returned an unexpected permissions payload for ${WORLD_NAMES.DEFAULT}`
+        )
+      })
+    })
+  })
+
+  describe('when getting world scenes', () => {
+    function buildSceneItem(
+      overrides: {
+        sceneId?: string
+        base?: string
+        parcels?: string[]
+        title?: string
+        logsPermissions?: unknown
+      } = {}
+    ): unknown {
+      return {
+        entity: {
+          id: overrides.sceneId ?? 'scene-entity-id',
+          metadata: {
+            display: overrides.title === undefined ? undefined : { title: overrides.title },
+            scene: {
+              base: overrides.base ?? PARCELS.DEFAULT,
+              parcels: overrides.parcels ?? [PARCELS.DEFAULT]
+            },
+            logsPermissions: overrides.logsPermissions ?? [ADDRESSES.AUTHORIZED]
+          }
+        }
+      }
+    }
+
+    describe('and the fetch is successful', () => {
+      let component: IWorldsContentServerComponent
+      let sceneItem: unknown
+
+      beforeEach(async () => {
+        sceneItem = buildSceneItem({ title: 'My Scene' })
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ scenes: [sceneItem] })
+        })
+        component = await createComponent()
+      })
+
+      it('should map the scenes and extract logsPermissions', async () => {
+        const result = await component.getScenes(WORLD_NAMES.DEFAULT)
+
+        const expected: WorldScene = {
+          sceneId: 'scene-entity-id',
+          base: PARCELS.DEFAULT,
+          parcels: [PARCELS.DEFAULT],
+          title: 'My Scene',
+          logsPermissions: [ADDRESSES.AUTHORIZED.toLowerCase()]
+        }
+        expect(result).toEqual([expected])
+      })
+
+      it('should call the content server scenes endpoint', async () => {
+        await component.getScenes(WORLD_NAMES.DEFAULT)
+
+        expect(fetchMock).toHaveBeenCalledWith(
+          `${WORLDS_CONTENT_SERVER_URL}/world/${encodeURIComponent(WORLD_NAMES.DEFAULT)}/scenes`,
+          FETCH_OPTIONS
+        )
+      })
+
+      it('should cache the scenes under world-scenes:<world>', async () => {
+        const result = await component.getScenes(WORLD_NAMES.DEFAULT)
+
+        expect(cache.set).toHaveBeenCalledWith(`world-scenes:${WORLD_NAMES.DEFAULT}`, result, 30)
+      })
+    })
+
+    describe('and a scene has no display title', () => {
+      let component: IWorldsContentServerComponent
+
+      beforeEach(async () => {
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ scenes: [buildSceneItem()] })
+        })
+        component = await createComponent()
+      })
+
+      it('should default the title to null', async () => {
+        const [scene] = await component.getScenes(WORLD_NAMES.DEFAULT)
+
+        expect(scene.title).toBeNull()
+      })
+    })
+
+    describe('and the scenes are already cached', () => {
+      let component: IWorldsContentServerComponent
+      let cachedScenes: WorldScene[]
+
+      beforeEach(async () => {
+        cachedScenes = [
+          {
+            sceneId: 'cached-scene',
+            base: PARCELS.DEFAULT,
+            parcels: [PARCELS.DEFAULT],
+            title: null,
+            logsPermissions: []
+          }
+        ]
+        cache.get.mockResolvedValueOnce(cachedScenes)
+        component = await createComponent()
+      })
+
+      it('should return the cached scenes without fetching', async () => {
+        const result = await component.getScenes(WORLD_NAMES.DEFAULT)
+
+        expect(result).toEqual(cachedScenes)
+        expect(fetchMock).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and the payload is missing the scenes array', () => {
+      let component: IWorldsContentServerComponent
+
+      beforeEach(async () => {
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({})
+        })
+        component = await createComponent()
+      })
+
+      it('should throw an error indicating an unexpected payload', async () => {
+        await expect(component.getScenes(WORLD_NAMES.DEFAULT)).rejects.toThrow(
+          `Worlds content server returned an unexpected scenes payload for ${WORLD_NAMES.DEFAULT}`
+        )
+      })
+    })
+
+    describe('and a scene item is missing metadata.scene', () => {
+      let component: IWorldsContentServerComponent
+
+      beforeEach(async () => {
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ scenes: [{ entity: { id: 'scene-entity-id', metadata: {} } }] })
+        })
+        component = await createComponent()
+      })
+
+      it('should throw an error indicating an unexpected scene shape', async () => {
+        await expect(component.getScenes(WORLD_NAMES.DEFAULT)).rejects.toThrow(
+          `Worlds content server returned a scene with an unexpected shape for ${WORLD_NAMES.DEFAULT}`
+        )
+      })
+    })
+
+    describe('and the fetch fails', () => {
+      let component: IWorldsContentServerComponent
+
+      beforeEach(async () => {
+        fetchMock.mockResolvedValueOnce({
+          ok: false,
+          status: 404
+        })
+        component = await createComponent()
+      })
+
+      it('should throw an error with the world name', async () => {
+        await expect(component.getScenes(WORLD_NAMES.DEFAULT)).rejects.toThrow(
+          `Failed to fetch world scenes for ${WORLD_NAMES.DEFAULT}`
+        )
+      })
+    })
+
+    describe('and the fetch throws a network error', () => {
+      let component: IWorldsContentServerComponent
+
+      beforeEach(async () => {
+        fetchMock.mockRejectedValueOnce(new Error('Network error'))
+        component = await createComponent()
+      })
+
+      it('should throw an error indicating network error', async () => {
+        await expect(component.getScenes(WORLD_NAMES.DEFAULT)).rejects.toThrow(
+          `Failed to fetch world scenes for ${WORLD_NAMES.DEFAULT}: network error`
         )
       })
     })
