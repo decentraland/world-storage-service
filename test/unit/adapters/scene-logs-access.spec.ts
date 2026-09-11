@@ -89,6 +89,15 @@ describe('SceneLogsAccessComponent', () => {
     })
   })
 
+  describe('when removing every row for a world', () => {
+    it('should delete by world_name', async () => {
+      await sceneLogsAccess.removeByWorld('myworld.dcl.eth')
+      const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
+      expect(statement.text).toBe('DELETE FROM scene_logs_access WHERE world_name = $1')
+      expect(statement.values).toEqual(['myworld.dcl.eth'])
+    })
+  })
+
   describe('when removing a scene', () => {
     it('should delete every row for the scene', async () => {
       await sceneLogsAccess.removeScene(sceneId)

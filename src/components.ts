@@ -166,7 +166,6 @@ export async function initComponents(): Promise<AppComponents> {
     logs,
     fetcher,
     queueConsumer,
-    worldsContentServer,
     sceneLogsAccess
   })
   const catalystSync = await createCatalystSyncComponent({

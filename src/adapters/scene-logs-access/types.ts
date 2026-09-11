@@ -34,6 +34,13 @@ export interface ISceneLogsAccessComponent {
   removeScene(sceneId: string): Promise<void>
 
   /**
+   * Removes every row for a world (used when a whole world is undeployed).
+   *
+   * @param worldName - The world identifier
+   */
+  removeByWorld(worldName: string): Promise<void>
+
+  /**
    * Returns a page of scenes a wallet may watch, newest first.
    *
    * @param address - The wallet address (case-insensitive)

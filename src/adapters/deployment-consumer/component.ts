@@ -20,16 +20,13 @@ import type { WorldScene } from '../worlds-content-server/types'
  * unrecognized payload is logged and skipped rather than thrown.
  *
  * @param components - Required components: config, logs, fetcher, queueConsumer,
- * worldsContentServer, sceneLogsAccess
+ * sceneLogsAccess
  * @returns Promise resolving to IDeploymentConsumerComponent implementation
  */
 export async function createDeploymentConsumerComponent(
-  components: Pick<
-    AppComponents,
-    'config' | 'logs' | 'fetcher' | 'queueConsumer' | 'worldsContentServer' | 'sceneLogsAccess'
-  >
+  components: Pick<AppComponents, 'config' | 'logs' | 'fetcher' | 'queueConsumer' | 'sceneLogsAccess'>
 ): Promise<IDeploymentConsumerComponent> {
-  const { config, logs, fetcher, queueConsumer, worldsContentServer, sceneLogsAccess } = components
+  const { config, logs, fetcher, queueConsumer, sceneLogsAccess } = components
   const logger = logs.getLogger('deployment-consumer')
 
   const worldsContentServerUrl = (await config.requireString('WORLDS_CONTENT_SERVER_URL')).replace(/\/$/, '')
@@ -153,23 +150,7 @@ export async function createDeploymentConsumerComponent(
         return
       }
 
-      let scenes: WorldScene[]
-      try {
-        scenes = await worldsContentServer.getScenes(worldName)
-      } catch (error) {
-        logger.warn(
-          'Could not enumerate scenes for undeployed world; matching scene_logs_access rows may remain stale',
-          {
-            worldName,
-            error: errorMessageOrDefault(error)
-          }
-        )
-        return
-      }
-
-      for (const scene of scenes) {
-        await sceneLogsAccess.removeScene(scene.sceneId)
-      }
+      await sceneLogsAccess.removeByWorld(worldName)
     } catch (error) {
       logger.error('Unexpected error handling world_undeployment event', { error: errorMessageOrDefault(error) })
     }

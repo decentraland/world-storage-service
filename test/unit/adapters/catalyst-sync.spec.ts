@@ -78,6 +78,7 @@ describe('CatalystSyncComponent', () => {
       upsertForScene: jest.fn(),
       touch: jest.fn(),
       removeScene: jest.fn(),
+      removeByWorld: jest.fn(),
       listByAddress: jest.fn()
     }
   })

@@ -6,7 +6,7 @@ import { createDeploymentConsumerComponent } from '../../../src/adapters/deploym
 import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
 import { createLogsMockedComponent } from '../../mocks/components'
 import type { ISceneLogsAccessComponent } from '../../../src/adapters/scene-logs-access/types'
-import type { IWorldsContentServerComponent, WorldScene } from '../../../src/adapters/worlds-content-server/types'
+import type { WorldScene } from '../../../src/adapters/worlds-content-server/types'
 
 type MessageHandler = (event: unknown) => Promise<void>
 
@@ -17,7 +17,6 @@ describe('DeploymentConsumerComponent', () => {
 
   let fetcher: jest.Mocked<IFetchComponent>
   let queueConsumer: jest.Mocked<IQueueConsumerComponent>
-  let worldsContentServer: jest.Mocked<IWorldsContentServerComponent>
   let sceneLogsAccess: jest.Mocked<ISceneLogsAccessComponent>
   let handlers: Map<string, MessageHandler>
 
@@ -63,14 +62,11 @@ describe('DeploymentConsumerComponent', () => {
       }),
       removeMessageHandler: jest.fn()
     } as unknown as jest.Mocked<IQueueConsumerComponent>
-    worldsContentServer = {
-      getPermissions: jest.fn(),
-      getScenes: jest.fn()
-    }
     sceneLogsAccess = {
       upsertForScene: jest.fn(),
       touch: jest.fn(),
       removeScene: jest.fn(),
+      removeByWorld: jest.fn(),
       listByAddress: jest.fn()
     }
 
@@ -79,7 +75,6 @@ describe('DeploymentConsumerComponent', () => {
       logs: createLogsMockedComponent(),
       fetcher,
       queueConsumer,
-      worldsContentServer,
       sceneLogsAccess
     })
   })
@@ -199,27 +194,17 @@ describe('DeploymentConsumerComponent', () => {
   })
 
   describe('when a world_undeployment event is received', () => {
-    it("should remove every one of the undeployed world's scenes", async () => {
-      worldsContentServer.getScenes.mockResolvedValueOnce([
-        buildScene({ sceneId: 'scene-a' }),
-        buildScene({ sceneId: 'scene-b' })
-      ])
-
+    it('should remove every scene_logs_access row for the world', async () => {
       await worldUndeploymentHandler()({ metadata: { worldName: WORLD_NAMES.DEFAULT } })
 
-      expect(sceneLogsAccess.removeScene).toHaveBeenCalledWith('scene-a')
-      expect(sceneLogsAccess.removeScene).toHaveBeenCalledWith('scene-b')
+      expect(sceneLogsAccess.removeByWorld).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT)
     })
 
-    describe('and getScenes throws', () => {
-      it('should not throw and should not remove any scene', async () => {
-        worldsContentServer.getScenes.mockRejectedValueOnce(new Error('boom'))
+    describe('and the event has a missing worldName', () => {
+      it('should not throw and should not remove anything', async () => {
+        await expect(worldUndeploymentHandler()({ metadata: {} })).resolves.toBeUndefined()
 
-        await expect(
-          worldUndeploymentHandler()({ metadata: { worldName: WORLD_NAMES.DEFAULT } })
-        ).resolves.toBeUndefined()
-
-        expect(sceneLogsAccess.removeScene).not.toHaveBeenCalled()
+        expect(sceneLogsAccess.removeByWorld).not.toHaveBeenCalled()
       })
     })
   })

@@ -60,6 +60,14 @@ export const createSceneLogsAccessComponent = async ({
     logger.debug('Scene logs access removed successfully', { sceneId })
   }
 
+  async function removeByWorld(worldName: string): Promise<void> {
+    logger.debug('Removing scene logs access for world', { worldName })
+
+    await pg.query(SQL`DELETE FROM scene_logs_access WHERE world_name = ${worldName}`)
+
+    logger.debug('Scene logs access removed for world successfully', { worldName })
+  }
+
   async function listByAddress(
     address: string,
     limit: number,
@@ -100,6 +108,7 @@ export const createSceneLogsAccessComponent = async ({
     upsertForScene,
     touch,
     removeScene,
+    removeByWorld,
     listByAddress
   }
 }
