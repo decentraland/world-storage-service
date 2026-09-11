@@ -5,8 +5,8 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-/** Maps a scene entity to a `WorldScene`, or `null` when `id`/`base`/`parcels` are missing (caller decides skip vs fail). */
-export function mapSceneEntity(entity: unknown): WorldScene | null {
+/** Maps a scene entity to a `WorldScene`, or `null` when `base`/`parcels` are missing; `id` falls back to `fallbackId` (the content-addressed file omits its own id). */
+export function mapSceneEntity(entity: unknown, fallbackId?: string): WorldScene | null {
   if (!isRecord(entity)) {
     return null
   }
@@ -15,7 +15,7 @@ export function mapSceneEntity(entity: unknown): WorldScene | null {
   const scene = isRecord(metadata?.scene) ? metadata.scene : undefined
   const display = isRecord(metadata?.display) ? metadata.display : undefined
 
-  const sceneId = entity.id
+  const sceneId = typeof entity.id === 'string' ? entity.id : fallbackId
   const base = scene?.base
   const parcels = scene?.parcels
   const title = display?.title

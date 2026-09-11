@@ -89,7 +89,8 @@ describe('DeploymentConsumerComponent', () => {
         mockResponse({
           ok: true,
           json: jest.fn().mockResolvedValue({
-            id: scene.sceneId,
+            type: 'scene',
+            pointers: scene.parcels,
             metadata: {
               worldConfiguration: { name: WORLD_NAMES.DEFAULT },
               scene: { base: scene.base, parcels: scene.parcels },

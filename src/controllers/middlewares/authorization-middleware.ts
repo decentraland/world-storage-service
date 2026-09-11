@@ -223,25 +223,6 @@ export function createAuthorizationMiddleware(
 }
 
 /**
- * General-purpose authorization middleware that allows:
- * - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS and addresses in AUTHORIZED_ADDRESSES)
- * - World owners and deployers
- *
- * Use this for standard operations where both authorized addresses and world permissions
- * should have access. This is the default choice for most endpoints.
- *
- * Accepts a world-scoped storage delegation (an authoritative scene worker signing for
- * its own scene). Env VALUE reads (GET /env/:key) use the stricter
- * `authorizedAddressesOrScopedDelegationAuthorizationMiddleware` below (no owners/
- * deployers); the remaining env routes are owner/deployer-only and never accept a delegation.
- */
-export const authorizationMiddleware = createAuthorizationMiddleware({
-  allowAuthorizedAddresses: true,
-  allowOwnersAndDeployers: true,
-  allowScopedDelegation: true
-})
-
-/**
  * Restrictive authorization middleware that allows:
  * - World owners and deployers only
  *

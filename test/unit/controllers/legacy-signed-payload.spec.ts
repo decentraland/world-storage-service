@@ -10,7 +10,7 @@ import { signedFetchPolicy } from '../../../src/controllers/signed-fetch-policy'
  * They sign the pre-6.0.0 payload -- `format!("{method}:{path}:{ts}:{meta}").to_lowercase()` in
  * bevy's `crates/wallet/src/lib.rs` -- while delivering the metadata header verbatim. Since 6.0.0
  * the metadata is joined into the signed payload as-is, so those two disagree for any metadata
- * carrying uppercase, and verification fails before `authorizationMiddleware` ever runs. A valid
+ * carrying uppercase, and verification fails before the authorization middleware ever runs. A valid
  * storage delegation is never consulted; the caller just sees a 401.
  *
  * Driven through `verify()` with the options `routes.ts` wires, rather than through the router,

@@ -75,13 +75,13 @@ export async function createDeploymentConsumerComponent(
       return null
     }
 
-    const scene = mapSceneEntity(body)
+    const scene = mapSceneEntity(body, entityId)
     if (!scene) {
       logger.warn('Deployed entity has an unexpected scene shape', { entityId, url })
       return null
     }
 
-    return { worldName, scene: { ...scene, sceneId: entityId } }
+    return { worldName, scene }
   }
 
   async function handleDeployment(event: unknown): Promise<void> {

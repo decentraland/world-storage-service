@@ -2,7 +2,6 @@ import { createUnsafeIdentity } from '@dcl/crypto/dist/crypto'
 import { Authenticator } from '@dcl/crypto'
 import { NotAuthorizedError } from '@dcl/http-commons'
 import {
-  authorizationMiddleware,
   createAuthorizationMiddleware,
   logsAccessAuthorizationMiddleware
 } from '../../../../src/controllers/middlewares/authorization-middleware'
@@ -600,12 +599,16 @@ describe('Authorization Middleware', () => {
     })
   })
 
-  describe('the authorizationMiddleware preset', () => {
+  describe('a preset without logs-access', () => {
     it('should never consult getLogsAccessibleScene, even when it would grant access', async () => {
+      const noLogsPreset = createAuthorizationMiddleware({
+        allowAuthorizedAddresses: true,
+        allowOwnersAndDeployers: true
+      })
       hasWorldPermissionMock.mockResolvedValueOnce(false)
       getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
 
-      await expect(authorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
+      await expect(noLogsPreset(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
       expect(getLogsAccessibleSceneMock).not.toHaveBeenCalled()
       expect(next).not.toHaveBeenCalled()
     })
