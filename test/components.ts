@@ -1,22 +1,19 @@
-// This file is the "test-environment" analogous for src/components.ts
-// Here we define the test components to be used in the testing environment
-
+import { START_COMPONENT, STOP_COMPONENT } from '@well-known-components/interfaces'
 import { createLocalFetchComponent, createRunner } from '@dcl/test-helpers'
 import { initComponents as originalInitComponents } from '../src/components'
 import { main } from '../src/service'
+import type { ICatalystSyncComponent } from '../src/adapters/catalyst-sync/types'
 import type { TestComponents } from '../src/types'
 
-/**
- * Behaves like Jest "describe" function, used to describe a test for a
- * use case, it creates a whole new program and components to run an
- * isolated test.
- *
- * State is persistent within the steps of the test.
- */
 export const test = createRunner<TestComponents>({
   main,
   initComponents
 })
+
+const inertCatalystSync: ICatalystSyncComponent = {
+  [START_COMPONENT]: async () => undefined,
+  [STOP_COMPONENT]: async () => undefined
+}
 
 async function initComponents(): Promise<TestComponents> {
   const components = await originalInitComponents()
@@ -25,6 +22,7 @@ async function initComponents(): Promise<TestComponents> {
 
   return {
     ...components,
+    catalystSync: inertCatalystSync,
     localFetch: await createLocalFetchComponent(config)
   }
 }
