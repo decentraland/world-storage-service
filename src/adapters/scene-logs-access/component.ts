@@ -79,7 +79,7 @@ export const createSceneLogsAccessComponent = async ({
         SELECT scene_id, world_name, base_parcel, title, realm_kind
         FROM scene_logs_access
         WHERE address = ${lowercasedAddress}
-        ORDER BY updated_at DESC
+        ORDER BY updated_at DESC, scene_id ASC
         LIMIT ${limit} OFFSET ${offset}`)
     ])
 

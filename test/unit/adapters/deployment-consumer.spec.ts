@@ -89,14 +89,22 @@ describe('DeploymentConsumerComponent', () => {
   })
 
   describe('when a deployment event is received', () => {
-    beforeEach(() => {
+    function mockEntityFetch(scene: WorldScene): void {
       fetcher.fetch.mockResolvedValueOnce(
         mockResponse({
           ok: true,
-          json: jest.fn().mockResolvedValue({ metadata: { worldConfiguration: { name: WORLD_NAMES.DEFAULT } } })
+          json: jest.fn().mockResolvedValue({
+            id: scene.sceneId,
+            metadata: {
+              worldConfiguration: { name: WORLD_NAMES.DEFAULT },
+              scene: { base: scene.base, parcels: scene.parcels },
+              display: { title: scene.title },
+              logsPermissions: scene.logsPermissions
+            }
+          })
         })
       )
-    })
+    }
 
     describe('and the deployed scene has logsPermissions', () => {
       let scene: WorldScene
@@ -105,7 +113,7 @@ describe('DeploymentConsumerComponent', () => {
         scene = buildScene({
           logsPermissions: [ADDRESSES.AUTHORIZED.toLowerCase(), ADDRESSES.ANOTHER_AUTHORIZED.toLowerCase()]
         })
-        worldsContentServer.getScenes.mockResolvedValueOnce([scene])
+        mockEntityFetch(scene)
       })
 
       it('should fetch the deployed entity from the configured worlds content server', async () => {
@@ -114,7 +122,7 @@ describe('DeploymentConsumerComponent', () => {
         expect(fetcher.fetch).toHaveBeenCalledWith(`${worldsContentServerUrl}/contents/${entityId}`, FETCH_OPTIONS)
       })
 
-      it('should upsert the scene with its lowercased addresses', async () => {
+      it('should upsert the scene resolved from the deployed entity with its lowercased addresses', async () => {
         await deploymentHandler()({ entity: { entityId } })
 
         expect(sceneLogsAccess.upsertForScene).toHaveBeenCalledWith({
@@ -130,7 +138,7 @@ describe('DeploymentConsumerComponent', () => {
 
     describe('and the deployed scene has no logsPermissions', () => {
       beforeEach(() => {
-        worldsContentServer.getScenes.mockResolvedValueOnce([buildScene({ logsPermissions: [] })])
+        mockEntityFetch(buildScene({ logsPermissions: [] }))
       })
 
       it('should upsert the scene with an empty address set', async () => {
@@ -140,9 +148,9 @@ describe('DeploymentConsumerComponent', () => {
       })
     })
 
-    describe('and getScenes throws', () => {
+    describe('and the deployed entity fetch is non-OK', () => {
       beforeEach(() => {
-        worldsContentServer.getScenes.mockRejectedValueOnce(new Error('boom'))
+        fetcher.fetch.mockResolvedValueOnce(mockResponse({ ok: false, status: 500, statusText: 'error' }))
       })
 
       it('should not throw and should not upsert the scene', async () => {

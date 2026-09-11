@@ -1,4 +1,5 @@
 import { Events } from '@dcl/schemas'
+import { extractLogsPermissions } from '../../logic/logs-permissions'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { IDeploymentConsumerComponent } from './types'
@@ -39,7 +40,7 @@ export async function createDeploymentConsumerComponent(
 
   const worldsContentServerUrl = (await config.requireString('WORLDS_CONTENT_SERVER_URL')).replace(/\/$/, '')
 
-  async function resolveWorldName(entityId: string): Promise<string | null> {
+  async function resolveDeployedScene(entityId: string): Promise<{ worldName: string; scene: WorldScene } | null> {
     const url = `${worldsContentServerUrl}/contents/${encodeURIComponent(entityId)}`
 
     let response: Awaited<ReturnType<typeof fetcher.fetch>>
@@ -77,13 +78,32 @@ export async function createDeploymentConsumerComponent(
     const metadata = isRecord(body) ? body.metadata : undefined
     const worldConfiguration = isRecord(metadata) ? metadata.worldConfiguration : undefined
     const worldName = isRecord(worldConfiguration) ? worldConfiguration.name : undefined
+    const scene = isRecord(metadata) ? metadata.scene : undefined
+    const base = isRecord(scene) ? scene.base : undefined
+    const parcels = isRecord(scene) ? scene.parcels : undefined
+    const display = isRecord(metadata) ? metadata.display : undefined
+    const title = isRecord(display) ? display.title : undefined
 
     if (typeof worldName !== 'string' || worldName.length === 0) {
       logger.warn('Deployed entity has no world configuration name', { entityId, url })
       return null
     }
 
-    return worldName
+    if (typeof base !== 'string' || !Array.isArray(parcels)) {
+      logger.warn('Deployed entity has an unexpected scene shape', { entityId, url })
+      return null
+    }
+
+    return {
+      worldName,
+      scene: {
+        sceneId: entityId,
+        base,
+        parcels: parcels.filter((parcel): parcel is string => typeof parcel === 'string'),
+        title: typeof title === 'string' ? title : null,
+        logsPermissions: extractLogsPermissions(metadata)
+      }
+    }
   }
 
   async function handleDeployment(event: unknown): Promise<void> {
@@ -96,40 +116,19 @@ export async function createDeploymentConsumerComponent(
         return
       }
 
-      const worldName = await resolveWorldName(entityId)
-      if (!worldName) {
-        logger.warn('Skipping deployment event: could not resolve world name', { entityId })
-        return
-      }
-
-      let scenes: WorldScene[]
-      try {
-        scenes = await worldsContentServer.getScenes(worldName)
-      } catch (error) {
-        logger.error('Failed to fetch world scenes for deployment event', {
-          worldName,
-          entityId,
-          error: errorMessageOrDefault(error)
-        })
-        return
-      }
-
-      const scene = scenes.find(candidate => candidate.sceneId === entityId)
-      if (!scene) {
-        logger.warn('Skipping deployment event: deployed scene not found among world scenes', {
-          worldName,
-          entityId
-        })
+      const resolved = await resolveDeployedScene(entityId)
+      if (!resolved) {
+        logger.warn('Skipping deployment event: could not resolve deployed scene', { entityId })
         return
       }
 
       await sceneLogsAccess.upsertForScene({
-        worldName,
-        baseParcel: scene.base,
-        sceneId: scene.sceneId,
-        title: scene.title,
+        worldName: resolved.worldName,
+        baseParcel: resolved.scene.base,
+        sceneId: resolved.scene.sceneId,
+        title: resolved.scene.title,
         realmKind: 'world',
-        addresses: scene.logsPermissions
+        addresses: resolved.scene.logsPermissions
       })
     } catch (error) {
       logger.error('Unexpected error handling deployment event', { error: errorMessageOrDefault(error) })

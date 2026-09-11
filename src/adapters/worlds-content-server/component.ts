@@ -182,7 +182,17 @@ export async function createWorldsContentServerComponent(
       const body: unknown = await response.json()
       assertWorldScenesShape(body, worldName)
 
-      const scenes = body.scenes.map(item => mapWorldScene(item, worldName))
+      const scenes = body.scenes.flatMap(item => {
+        try {
+          return [mapWorldScene(item, worldName)]
+        } catch (error) {
+          logger.warn('Skipping malformed scene in world scenes response', {
+            worldName,
+            error: errorMessageOrDefault(error)
+          })
+          return []
+        }
+      })
 
       await cache.set(cacheKey, scenes, scenesCacheTtlSeconds)
 

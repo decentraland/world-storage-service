@@ -332,21 +332,36 @@ describe('Worlds Content Server Component', () => {
       })
     })
 
-    describe('and a scene item is missing metadata.scene', () => {
+    describe('and one scene item is malformed among valid ones', () => {
       let component: IWorldsContentServerComponent
 
       beforeEach(async () => {
         fetchMock.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ scenes: [{ entity: { id: 'scene-entity-id', metadata: {} } }] })
+          json: () =>
+            Promise.resolve({
+              scenes: [
+                { entity: { id: 'bad', metadata: {} } },
+                {
+                  entity: {
+                    id: 'good',
+                    metadata: {
+                      scene: { base: '1,2', parcels: ['1,2'] },
+                      display: { title: 'Good' },
+                      logsPermissions: []
+                    }
+                  }
+                }
+              ]
+            })
         })
         component = await createComponent()
       })
 
-      it('should throw an error indicating an unexpected scene shape', async () => {
-        await expect(component.getScenes(WORLD_NAMES.DEFAULT)).rejects.toThrow(
-          `Worlds content server returned a scene with an unexpected shape for ${WORLD_NAMES.DEFAULT}`
-        )
+      it('should skip the malformed scene and return the valid one', async () => {
+        await expect(component.getScenes(WORLD_NAMES.DEFAULT)).resolves.toEqual([
+          { sceneId: 'good', base: '1,2', parcels: ['1,2'], title: 'Good', logsPermissions: [] }
+        ])
       })
     })
 
