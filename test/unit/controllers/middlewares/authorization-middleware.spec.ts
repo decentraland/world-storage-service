@@ -512,6 +512,16 @@ describe('Authorization Middleware', () => {
           realmKind: 'world'
         })
       })
+
+      it('should touch only once across repeated grants for the same scene and wallet', async () => {
+        getLogsAccessibleSceneMock.mockResolvedValue(LOGS_READABLE_SCENE)
+        next.mockResolvedValue({ status: 200 })
+
+        await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+        await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+
+        expect(touchMock).toHaveBeenCalledTimes(1)
+      })
     })
 
     describe('and the watcher backfill upsert rejects', () => {

@@ -61,6 +61,9 @@ export function createAuthorizationMiddleware(
     allowLogsAccess = false
   } = options
 
+  const MAX_TOUCHED_KEYS = 10_000
+  const recentlyTouched = new Set<string>()
+
   return async (ctx, next) => {
     const {
       components: { config, logs, worldPermission }
@@ -181,20 +184,30 @@ export function createAuthorizationMiddleware(
 
       if (logsScene) {
         logger.debug('Authorization granted via logs-access permission', { worldName })
-        void ctx.components.sceneLogsAccess
-          .touch({
-            address: signerAddress,
-            sceneId: logsScene.sceneId,
-            worldName,
-            baseParcel: logsScene.base,
-            title: logsScene.title,
-            realmKind: isSharedRealmName(worldName) ? 'genesis' : 'world'
-          })
-          .catch(error =>
-            logger.debug('watcher backfill upsert failed (non-fatal)', {
-              error: isErrorWithMessage(error) ? error.message : 'Unknown error'
+        const touchKey = `${logsScene.sceneId}:${signerAddress}`
+        if (!recentlyTouched.has(touchKey)) {
+          recentlyTouched.add(touchKey)
+          if (recentlyTouched.size > MAX_TOUCHED_KEYS) {
+            const oldest = recentlyTouched.values().next().value
+            if (oldest !== undefined) {
+              recentlyTouched.delete(oldest)
+            }
+          }
+          void ctx.components.sceneLogsAccess
+            .touch({
+              address: signerAddress,
+              sceneId: logsScene.sceneId,
+              worldName,
+              baseParcel: logsScene.base,
+              title: logsScene.title,
+              realmKind: isSharedRealmName(worldName) ? 'genesis' : 'world'
             })
-          )
+            .catch(error =>
+              logger.debug('watcher backfill upsert failed (non-fatal)', {
+                error: isErrorWithMessage(error) ? error.message : 'Unknown error'
+              })
+            )
+        }
         return await next()
       }
     }
