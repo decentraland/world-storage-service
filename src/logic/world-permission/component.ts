@@ -200,7 +200,7 @@ export async function createWorldPermissionComponent(
         }
         return scene
       } catch (error) {
-        logger.warn('Logs-read permission check failed; denying', {
+        logger.warn('Logs-access permission check failed; denying', {
           worldName,
           parcel,
           error: errorMessageOrDefault(error)

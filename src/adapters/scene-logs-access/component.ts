@@ -26,16 +26,18 @@ export const createSceneLogsAccessComponent = async ({
       return
     }
 
-    await pg.query(SQL`
-      DELETE FROM scene_logs_access
-      WHERE scene_id = ${sceneId} AND address <> ALL(${lowercasedAddresses})`)
+    await pg.withAsyncContextTransaction(async () => {
+      await pg.query(SQL`
+        DELETE FROM scene_logs_access
+        WHERE scene_id = ${sceneId} AND address <> ALL(${lowercasedAddresses})`)
 
-    await pg.query(SQL`
-      INSERT INTO scene_logs_access (scene_id, address, world_name, base_parcel, title, realm_kind, updated_at)
-      SELECT ${sceneId}, address, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, current_timestamp
-      FROM UNNEST(${lowercasedAddresses}::text[]) AS address
-      ON CONFLICT (scene_id, address) DO UPDATE
-      SET world_name = ${worldName}, base_parcel = ${baseParcel}, title = ${title}, realm_kind = ${realmKind}, updated_at = current_timestamp`)
+      await pg.query(SQL`
+        INSERT INTO scene_logs_access (scene_id, address, world_name, base_parcel, title, realm_kind, updated_at)
+        SELECT ${sceneId}, address, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, current_timestamp
+        FROM UNNEST(${lowercasedAddresses}::text[]) AS address
+        ON CONFLICT (scene_id, address) DO UPDATE
+        SET world_name = ${worldName}, base_parcel = ${baseParcel}, title = ${title}, realm_kind = ${realmKind}, updated_at = current_timestamp`)
+    })
 
     logger.debug('Scene logs access upserted successfully', { sceneId })
   }

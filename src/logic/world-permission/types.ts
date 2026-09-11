@@ -16,7 +16,7 @@ export interface IWorldPermissionComponent {
 
   /**
    * Check if an address is listed in `logsPermissions` for the scene at `parcel`,
-   * granting read-only access to that scene's storage.
+   * granting access to that scene's storage (read and per-key write/delete).
    *
    * For worlds (*.eth): resolves the scene via worlds-content-server.
    * For Genesis City (world_name = "main"): resolves the active scene entity via catalyst content.
@@ -24,7 +24,7 @@ export interface IWorldPermissionComponent {
    * @param worldName - The world identifier ("main" for Genesis City, or "*.eth" for worlds)
    * @param address - The wallet address to check
    * @param parcel - The parcel coordinate of the scene
-   * @returns The matched `WorldScene` when the address is granted read access, else `null` (fails closed)
+   * @returns The matched `WorldScene` when the address is granted access, else `null` (fails closed)
    */
   getLogsAccessibleScene(worldName: string, address: string, parcel: string): Promise<WorldScene | null>
 }
