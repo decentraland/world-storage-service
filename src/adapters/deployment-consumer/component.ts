@@ -1,16 +1,10 @@
 import { Events } from '@dcl/schemas'
-import { extractLogsPermissions } from '../../logic/logs-permissions'
+import { isRecord, mapSceneEntity } from '../../logic/scene-entity'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { IDeploymentConsumerComponent } from './types'
 import type { AppComponents } from '../../types'
 import type { WorldScene } from '../worlds-content-server/types'
-
-type JsonRecord = Record<string, unknown>
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === 'object' && value !== null
-}
 
 /**
  * Creates the deployment consumer component: a long-lived SQS consumer of
@@ -78,32 +72,19 @@ export async function createDeploymentConsumerComponent(
     const metadata = isRecord(body) ? body.metadata : undefined
     const worldConfiguration = isRecord(metadata) ? metadata.worldConfiguration : undefined
     const worldName = isRecord(worldConfiguration) ? worldConfiguration.name : undefined
-    const scene = isRecord(metadata) ? metadata.scene : undefined
-    const base = isRecord(scene) ? scene.base : undefined
-    const parcels = isRecord(scene) ? scene.parcels : undefined
-    const display = isRecord(metadata) ? metadata.display : undefined
-    const title = isRecord(display) ? display.title : undefined
 
     if (typeof worldName !== 'string' || worldName.length === 0) {
       logger.warn('Deployed entity has no world configuration name', { entityId, url })
       return null
     }
 
-    if (typeof base !== 'string' || !Array.isArray(parcels)) {
+    const scene = mapSceneEntity(body)
+    if (!scene) {
       logger.warn('Deployed entity has an unexpected scene shape', { entityId, url })
       return null
     }
 
-    return {
-      worldName,
-      scene: {
-        sceneId: entityId,
-        base,
-        parcels: parcels.filter((parcel): parcel is string => typeof parcel === 'string'),
-        title: typeof title === 'string' ? title : null,
-        logsPermissions: extractLogsPermissions(metadata)
-      }
-    }
+    return { worldName, scene: { ...scene, sceneId: entityId } }
   }
 
   async function handleDeployment(event: unknown): Promise<void> {

@@ -1,18 +1,9 @@
-import { extractLogsPermissions } from '../../logic/logs-permissions'
+import { isRecord, mapSceneEntity } from '../../logic/scene-entity'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { ICatalystContentComponent } from './types'
 import type { AppComponents } from '../../types'
 import type { WorldScene } from '../worlds-content-server/types'
-
-interface CatalystEntity {
-  id?: unknown
-  pointers?: unknown
-  metadata?: {
-    display?: { title?: unknown }
-    scene?: { base?: unknown; parcels?: unknown }
-  }
-}
 
 /**
  * @param components - Required components: fetcher, config, cache, logs
@@ -27,33 +18,18 @@ export async function createCatalystContentComponent(
   const contentUrl = (await config.requireString('CONTENT_URL')).replace(/\/$/, '')
   const cacheTtlSeconds = (await config.getNumber('SCENE_METADATA_CACHE_TTL_SECONDS')) ?? 30
 
-  function entityContainsParcel(entity: CatalystEntity, parcel: string): boolean {
-    const sceneParcels = entity.metadata?.scene?.parcels
+  function entityContainsParcel(entity: unknown, parcel: string): boolean {
+    if (!isRecord(entity)) {
+      return false
+    }
+
+    const scene = isRecord(entity.metadata) && isRecord(entity.metadata.scene) ? entity.metadata.scene : undefined
+    const sceneParcels = scene?.parcels
     if (Array.isArray(sceneParcels) && sceneParcels.includes(parcel)) {
       return true
     }
 
     return Array.isArray(entity.pointers) && entity.pointers.includes(parcel)
-  }
-
-  function mapToWorldScene(entity: CatalystEntity, parcel: string): WorldScene {
-    const sceneId = entity.id
-    const base = entity.metadata?.scene?.base
-    const parcels = entity.metadata?.scene?.parcels
-
-    if (typeof sceneId !== 'string' || typeof base !== 'string' || !Array.isArray(parcels)) {
-      throw new Error(`Catalyst content server returned an entity with an unexpected shape for parcel ${parcel}`)
-    }
-
-    const title = entity.metadata?.display?.title
-
-    return {
-      sceneId,
-      base,
-      parcels,
-      title: typeof title === 'string' ? title : null,
-      logsPermissions: extractLogsPermissions(entity.metadata)
-    }
   }
 
   return {
@@ -103,13 +79,17 @@ export async function createCatalystContentComponent(
         throw new Error(`Catalyst content server returned an unexpected payload for parcel ${parcel}`)
       }
 
-      const entities = body as CatalystEntity[]
-      const activeEntity = entities.find(entity => entityContainsParcel(entity, parcel))
-      const scene = activeEntity ? mapToWorldScene(activeEntity, parcel) : null
-
-      if (scene) {
-        await cache.set(cacheKey, scene, cacheTtlSeconds)
+      const activeEntity = body.find(entity => entityContainsParcel(entity, parcel))
+      if (!activeEntity) {
+        return null
       }
+
+      const scene = mapSceneEntity(activeEntity)
+      if (!scene) {
+        throw new Error(`Catalyst content server returned an entity with an unexpected shape for parcel ${parcel}`)
+      }
+
+      await cache.set(cacheKey, scene, cacheTtlSeconds)
 
       return scene
     }

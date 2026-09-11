@@ -1,6 +1,7 @@
 import { SQL } from 'sql-template-strings'
 import { START_COMPONENT, STOP_COMPONENT } from '@well-known-components/interfaces'
 import { EntityType } from '@dcl/schemas'
+import { isRecord } from '../../logic/scene-entity'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { ICatalystSyncComponent } from './types'
@@ -9,12 +10,6 @@ import type { WorldScene } from '../worlds-content-server/types'
 
 const CURSOR_NAME = 'catalyst-pointer-changes'
 const GENESIS_WORLD_NAME = 'main'
-
-type JsonRecord = Record<string, unknown>
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === 'object' && value !== null
-}
 
 interface PointerChangeItem {
   entityId: string

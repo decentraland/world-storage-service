@@ -1,19 +1,11 @@
-import { extractLogsPermissions } from '../../logic/logs-permissions'
+import { mapSceneEntity } from '../../logic/scene-entity'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { IWorldsContentServerComponent, WorldPermissions, WorldScene } from './types'
 import type { AppComponents } from '../../types'
 
-interface WorldSceneEntity {
-  id?: unknown
-  metadata?: {
-    display?: { title?: unknown }
-    scene?: { base?: unknown; parcels?: unknown }
-  }
-}
-
 interface WorldSceneItem {
-  entity?: WorldSceneEntity
+  entity?: unknown
 }
 
 /**
@@ -60,27 +52,6 @@ export async function createWorldsContentServerComponent(
 
     if (!Array.isArray(scenes)) {
       throw new Error(`Worlds content server returned an unexpected scenes payload for ${worldName}`)
-    }
-  }
-
-  function mapWorldScene(item: WorldSceneItem, worldName: string): WorldScene {
-    const entity = item.entity
-    const sceneId = entity?.id
-    const base = entity?.metadata?.scene?.base
-    const parcels = entity?.metadata?.scene?.parcels
-
-    if (typeof sceneId !== 'string' || typeof base !== 'string' || !Array.isArray(parcels)) {
-      throw new Error(`Worlds content server returned a scene with an unexpected shape for ${worldName}`)
-    }
-
-    const title = entity?.metadata?.display?.title
-
-    return {
-      sceneId,
-      base,
-      parcels,
-      title: typeof title === 'string' ? title : null,
-      logsPermissions: extractLogsPermissions(entity?.metadata)
     }
   }
 
@@ -183,15 +154,12 @@ export async function createWorldsContentServerComponent(
       assertWorldScenesShape(body, worldName)
 
       const scenes = body.scenes.flatMap(item => {
-        try {
-          return [mapWorldScene(item, worldName)]
-        } catch (error) {
-          logger.warn('Skipping malformed scene in world scenes response', {
-            worldName,
-            error: errorMessageOrDefault(error)
-          })
+        const scene = mapSceneEntity(item.entity)
+        if (!scene) {
+          logger.warn('Skipping malformed scene in world scenes response', { worldName })
           return []
         }
+        return [scene]
       })
 
       await cache.set(cacheKey, scenes, scenesCacheTtlSeconds)
