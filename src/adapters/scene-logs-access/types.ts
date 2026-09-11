@@ -1,18 +1,13 @@
-export interface SceneLogsAccessRow {
-  address: string
-  sceneId: string
-  worldName: string
-  baseParcel: string
-  title: string | null
-  realmKind: 'world' | 'genesis'
-}
-
 export interface WatcherScene {
   worldName: string
   baseParcel: string
   sceneId: string
   title: string | null
   realmKind: 'world' | 'genesis'
+}
+
+export interface SceneLogsAccessRow extends WatcherScene {
+  address: string
 }
 
 export interface ISceneLogsAccessComponent {
