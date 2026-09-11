@@ -38,19 +38,41 @@ import type { AppComponents, GlobalContext } from './types'
  * A single-process, in-memory stand-in for the real SQS-backed queue, used for local
  * development when `AWS_SQS_QUEUE_URL` is unset. Messages sent are held in an array and
  * handed back in FIFO order; there is no cross-process delivery, redelivery, or
- * visibility-timeout enforcement.
+ * visibility-timeout enforcement. An empty `receiveMessages` resolves after a short delay
+ * (or as soon as the caller's `abortSignal` fires), approximating SQS long-poll waiting so
+ * the queue-consumer receive loop paces itself instead of busy-spinning.
  *
  * @returns An IQueueComponent implementation backed by an in-memory array
  */
 function createLocalDevQueueComponent(): IQueueComponent {
   const pending: Array<{ id: string; body: string }> = []
   let nextId = 0
+  const EMPTY_RECEIVE_WAIT_MS = 1000
 
   return {
     async sendMessage(message) {
       pending.push({ id: `${++nextId}`, body: JSON.stringify(message) })
     },
-    async receiveMessages(amount = 10) {
+    async receiveMessages(amount = 10, options) {
+      if (pending.length === 0) {
+        await new Promise<void>(resolve => {
+          const signal = options?.abortSignal
+          if (signal?.aborted) {
+            resolve()
+            return
+          }
+          const timer = setTimeout(resolve, EMPTY_RECEIVE_WAIT_MS)
+          signal?.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer)
+              resolve()
+            },
+            { once: true }
+          )
+        })
+        return []
+      }
       return pending.splice(0, amount).map(message => ({
         MessageId: message.id,
         ReceiptHandle: message.id,

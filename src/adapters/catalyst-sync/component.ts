@@ -174,7 +174,9 @@ export async function createCatalystSyncComponent(
       await saveCursor(cursor)
     }
 
-    await poll()
+    void poll().catch(error =>
+      logger.error('Unhandled error in catalyst-sync poll loop', { error: errorMessageOrDefault(error) })
+    )
 
     intervalHandle = setInterval(() => {
       poll().catch(error =>

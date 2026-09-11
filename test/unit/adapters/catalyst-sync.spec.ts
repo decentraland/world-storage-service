@@ -40,6 +40,10 @@ describe('CatalystSyncComponent', () => {
     await stop()
   }
 
+  function flushPromises(): Promise<void> {
+    return new Promise(resolve => setImmediate(resolve))
+  }
+
   function buildScene(overrides: Partial<WatcherScene> & { logsPermissions?: string[] } = {}): {
     sceneId: string
     base: string
@@ -111,6 +115,7 @@ describe('CatalystSyncComponent', () => {
 
         catalystSync = await createComponent()
         await startCatalystSync(catalystSync)
+        await flushPromises()
       })
 
       it('should not run the snapshots bootstrap', () => {
@@ -156,6 +161,7 @@ describe('CatalystSyncComponent', () => {
 
         catalystSync = await createComponent()
         await startCatalystSync(catalystSync)
+        await flushPromises()
       })
 
       it('should remove the scene by its entity id', () => {
@@ -180,6 +186,7 @@ describe('CatalystSyncComponent', () => {
 
         catalystSync = await createComponent()
         await startCatalystSync(catalystSync)
+        await flushPromises()
       })
 
       it('should skip the malformed items without resolving any scene', () => {
