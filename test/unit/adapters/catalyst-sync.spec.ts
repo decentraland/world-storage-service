@@ -223,71 +223,30 @@ describe('CatalystSyncComponent', () => {
   describe('when starting with no persisted cursor', () => {
     beforeEach(() => {
       pg.query.mockResolvedValueOnce({ rows: [] } as never)
+      pg.query.mockResolvedValue({ rows: [] } as never)
+      fetcher.fetch.mockResolvedValue(mockResponse({ ok: true, json: jest.fn().mockResolvedValue({ deltas: [] }) }))
     })
 
-    it('should run the one-time snapshots bootstrap before polling', async () => {
-      fetcher.fetch
-        .mockResolvedValueOnce(mockResponse({ ok: true, json: jest.fn().mockResolvedValue([]) }))
-        .mockResolvedValueOnce(mockResponse({ ok: true, json: jest.fn().mockResolvedValue({ deltas: [] }) }))
-      pg.query.mockResolvedValueOnce({ rows: [] } as never)
-
+    it('should never fetch the snapshots endpoint (no historical backfill)', async () => {
       catalystSync = await createComponent()
       await startCatalystSync(catalystSync)
 
-      expect(fetcher.fetch).toHaveBeenNthCalledWith(1, `${contentUrl}/snapshots`, expect.anything())
+      expect(fetcher.fetch).not.toHaveBeenCalledWith(`${contentUrl}/snapshots`, expect.anything())
+      await stopCatalystSync(catalystSync)
     })
 
-    describe('and the snapshot content file has a scene entry', () => {
-      let scene: ReturnType<typeof buildScene>
+    it('should initialise the cursor to the current time before polling', async () => {
+      const before = Date.now()
+      catalystSync = await createComponent()
+      await startCatalystSync(catalystSync)
 
-      beforeEach(async () => {
-        scene = buildScene()
-
-        fetcher.fetch
-          .mockResolvedValueOnce(
-            mockResponse({
-              ok: true,
-              json: jest
-                .fn()
-                .mockResolvedValue([{ hash: 'bafy-snapshot-1', timeRange: { initTimestamp: 0, endTimestamp: 500 } }])
-            })
-          )
-          .mockResolvedValueOnce(
-            mockResponse({
-              ok: true,
-              text: jest
-                .fn()
-                .mockResolvedValue(
-                  `${JSON.stringify({ entityId, entityType: 'scene', pointers: [PARCELS.GENESIS_CITY] })}\n`
-                )
-            })
-          )
-          .mockResolvedValueOnce(mockResponse({ ok: true, json: jest.fn().mockResolvedValue({ deltas: [] }) }))
-        catalystContent.getActiveSceneEntity.mockResolvedValueOnce(scene)
-        pg.query.mockResolvedValueOnce({ rows: [] } as never)
-
-        catalystSync = await createComponent()
-        await startCatalystSync(catalystSync)
+      const insertCall = pg.query.mock.calls.find(call => {
+        const statement = call[0] as unknown as { text: string }
+        return statement.text.includes('INSERT INTO sync_cursor')
       })
-
-      it('should download the snapshot content file by hash', () => {
-        expect(fetcher.fetch).toHaveBeenNthCalledWith(2, `${contentUrl}/contents/bafy-snapshot-1`, expect.anything())
-      })
-
-      it('should upsert the scene found in the snapshot content file', () => {
-        expect(sceneLogsAccess.upsertForScene).toHaveBeenCalledWith(
-          expect.objectContaining({ sceneId: scene.sceneId, realmKind: 'genesis' })
-        )
-      })
-
-      it('should persist the cursor as the snapshot time range end', () => {
-        const insertCall = pg.query.mock.calls.find(call => {
-          const statement = call[0] as unknown as { text: string }
-          return statement.text.includes('INSERT INTO sync_cursor')
-        })
-        const statement = insertCall?.[0] as unknown as { values: unknown[] }
-        expect(statement.values).toContain('500')
-      })
+      const values = (insertCall?.[0] as unknown as { values: unknown[] }).values
+      expect(Number(values[1])).toBeGreaterThanOrEqual(before)
+      await stopCatalystSync(catalystSync)
     })
   })
 })

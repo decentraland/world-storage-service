@@ -9,7 +9,6 @@ import type { WorldScene } from '../worlds-content-server/types'
 
 const CURSOR_NAME = 'catalyst-pointer-changes'
 const GENESIS_WORLD_NAME = 'main'
-const SNAPSHOT_FETCH_OPTIONS = { ...UPSTREAM_FETCH_OPTIONS, timeout: 30_000 }
 
 type JsonRecord = Record<string, unknown>
 
@@ -17,26 +16,18 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null
 }
 
-interface SceneChangeItem {
+interface PointerChangeItem {
   entityId: string
   pointers: string[]
-}
-
-interface PointerChangeItem extends SceneChangeItem {
   localTimestamp: number
 }
 
-interface SnapshotMetadata {
-  hash: string
-  endTimestamp: number
-}
-
-function parseSceneChangeItem(value: unknown): SceneChangeItem | null {
+function parsePointerChangeItem(value: unknown): PointerChangeItem | null {
   if (!isRecord(value)) {
     return null
   }
 
-  const { entityId, entityType, pointers } = value
+  const { entityId, entityType, pointers, localTimestamp } = value
 
   if (typeof entityId !== 'string' || entityId.length === 0) {
     return null
@@ -50,72 +41,23 @@ function parseSceneChangeItem(value: unknown): SceneChangeItem | null {
     return null
   }
 
-  return { entityId, pointers }
-}
-
-function parsePointerChangeItem(value: unknown): PointerChangeItem | null {
-  const item = parseSceneChangeItem(value)
-  const localTimestamp = isRecord(value) ? value.localTimestamp : undefined
-
-  if (!item || typeof localTimestamp !== 'number' || !Number.isFinite(localTimestamp)) {
+  if (typeof localTimestamp !== 'number' || !Number.isFinite(localTimestamp)) {
     return null
   }
 
-  return { ...item, localTimestamp }
-}
-
-function parseSnapshotMetadata(value: unknown): SnapshotMetadata | null {
-  if (!isRecord(value)) {
-    return null
-  }
-
-  const { hash, timeRange } = value
-
-  if (typeof hash !== 'string' || hash.length === 0) {
-    return null
-  }
-
-  if (!isRecord(timeRange) || typeof timeRange.endTimestamp !== 'number') {
-    return null
-  }
-
-  return { hash, endTimestamp: timeRange.endTimestamp }
-}
-
-function parseSceneLines(text: string): SceneChangeItem[] {
-  const items: SceneChangeItem[] = []
-
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed) {
-      continue
-    }
-
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(trimmed)
-    } catch {
-      continue
-    }
-
-    const item = parseSceneChangeItem(parsed)
-    if (item) {
-      items.push(item)
-    }
-  }
-
-  return items
+  return { entityId, pointers, localTimestamp }
 }
 
 /**
  * Creates the catalyst sync component: a long-lived poller that keeps
  * `scene_logs_access` current for Genesis City scenes by consuming catalyst's
- * `/pointer-changes` from a persisted cursor, with a one-time `/snapshots` bootstrap
- * when no cursor exists yet.
+ * `/pointer-changes` from a persisted cursor. On first run (no cursor) it starts from
+ * "now", so it only indexes scenes deployed from then on — like the Worlds consumer,
+ * pre-existing scenes reach the index via the read-path write-through instead of a
+ * historical backfill.
  *
- * `/pointer-changes` and `/snapshots` are untrusted ingestion data: every item's shape
- * is validated before use, a malformed item is skipped, and a failed fetch never aborts
- * the poll loop (the next tick retries).
+ * `/pointer-changes` is untrusted ingestion data: every item's shape is validated before
+ * use, a malformed item is skipped, and a failed fetch never aborts the poll loop.
  *
  * @param components - Required components: config, logs, fetcher, pg, catalystContent,
  * sceneLogsAccess
@@ -147,7 +89,7 @@ export async function createCatalystSyncComponent(
       ON CONFLICT (name) DO UPDATE SET cursor = ${cursor}, updated_at = current_timestamp`)
   }
 
-  async function processSceneChange(item: SceneChangeItem): Promise<void> {
+  async function processSceneChange(item: PointerChangeItem): Promise<void> {
     let scene: WorldScene | null
 
     try {
@@ -174,85 +116,6 @@ export async function createCatalystSyncComponent(
       realmKind: 'genesis',
       addresses: scene.logsPermissions
     })
-  }
-
-  async function processSnapshotFile(hash: string): Promise<void> {
-    const url = `${contentUrl}/contents/${encodeURIComponent(hash)}`
-
-    let response: Awaited<ReturnType<typeof fetcher.fetch>>
-    try {
-      response = await fetcher.fetch(url, SNAPSHOT_FETCH_OPTIONS)
-    } catch (error) {
-      logger.warn('Failed to download snapshot file: network error', { hash, url, error: errorMessageOrDefault(error) })
-      return
-    }
-
-    if (!response.ok) {
-      await discardResponseBody(response)
-      logger.warn('Failed to download snapshot file: non-OK response', { hash, url, status: response.status })
-      return
-    }
-
-    let text: string
-    try {
-      text = await response.text()
-    } catch (error) {
-      logger.warn('Failed to read snapshot file body', { hash, url, error: errorMessageOrDefault(error) })
-      return
-    }
-
-    for (const item of parseSceneLines(text)) {
-      await processSceneChange(item)
-    }
-  }
-
-  async function bootstrap(): Promise<void> {
-    logger.info('Running one-time catalyst snapshots bootstrap')
-
-    const url = `${contentUrl}/snapshots`
-
-    let response: Awaited<ReturnType<typeof fetcher.fetch>>
-    try {
-      response = await fetcher.fetch(url, UPSTREAM_FETCH_OPTIONS)
-    } catch (error) {
-      logger.error('Failed to fetch snapshots: network error', { url, error: errorMessageOrDefault(error) })
-      return
-    }
-
-    if (!response.ok) {
-      await discardResponseBody(response)
-      logger.error('Failed to fetch snapshots: non-OK response', { url, status: response.status })
-      return
-    }
-
-    let body: unknown
-    try {
-      body = await response.json()
-    } catch (error) {
-      logger.error('Failed to parse snapshots response', { url, error: errorMessageOrDefault(error) })
-      return
-    }
-
-    if (!Array.isArray(body)) {
-      logger.error('Catalyst snapshots response has an unexpected shape', { url })
-      return
-    }
-
-    let maxEndTimestamp = 0
-    for (const raw of body) {
-      const snapshot = parseSnapshotMetadata(raw)
-      if (!snapshot) {
-        logger.debug('Skipping malformed snapshot metadata entry')
-        continue
-      }
-
-      maxEndTimestamp = Math.max(maxEndTimestamp, snapshot.endTimestamp)
-      await processSnapshotFile(snapshot.hash)
-    }
-
-    cursor = String(maxEndTimestamp || Date.now())
-    await saveCursor(cursor)
-    logger.info('Catalyst snapshots bootstrap completed')
   }
 
   async function poll(): Promise<void> {
@@ -311,8 +174,9 @@ export async function createCatalystSyncComponent(
 
   async function start(): Promise<void> {
     cursor = await getCursor()
-    if (!cursor) {
-      await bootstrap()
+    if (cursor === null) {
+      cursor = String(Date.now())
+      await saveCursor(cursor)
     }
 
     await poll()
