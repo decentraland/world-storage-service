@@ -481,29 +481,14 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@dcl/core-commons@0.10.1", "@dcl/core-commons@^0.10.0":
-  version "0.10.1"
-  resolved "https://registry.yarnpkg.com/@dcl/core-commons/-/core-commons-0.10.1.tgz#f6b38fd623a5043a571e80d7ba1ac40e9db41973"
-  integrity sha512-iLBpIg15czlzV7No5Wzb3FyreXpqYx8YnVJ8xYKczXpl6C3eqBQoqEA02hRkd/UASbzqcPJeG1wH1wHSxYTmQw==
-  dependencies:
-    "@well-known-components/interfaces" "^1.5.2"
-
-"@dcl/core-commons@0.11.0":
+"@dcl/core-commons@0.11.0", "@dcl/core-commons@^0.10.0":
   version "0.11.0"
   resolved "https://registry.yarnpkg.com/@dcl/core-commons/-/core-commons-0.11.0.tgz#a5d36935cc1d4151073971cfa82a17f96d403298"
   integrity sha512-VJ6FgMQoF242slJy1EDJkfkOqYKrywSKJf/ZNg5buGsZj2CAc+RLyBnp0XSl/iCp3VJfpJA3lm5yuKCqWralCA==
   dependencies:
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/crypto-middleware@^4.0.0":
-  version "4.1.1"
-  resolved "https://registry.yarnpkg.com/@dcl/crypto-middleware/-/crypto-middleware-4.1.1.tgz#a46861caa68bf38f0355ce72d77a8232200d54ed"
-  integrity sha512-wNo3D00SyZKoxy3THQj+EMWWatU9F2VTPwqTIVWZj3JlnaKRScNpLOsrHVPETN9FYtTIlJqqhjlUWsjoUGVisw==
-  dependencies:
-    "@dcl/core-commons" "^0.10.0"
-    "@dcl/crypto" "3.7.0"
-
-"@dcl/crypto-middleware@^6.3.0":
+"@dcl/crypto-middleware@6.3.0":
   version "6.3.0"
   resolved "https://registry.yarnpkg.com/@dcl/crypto-middleware/-/crypto-middleware-6.3.0.tgz#855174cab339df1d62e288d2b533fdef6f3ea4d3"
   integrity sha512-HUwaPBuXjf3xSGIcnwm52NIZchaPg0rDe/bsjlYdo4ZpjuTlTeQ8m7fjTT3V14/pRTa55T404eHGZURU5jJDog==
@@ -511,7 +496,7 @@
     "@dcl/core-commons" "^0.10.0"
     "@dcl/crypto" "3.7.0"
 
-"@dcl/crypto@3.7.0", "@dcl/crypto@^3.4.5":
+"@dcl/crypto@3.7.0", "@dcl/crypto@^3.7.0":
   version "3.7.0"
   resolved "https://registry.yarnpkg.com/@dcl/crypto/-/crypto-3.7.0.tgz#2436370e591ea269da4806ee800e8eec21ff2168"
   integrity sha512-8HSFLxnIHDeA8I/6yGAUwbCin2TX2oPn2uBLj5UmR0NFAyN5wYJCqbeolaJaIdmqN9RFjdb9ixKOY4uKF5Q2XA==
@@ -528,36 +513,36 @@
     "@eslint/eslintrc" "3.3.3"
     "@eslint/js" "9.39.2"
 
-"@dcl/fetch-component@1.1.1":
-  version "1.1.1"
-  resolved "https://registry.yarnpkg.com/@dcl/fetch-component/-/fetch-component-1.1.1.tgz#8f089f216150bab23d4cb798311796943243bc0b"
-  integrity sha512-Q1d/By58NRFIF7h5oMSSFNFGtcJmoKKY6V3kOo314soCgSH0IETydwaD8Hu2zPWK9TZQVx+eDJppViyKVpt91Q==
+"@dcl/fetch-component@1.1.2":
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/@dcl/fetch-component/-/fetch-component-1.1.2.tgz#7d8387648c8663fd5e0c715fe0ef63fc6d6bb71b"
+  integrity sha512-AzryeK3QwE13NgszhvIx9mib/S5+r3yZOiltFha/4rtJ27cs5TBf+jzQZKDFyhqDFEGBcEqOrJNAKYXCemp85Q==
   dependencies:
-    "@dcl/core-commons" "0.10.1"
+    "@dcl/core-commons" "0.11.0"
 
-"@dcl/http-commons@^2.0.0":
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/@dcl/http-commons/-/http-commons-2.0.0.tgz#9792dfc04ef4e2afcd21cafc2fb118006ba1e4cc"
-  integrity sha512-KewSUxnEBhjCw4TyNPrSTHOoFVc2ZiyBAkpok2t4z50ZqWDLh+3agFBlUP2VMLQGz3UOM+DPwyLf+p2TOOItdw==
+"@dcl/http-commons@2.0.1":
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/@dcl/http-commons/-/http-commons-2.0.1.tgz#6b413b626de51780b415e8866f809526d715a8d5"
+  integrity sha512-IpsROKMLAOGYFw8JOeJWmMPHlZk4JPrC2FUg/Ya0PlYJoG/lLwZqyJdNhwldxczNjzx97xQK1M03VZBcg9xopA==
   dependencies:
     "@dcl/core-commons" "^0.10.0"
     "@dcl/schemas" "^18.0.0"
     "@well-known-components/interfaces" "^1.4.3"
 
-"@dcl/http-requests-logger-component@^1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/@dcl/http-requests-logger-component/-/http-requests-logger-component-1.0.0.tgz#5b68055245b84c6858a3634bf3349be46b071264"
-  integrity sha512-dIZrv8vDjWox8kX7yoEY84eRKV39NJlVap65wAxwKcVywtIZrAHUamGbVZYU1F/ho3rwV309wSXS3KeYizLeig==
+"@dcl/http-requests-logger-component@1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@dcl/http-requests-logger-component/-/http-requests-logger-component-1.0.1.tgz#349a34ffbd6a92a4860ddad6f572362b35ae673b"
+  integrity sha512-JpZFcSfR4AL9dj1itSWi9fwvI54ia5plQqzyWCPae1A8CBvgsoOQNjy4R2sYDp7IYIviFFu3IjvO6fO6Q9D2zw==
   dependencies:
-    "@dcl/core-commons" "0.10.1"
+    "@dcl/core-commons" "0.11.0"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/http-server@^2.1.0":
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/@dcl/http-server/-/http-server-2.1.0.tgz#5385ba3319356d32d468365a84530f24e245fa65"
-  integrity sha512-UqIFIo18JeKklM/RM0wEJ0u/DCGjikBHtQ1LzuQKjDK6SP9XgeVhukgCg5BmdW0D3Qzlql2i5CGpW4EdyfUiWQ==
+"@dcl/http-server@2.4.0":
+  version "2.4.0"
+  resolved "https://registry.yarnpkg.com/@dcl/http-server/-/http-server-2.4.0.tgz#8fa7c175f43854146137eec2951796a84c9f0363"
+  integrity sha512-MauDdR9LrqCJSDvvXPoChMybsmxG0RvsRr3Wa2y39W7lTBrqbAFkHUYurL1KcEWjrl1MnX2Lp5ny97fDRFmhIA==
   dependencies:
-    "@dcl/core-commons" "0.10.1"
+    "@dcl/core-commons" "0.11.0"
     "@well-known-components/interfaces" "^1.5.1"
     destroy "^1.2.0"
     fp-future "^1.0.1"
@@ -567,12 +552,12 @@
     path-to-regexp "^6.3.0"
     reflect-metadata "^0.2.2"
 
-"@dcl/http-tracer-component@^2.0.1":
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/@dcl/http-tracer-component/-/http-tracer-component-2.0.1.tgz#c2a05e6339b3f9614c0df14d58de8359299b7e34"
-  integrity sha512-9/ScbhkSwbcZfCGOqXO7MQArRTWuK+ICc4YImRgp2Qs9IBd7XsZfzTh8/YFRgwOD0iY3HBLJEs/BKHZGszzwLA==
+"@dcl/http-tracer-component@2.0.2":
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/@dcl/http-tracer-component/-/http-tracer-component-2.0.2.tgz#69fea45c8a43aa1db0e24666159a119a9dfb431b"
+  integrity sha512-nJwiZSdpHEvRtmHcykZJDeKfO3tLVfaokgpafJ9+MWUMBrpDKNC2rrcALS7BVBVtsDQhLUtO1XuY1jsegqoLCg==
   dependencies:
-    "@dcl/core-commons" "0.10.1"
+    "@dcl/core-commons" "0.11.0"
     "@well-known-components/interfaces" "^1.5.2"
 
 "@dcl/memory-cache-component@2.5.0":
@@ -584,17 +569,17 @@
     "@well-known-components/interfaces" "^1.5.1"
     lru-cache "~11.2.2"
 
-"@dcl/metrics@^1.0.1":
+"@dcl/metrics@1.0.1":
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@dcl/metrics/-/metrics-1.0.1.tgz#de5e762f3872fb16a15a4e56b3fe98b2fabb770b"
   integrity sha512-ZiDHlEVDhPy30UtvsLsUtefOsvDjD2TaR5KIkLTgPXtelqmhOWs26qD8Ldudky34nnqOjlLcokJYmyHltpsxbQ==
   dependencies:
     prom-client "^15.1.0"
 
-"@dcl/pg-component@^0.2.0":
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/@dcl/pg-component/-/pg-component-0.2.0.tgz#e4bab822c84b1c0d93823032771f9c78c0f6fdd3"
-  integrity sha512-54GTehvCYHyFW0KqTzMrdLVRkSHmX1xEWpk9SRkL8nO2JaJNPI0gYRkruVI+UgMOXwW7w9fPvzwog65FPWqyVg==
+"@dcl/pg-component@0.2.1":
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/@dcl/pg-component/-/pg-component-0.2.1.tgz#392759314e0679bce4623125b03a517d856ece9c"
+  integrity sha512-bh3KV5ToMZLzQvescuYUvYBVYh8i6E0awSGRwL8KD0UZer3Kx6SuTVyu11O6oPHSKrsnt4Y6pY2ApPQiZVbkIg==
   dependencies:
     "@well-known-components/interfaces" "^1.5.2"
     node-pg-migrate "^7.9.1"
@@ -612,20 +597,20 @@
     "@dcl/sqs-component" "2.2.6"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/schema-validator-component@^1.0.1":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@dcl/schema-validator-component/-/schema-validator-component-1.0.1.tgz#226f28f29328db775e21823784a96ae3514e679a"
-  integrity sha512-qUf+ebKlZyloPJzLJBP2dUUmNEAXPuHy3Ka6v6p8uh+KVuuP8YfPs+MVrfZss3lQgf0/R7nETuZP3v8Z/M0W0A==
+"@dcl/schema-validator-component@1.0.3":
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/@dcl/schema-validator-component/-/schema-validator-component-1.0.3.tgz#4e6691d7d8712b11b9e80fabf585a3c4cd1cb34d"
+  integrity sha512-GQgG/AsOE1/VkEMn1seoTOmIkq03mwmcaVGO3Z2s+MlQ8T2hiIpLb4rOgBd0kmlngoV1PMSCv5CC3X8gYcuOuw==
   dependencies:
-    "@dcl/core-commons" "0.10.1"
+    "@dcl/core-commons" "0.11.0"
     "@well-known-components/interfaces" "^1.5.2"
     ajv "^8.17.1"
     ajv-formats "^3.0.1"
 
-"@dcl/schemas@24.0.0":
-  version "24.0.0"
-  resolved "https://registry.yarnpkg.com/@dcl/schemas/-/schemas-24.0.0.tgz#ed24a9c6460b775c3fd732b9c5f767ebbd3c7acd"
-  integrity sha512-hSFZrnC8fz/uFvMOSENv78kRtiosqxkjvCHAX0EbXCAFqE4rAplzG0baXRTrw0Hxrc2KD5chB1JCaKPV0sO6SQ==
+"@dcl/schemas@27.1.0":
+  version "27.1.0"
+  resolved "https://registry.yarnpkg.com/@dcl/schemas/-/schemas-27.1.0.tgz#8724d990d762a818dca91e9f4ac1af8b73459075"
+  integrity sha512-l4CjnaxYj2k3UlQtGKucNikjmdFn1U2Plmnrj5Txck7Nh/I6tRf1MnhHq+S0XcSe8kRiIxG6L7n5zXQTaqyXsA==
   dependencies:
     ajv "^8.11.0"
     ajv-errors "^3.0.0"
@@ -661,26 +646,25 @@
     "@dcl/core-commons" "0.11.0"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/test-helpers@^0.2.0":
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/@dcl/test-helpers/-/test-helpers-0.2.0.tgz#82ac2e8d6aa8554a0813b60a7b3d7a595dde7402"
-  integrity sha512-BlnVYYS12JhtmMnNjCF3vnKRqDRms/jsgpb/knMvNoJpYxZo87wpMedLjBUxoNEjOem+2JLSdzdzStzmOFDi4Q==
+"@dcl/test-helpers@0.3.2":
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/@dcl/test-helpers/-/test-helpers-0.3.2.tgz#42fe05760e23c77fa7f89ff70c50c1aef324cd37"
+  integrity sha512-YlKjGtTp1LkGZ4hmRCplHjgmZ+5HVz/0rALYqbIXhcYfYxgoxLx36Dg65vcTjNcS4wyjgO7G4YEDQProBaoadw==
   dependencies:
-    "@dcl/core-commons" "0.10.1"
-    "@dcl/crypto" "^3.4.5"
-    "@dcl/crypto-middleware" "^4.0.0"
+    "@dcl/core-commons" "0.11.0"
+    "@dcl/crypto" "^3.7.0"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/traced-fetch-component@^1.0.8":
-  version "1.0.8"
-  resolved "https://registry.yarnpkg.com/@dcl/traced-fetch-component/-/traced-fetch-component-1.0.8.tgz#901745e0e43b52fcde6971fc802417750accb215"
-  integrity sha512-JHcWjPgblHE5S/nlfDf+fmjK8ZQqWlIcmbbfznYWPMrObATFOExx73qGuU2fQ80JaceKKpsXvASTsxhxvlL+zA==
+"@dcl/traced-fetch-component@1.0.9":
+  version "1.0.9"
+  resolved "https://registry.yarnpkg.com/@dcl/traced-fetch-component/-/traced-fetch-component-1.0.9.tgz#6ec715515d9339a9979b0542a0b8c23586b5f822"
+  integrity sha512-CAcwwH1bdUjdptW64ZSW5DcTr5R1KJWCnVPLlVRf9eyFuC2kMFHsONeJv0RH575mTkbWaQ24/haw+adiiTF6iA==
   dependencies:
-    "@dcl/core-commons" "0.10.1"
-    "@dcl/fetch-component" "1.1.1"
+    "@dcl/core-commons" "0.11.0"
+    "@dcl/fetch-component" "1.1.2"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/tracer-component@^1.0.0":
+"@dcl/tracer-component@1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@dcl/tracer-component/-/tracer-component-1.0.0.tgz#a3ae62e352702f5b42a2bf3da7a7bb8553f2a529"
   integrity sha512-FX2Na64OkQXjfy8rI1OxA2AsZwvCOLsqpZ9seNYBcsvT1TErAb3EqJiUD3ENweHnRF/fkPetqEV+skXvgAYnEQ==
