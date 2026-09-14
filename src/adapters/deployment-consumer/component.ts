@@ -44,12 +44,23 @@ export async function createDeploymentConsumerComponent(
         url,
         error: errorMessageOrDefault(error)
       })
-      return null
+      throw new Error(`Failed to fetch deployed entity ${entityId}: network error`)
     }
 
     if (!response.ok) {
       await discardResponseBody(response)
-      logger.warn('Failed to fetch deployed entity: non-OK response', {
+
+      if (response.status >= 500 || response.status === 429) {
+        logger.warn('Failed to fetch deployed entity: retryable response', {
+          entityId,
+          url,
+          status: response.status,
+          statusText: response.statusText
+        })
+        throw new Error(`Failed to fetch deployed entity ${entityId}: HTTP ${response.status}`)
+      }
+
+      logger.warn('Discarding deployment: deployed entity is not available', {
         entityId,
         url,
         status: response.status,
@@ -85,32 +96,28 @@ export async function createDeploymentConsumerComponent(
   }
 
   async function handleDeployment(event: unknown): Promise<void> {
-    try {
-      const entity = isRecord(event) ? event.entity : undefined
-      const entityId = isRecord(entity) ? entity.entityId : undefined
+    const entity = isRecord(event) ? event.entity : undefined
+    const entityId = isRecord(entity) ? entity.entityId : undefined
 
-      if (typeof entityId !== 'string' || entityId.length === 0) {
-        logger.warn('Skipping deployment event with missing entityId')
-        return
-      }
-
-      const resolved = await resolveDeployedScene(entityId)
-      if (!resolved) {
-        logger.warn('Skipping deployment event: could not resolve deployed scene', { entityId })
-        return
-      }
-
-      await sceneLogsAccess.upsertForScene({
-        worldName: resolved.worldName,
-        baseParcel: resolved.scene.base,
-        sceneId: resolved.scene.sceneId,
-        title: resolved.scene.title,
-        realmKind: 'world',
-        addresses: resolved.scene.logsPermissions
-      })
-    } catch (error) {
-      logger.error('Unexpected error handling deployment event', { error: errorMessageOrDefault(error) })
+    if (typeof entityId !== 'string' || entityId.length === 0) {
+      logger.warn('Discarding deployment event with missing entityId')
+      return
     }
+
+    const resolved = await resolveDeployedScene(entityId)
+    if (!resolved) {
+      logger.warn('Discarding deployment event: deployed scene is not indexable', { entityId })
+      return
+    }
+
+    await sceneLogsAccess.upsertForScene({
+      worldName: resolved.worldName,
+      baseParcel: resolved.scene.base,
+      sceneId: resolved.scene.sceneId,
+      title: resolved.scene.title,
+      realmKind: 'world',
+      addresses: resolved.scene.logsPermissions
+    })
   }
 
   async function handleScenesUndeployment(event: unknown): Promise<void> {

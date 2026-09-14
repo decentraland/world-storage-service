@@ -226,6 +226,39 @@ describe('CatalystSyncComponent', () => {
         await stopCatalystSync(catalystSync)
       })
     })
+
+    describe('and processing one of several scene changes fails', () => {
+      beforeEach(async () => {
+        fetcher.fetch.mockResolvedValueOnce(
+          mockResponse({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+              deltas: [
+                { entityId: 'e1', entityType: 'scene', pointers: [PARCELS.GENESIS_CITY], localTimestamp: 150 },
+                { entityId: 'e2', entityType: 'scene', pointers: [PARCELS.GENESIS_CITY], localTimestamp: 250 }
+              ]
+            })
+          })
+        )
+        catalystContent.getActiveSceneEntity
+          .mockResolvedValueOnce(buildScene({ sceneId: 'e1' }))
+          .mockRejectedValueOnce(new Error('catalyst down'))
+
+        catalystSync = await createComponent()
+        await startCatalystSync(catalystSync)
+        await flushPromises()
+      })
+
+      it('should advance the cursor only up to the last successfully processed item', () => {
+        const insertCall = pg.query.mock.calls.find(call => {
+          const statement = call[0] as unknown as { text: string }
+          return statement.text.includes('INSERT INTO sync_cursor')
+        })
+        const statement = insertCall?.[0] as unknown as { values: unknown[] }
+        expect(statement.values).toContain('150')
+        expect(statement.values).not.toContain('250')
+      })
+    })
   })
 
   describe('when starting with no persisted cursor', () => {

@@ -17,24 +17,29 @@ export const createSceneLogsAccessComponent = async ({
 
   async function upsertForScene(scene: WatcherScene & { addresses: string[] }): Promise<void> {
     const { sceneId, worldName, baseParcel, title, realmKind, addresses } = scene
-    const lowercasedAddresses = addresses.map(address => address.toLowerCase())
+    const normalizedAddresses = [...new Set(addresses.map(address => address.toLowerCase()))]
 
-    logger.debug('Upserting scene logs access', { sceneId, addressCount: lowercasedAddresses.length })
-
-    if (lowercasedAddresses.length === 0) {
-      await pg.query(SQL`DELETE FROM scene_logs_access WHERE scene_id = ${sceneId}`)
-      return
-    }
+    logger.debug('Upserting scene logs access', { sceneId, addressCount: normalizedAddresses.length })
 
     await pg.withAsyncContextTransaction(async () => {
+      if (normalizedAddresses.length === 0) {
+        await pg.query(SQL`
+          DELETE FROM scene_logs_access WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}`)
+        return
+      }
+
       await pg.query(SQL`
         DELETE FROM scene_logs_access
-        WHERE scene_id = ${sceneId} AND address <> ALL(${lowercasedAddresses})`)
+        WHERE world_name = ${worldName} AND base_parcel = ${baseParcel} AND scene_id <> ${sceneId}`)
+
+      await pg.query(SQL`
+        DELETE FROM scene_logs_access
+        WHERE scene_id = ${sceneId} AND address <> ALL(${normalizedAddresses})`)
 
       await pg.query(SQL`
         INSERT INTO scene_logs_access (scene_id, address, world_name, base_parcel, title, realm_kind, updated_at)
         SELECT ${sceneId}, address, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, current_timestamp
-        FROM UNNEST(${lowercasedAddresses}::text[]) AS address
+        FROM UNNEST(${normalizedAddresses}::text[]) AS address
         ON CONFLICT (scene_id, address) DO UPDATE
         SET world_name = ${worldName}, base_parcel = ${baseParcel}, title = ${title}, realm_kind = ${realmKind}, updated_at = current_timestamp`)
     })

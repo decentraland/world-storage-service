@@ -144,12 +144,36 @@ describe('DeploymentConsumerComponent', () => {
       })
     })
 
-    describe('and the deployed entity fetch is non-OK', () => {
+    describe('and the deployed entity fetch returns a retryable error', () => {
       beforeEach(() => {
         fetcher.fetch.mockResolvedValueOnce(mockResponse({ ok: false, status: 500, statusText: 'error' }))
       })
 
-      it('should not throw and should not upsert the scene', async () => {
+      it('should reject so the transient failure is not acknowledged as a success', async () => {
+        await expect(deploymentHandler()({ entity: { entityId } })).rejects.toThrow()
+
+        expect(sceneLogsAccess.upsertForScene).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and the deployed entity fetch throws a network error', () => {
+      beforeEach(() => {
+        fetcher.fetch.mockRejectedValueOnce(new Error('network down'))
+      })
+
+      it('should reject so the transient failure is not acknowledged as a success', async () => {
+        await expect(deploymentHandler()({ entity: { entityId } })).rejects.toThrow()
+
+        expect(sceneLogsAccess.upsertForScene).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and the deployed entity is not found', () => {
+      beforeEach(() => {
+        fetcher.fetch.mockResolvedValueOnce(mockResponse({ ok: false, status: 404, statusText: 'not found' }))
+      })
+
+      it('should discard the event without upserting or rejecting', async () => {
         await expect(deploymentHandler()({ entity: { entityId } })).resolves.toBeUndefined()
 
         expect(sceneLogsAccess.upsertForScene).not.toHaveBeenCalled()

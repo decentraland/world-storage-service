@@ -6,7 +6,6 @@ import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { ICatalystSyncComponent } from './types'
 import type { AppComponents } from '../../types'
-import type { WorldScene } from '../worlds-content-server/types'
 
 const CURSOR_NAME = 'catalyst-pointer-changes'
 const GENESIS_WORLD_NAME = 'main'
@@ -69,6 +68,7 @@ export async function createCatalystSyncComponent(
 
   let intervalHandle: NodeJS.Timeout | undefined
   let cursor: string | null = null
+  let polling = false
 
   async function getCursor(): Promise<string | null> {
     const result = await pg.query<{ cursor: string | null }>(
@@ -85,18 +85,7 @@ export async function createCatalystSyncComponent(
   }
 
   async function processSceneChange(item: PointerChangeItem): Promise<void> {
-    let scene: WorldScene | null
-
-    try {
-      scene = await catalystContent.getActiveSceneEntity(item.pointers[0])
-    } catch (error) {
-      logger.warn('Failed to resolve active scene entity for a scene change; skipping item', {
-        entityId: item.entityId,
-        parcel: item.pointers[0],
-        error: errorMessageOrDefault(error)
-      })
-      return
-    }
+    const scene = await catalystContent.getActiveSceneEntity(item.pointers[0])
 
     if (!scene) {
       await sceneLogsAccess.removeScene(item.entityId)
@@ -114,6 +103,12 @@ export async function createCatalystSyncComponent(
   }
 
   async function poll(): Promise<void> {
+    if (polling) {
+      logger.debug('Skipping catalyst poll: a previous poll is still running')
+      return
+    }
+    polling = true
+
     try {
       const fromParam = cursor ?? '0'
       const url = `${contentUrl}/pointer-changes?from=${encodeURIComponent(fromParam)}&entityType=scene&sortingField=local_timestamp&sortingOrder=ASC`
@@ -146,7 +141,7 @@ export async function createCatalystSyncComponent(
         return
       }
 
-      let maxTimestamp: number | null = null
+      let lastProcessedTimestamp: number | null = null
       for (const raw of deltas) {
         const item = parsePointerChangeItem(raw)
         if (!item) {
@@ -154,16 +149,29 @@ export async function createCatalystSyncComponent(
           continue
         }
 
-        await processSceneChange(item)
-        maxTimestamp = maxTimestamp === null ? item.localTimestamp : Math.max(maxTimestamp, item.localTimestamp)
+        try {
+          await processSceneChange(item)
+        } catch (error) {
+          logger.warn('Failed to process a scene change; retrying from this item on the next poll', {
+            entityId: item.entityId,
+            parcel: item.pointers[0],
+            error: errorMessageOrDefault(error)
+          })
+          break
+        }
+
+        lastProcessedTimestamp =
+          lastProcessedTimestamp === null ? item.localTimestamp : Math.max(lastProcessedTimestamp, item.localTimestamp)
       }
 
-      if (maxTimestamp !== null) {
-        cursor = String(maxTimestamp)
+      if (lastProcessedTimestamp !== null) {
+        cursor = String(lastProcessedTimestamp)
         await saveCursor(cursor)
       }
     } catch (error) {
       logger.error('Unexpected error during pointer-changes poll', { error: errorMessageOrDefault(error) })
+    } finally {
+      polling = false
     }
   }
 
