@@ -481,14 +481,14 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@dcl/core-commons@0.11.0", "@dcl/core-commons@^0.10.0":
+"@dcl/core-commons@0.11.0", "@dcl/core-commons@^0.10.0", "@dcl/core-commons@^0.11.0":
   version "0.11.0"
   resolved "https://registry.yarnpkg.com/@dcl/core-commons/-/core-commons-0.11.0.tgz#a5d36935cc1d4151073971cfa82a17f96d403298"
   integrity sha512-VJ6FgMQoF242slJy1EDJkfkOqYKrywSKJf/ZNg5buGsZj2CAc+RLyBnp0XSl/iCp3VJfpJA3lm5yuKCqWralCA==
   dependencies:
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/crypto-middleware@6.3.0":
+"@dcl/crypto-middleware@^6.3.0":
   version "6.3.0"
   resolved "https://registry.yarnpkg.com/@dcl/crypto-middleware/-/crypto-middleware-6.3.0.tgz#855174cab339df1d62e288d2b533fdef6f3ea4d3"
   integrity sha512-HUwaPBuXjf3xSGIcnwm52NIZchaPg0rDe/bsjlYdo4ZpjuTlTeQ8m7fjTT3V14/pRTa55T404eHGZURU5jJDog==
@@ -505,9 +505,9 @@
     eth-connect "^6.0.3"
     ethereum-cryptography "^2.0.0"
 
-"@dcl/eslint-config@3.1.0":
+"@dcl/eslint-config@^3.1.0":
   version "3.1.0"
-  resolved "https://registry.npmjs.org/@dcl/eslint-config/-/eslint-config-3.1.0.tgz"
+  resolved "https://registry.yarnpkg.com/@dcl/eslint-config/-/eslint-config-3.1.0.tgz#e1a579125e9b30bb27d4fb8417c86eea73811827"
   integrity sha512-gzmGeWKkixAG5XCdh5rfHwsfowNXILtD0oZasgbWXeX1uz1ONrzqM/sS6vY8zHxY73C0pYIeCmP8cSJ3F/MAKg==
   dependencies:
     "@eslint/eslintrc" "3.3.3"
@@ -520,7 +520,7 @@
   dependencies:
     "@dcl/core-commons" "0.11.0"
 
-"@dcl/http-commons@2.0.1":
+"@dcl/http-commons@^2.0.1":
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/@dcl/http-commons/-/http-commons-2.0.1.tgz#6b413b626de51780b415e8866f809526d715a8d5"
   integrity sha512-IpsROKMLAOGYFw8JOeJWmMPHlZk4JPrC2FUg/Ya0PlYJoG/lLwZqyJdNhwldxczNjzx97xQK1M03VZBcg9xopA==
@@ -529,7 +529,7 @@
     "@dcl/schemas" "^18.0.0"
     "@well-known-components/interfaces" "^1.4.3"
 
-"@dcl/http-requests-logger-component@1.0.1":
+"@dcl/http-requests-logger-component@^1.0.1":
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@dcl/http-requests-logger-component/-/http-requests-logger-component-1.0.1.tgz#349a34ffbd6a92a4860ddad6f572362b35ae673b"
   integrity sha512-JpZFcSfR4AL9dj1itSWi9fwvI54ia5plQqzyWCPae1A8CBvgsoOQNjy4R2sYDp7IYIviFFu3IjvO6fO6Q9D2zw==
@@ -537,7 +537,7 @@
     "@dcl/core-commons" "0.11.0"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/http-server@2.4.0":
+"@dcl/http-server@^2.4.0":
   version "2.4.0"
   resolved "https://registry.yarnpkg.com/@dcl/http-server/-/http-server-2.4.0.tgz#8fa7c175f43854146137eec2951796a84c9f0363"
   integrity sha512-MauDdR9LrqCJSDvvXPoChMybsmxG0RvsRr3Wa2y39W7lTBrqbAFkHUYurL1KcEWjrl1MnX2Lp5ny97fDRFmhIA==
@@ -552,7 +552,7 @@
     path-to-regexp "^6.3.0"
     reflect-metadata "^0.2.2"
 
-"@dcl/http-tracer-component@2.0.2":
+"@dcl/http-tracer-component@^2.0.2":
   version "2.0.2"
   resolved "https://registry.yarnpkg.com/@dcl/http-tracer-component/-/http-tracer-component-2.0.2.tgz#69fea45c8a43aa1db0e24666159a119a9dfb431b"
   integrity sha512-nJwiZSdpHEvRtmHcykZJDeKfO3tLVfaokgpafJ9+MWUMBrpDKNC2rrcALS7BVBVtsDQhLUtO1XuY1jsegqoLCg==
@@ -560,7 +560,7 @@
     "@dcl/core-commons" "0.11.0"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/memory-cache-component@2.5.0":
+"@dcl/memory-cache-component@^2.5.0":
   version "2.5.0"
   resolved "https://registry.yarnpkg.com/@dcl/memory-cache-component/-/memory-cache-component-2.5.0.tgz#7fa2309d1d76206f94bf8811cfb1f2cb769d5fa2"
   integrity sha512-Z0CHSeuRTkYRU/3FLKo0Htfk3OSa4wTDVcXB0hTT8LGk6s5XKogdtSlUHhJR1OS5xOspcZ1oiJyiJoA7ReO4tw==
@@ -569,14 +569,14 @@
     "@well-known-components/interfaces" "^1.5.1"
     lru-cache "~11.2.2"
 
-"@dcl/metrics@1.0.1":
+"@dcl/metrics@^1.0.1":
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@dcl/metrics/-/metrics-1.0.1.tgz#de5e762f3872fb16a15a4e56b3fe98b2fabb770b"
   integrity sha512-ZiDHlEVDhPy30UtvsLsUtefOsvDjD2TaR5KIkLTgPXtelqmhOWs26qD8Ldudky34nnqOjlLcokJYmyHltpsxbQ==
   dependencies:
     prom-client "^15.1.0"
 
-"@dcl/pg-component@0.2.1":
+"@dcl/pg-component@^0.2.1":
   version "0.2.1"
   resolved "https://registry.yarnpkg.com/@dcl/pg-component/-/pg-component-0.2.1.tgz#392759314e0679bce4623125b03a517d856ece9c"
   integrity sha512-bh3KV5ToMZLzQvescuYUvYBVYh8i6E0awSGRwL8KD0UZer3Kx6SuTVyu11O6oPHSKrsnt4Y6pY2ApPQiZVbkIg==
@@ -588,7 +588,7 @@
     pg-query-stream "4.11.2"
     sql-template-strings "2.2.2"
 
-"@dcl/queue-consumer-component@3.0.6":
+"@dcl/queue-consumer-component@^3.0.6":
   version "3.0.6"
   resolved "https://registry.yarnpkg.com/@dcl/queue-consumer-component/-/queue-consumer-component-3.0.6.tgz#03ab7173a892077cabd72a3615a1a337a1da57a5"
   integrity sha512-c6L2km3Wgdei/IPXYKXS/cIyajpz8HmdJ6Q51vu/Ho6A0H0DW1ZwNtYCz7XQ2a6OzVo8SNXOOZT6FyXXUqZrtw==
@@ -597,7 +597,7 @@
     "@dcl/sqs-component" "2.2.6"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/schema-validator-component@1.0.3":
+"@dcl/schema-validator-component@^1.0.3":
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/@dcl/schema-validator-component/-/schema-validator-component-1.0.3.tgz#4e6691d7d8712b11b9e80fabf585a3c4cd1cb34d"
   integrity sha512-GQgG/AsOE1/VkEMn1seoTOmIkq03mwmcaVGO3Z2s+MlQ8T2hiIpLb4rOgBd0kmlngoV1PMSCv5CC3X8gYcuOuw==
@@ -606,16 +606,6 @@
     "@well-known-components/interfaces" "^1.5.2"
     ajv "^8.17.1"
     ajv-formats "^3.0.1"
-
-"@dcl/schemas@27.1.0":
-  version "27.1.0"
-  resolved "https://registry.yarnpkg.com/@dcl/schemas/-/schemas-27.1.0.tgz#8724d990d762a818dca91e9f4ac1af8b73459075"
-  integrity sha512-l4CjnaxYj2k3UlQtGKucNikjmdFn1U2Plmnrj5Txck7Nh/I6tRf1MnhHq+S0XcSe8kRiIxG6L7n5zXQTaqyXsA==
-  dependencies:
-    ajv "^8.11.0"
-    ajv-errors "^3.0.0"
-    ajv-keywords "^5.1.0"
-    mitt "^3.0.1"
 
 "@dcl/schemas@^18.0.0":
   version "18.8.0"
@@ -637,7 +627,17 @@
     ajv-keywords "^5.1.0"
     mitt "^3.0.1"
 
-"@dcl/sqs-component@2.2.6":
+"@dcl/schemas@^27.1.0":
+  version "27.1.0"
+  resolved "https://registry.yarnpkg.com/@dcl/schemas/-/schemas-27.1.0.tgz#8724d990d762a818dca91e9f4ac1af8b73459075"
+  integrity sha512-l4CjnaxYj2k3UlQtGKucNikjmdFn1U2Plmnrj5Txck7Nh/I6tRf1MnhHq+S0XcSe8kRiIxG6L7n5zXQTaqyXsA==
+  dependencies:
+    ajv "^8.11.0"
+    ajv-errors "^3.0.0"
+    ajv-keywords "^5.1.0"
+    mitt "^3.0.1"
+
+"@dcl/sqs-component@2.2.6", "@dcl/sqs-component@^2.2.6":
   version "2.2.6"
   resolved "https://registry.yarnpkg.com/@dcl/sqs-component/-/sqs-component-2.2.6.tgz#26204351be492ca3ea6cf2e81c7a7799ab4ce0c5"
   integrity sha512-4CBn7J0KHPh7wF2QYD4sRBJzddmFAsn3CoGcygUxhjH6hay2xDRGKu4WAySs6AzHQZKc/FSb9qkXBgdqZ+NQOA==
@@ -646,7 +646,7 @@
     "@dcl/core-commons" "0.11.0"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/test-helpers@0.3.2":
+"@dcl/test-helpers@^0.3.2":
   version "0.3.2"
   resolved "https://registry.yarnpkg.com/@dcl/test-helpers/-/test-helpers-0.3.2.tgz#42fe05760e23c77fa7f89ff70c50c1aef324cd37"
   integrity sha512-YlKjGtTp1LkGZ4hmRCplHjgmZ+5HVz/0rALYqbIXhcYfYxgoxLx36Dg65vcTjNcS4wyjgO7G4YEDQProBaoadw==
@@ -655,7 +655,7 @@
     "@dcl/crypto" "^3.7.0"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/traced-fetch-component@1.0.9":
+"@dcl/traced-fetch-component@^1.0.9":
   version "1.0.9"
   resolved "https://registry.yarnpkg.com/@dcl/traced-fetch-component/-/traced-fetch-component-1.0.9.tgz#6ec715515d9339a9979b0542a0b8c23586b5f822"
   integrity sha512-CAcwwH1bdUjdptW64ZSW5DcTr5R1KJWCnVPLlVRf9eyFuC2kMFHsONeJv0RH575mTkbWaQ24/haw+adiiTF6iA==
@@ -664,7 +664,7 @@
     "@dcl/fetch-component" "1.1.2"
     "@well-known-components/interfaces" "^1.5.2"
 
-"@dcl/tracer-component@1.0.0":
+"@dcl/tracer-component@^1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@dcl/tracer-component/-/tracer-component-1.0.0.tgz#a3ae62e352702f5b42a2bf3da7a7bb8553f2a529"
   integrity sha512-FX2Na64OkQXjfy8rI1OxA2AsZwvCOLsqpZ9seNYBcsvT1TErAb3EqJiUD3ENweHnRF/fkPetqEV+skXvgAYnEQ==
