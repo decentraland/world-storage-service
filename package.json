@@ -10,6 +10,7 @@
     "docs:check": "npx @redocly/cli@latest lint docs/openapi.yaml",
     "start:dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "test": "jest --forceExit --detectOpenHandles --coverage --verbose",
+    "test:sqs": "RUN_SQS_INTEGRATION=true jest --runInBand --forceExit test/integration/ingestion",
     "migrate": "node-pg-migrate -j ts --tsconfig tsconfig.json -m src/migrations"
   },
   "dependencies": {

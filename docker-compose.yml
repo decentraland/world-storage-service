@@ -13,5 +13,18 @@ services:
       - POSTGRES_DB=world_storage
     ports:
       - '5432:5432'
+  localstack:
+    container_name: 'world_storage_localstack'
+    image: 'localstack/localstack:3'
+    restart: always
+    environment:
+      - SERVICES=sqs
+      - DEFAULT_REGION=us-east-1
+    ports:
+      - '4566:4566'
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./localstack-init:/etc/localstack/init/ready.d
 volumes:
   postgres_volume:
+  localstack_data:
