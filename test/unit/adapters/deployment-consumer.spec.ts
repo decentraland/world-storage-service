@@ -52,6 +52,12 @@ describe('DeploymentConsumerComponent', () => {
     return handler
   }
 
+  function catalystDeploymentHandler(): MessageHandler {
+    const handler = handlers.get(`${Events.Type.CATALYST_DEPLOYMENT}:${Events.SubType.CatalystDeployment.SCENE}`)
+    if (!handler) throw new Error('catalyst scene deployment handler was not registered')
+    return handler
+  }
+
   beforeEach(async () => {
     handlers = new Map()
 
@@ -230,6 +236,56 @@ describe('DeploymentConsumerComponent', () => {
         await expect(worldUndeploymentHandler()({ metadata: {} })).resolves.toBeUndefined()
 
         expect(sceneLogsAccess.removeByWorld).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('when a catalyst scene deployment event is received', () => {
+    function buildCatalystEvent(scene: WorldScene): { entity: unknown; authChain: unknown } {
+      return {
+        entity: {
+          id: scene.sceneId,
+          type: 'scene',
+          pointers: scene.parcels,
+          metadata: {
+            scene: { base: scene.base, parcels: scene.parcels },
+            display: { title: scene.title },
+            logsPermissions: scene.logsPermissions
+          }
+        },
+        authChain: []
+      }
+    }
+
+    describe('and the deployed scene has logsPermissions', () => {
+      let scene: WorldScene
+
+      beforeEach(() => {
+        scene = buildScene({
+          logsPermissions: [ADDRESSES.AUTHORIZED.toLowerCase(), ADDRESSES.ANOTHER_AUTHORIZED.toLowerCase()]
+        })
+      })
+
+      it('should upsert the scene from the embedded entity as genesis without fetching', async () => {
+        await catalystDeploymentHandler()(buildCatalystEvent(scene))
+
+        expect(fetcher.fetch).not.toHaveBeenCalled()
+        expect(sceneLogsAccess.upsertForScene).toHaveBeenCalledWith({
+          sceneId: scene.sceneId,
+          worldName: 'main',
+          baseParcel: scene.base,
+          title: scene.title,
+          realmKind: 'genesis',
+          addresses: scene.logsPermissions
+        })
+      })
+    })
+
+    describe('and the event carries a malformed entity', () => {
+      it('should not throw and should not upsert', async () => {
+        await expect(catalystDeploymentHandler()({ entity: { id: 'only-an-id' } })).resolves.toBeUndefined()
+
+        expect(sceneLogsAccess.upsertForScene).not.toHaveBeenCalled()
       })
     })
   })

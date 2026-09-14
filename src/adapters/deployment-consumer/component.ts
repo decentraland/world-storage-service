@@ -6,10 +6,12 @@ import type { IDeploymentConsumerComponent } from './types'
 import type { AppComponents } from '../../types'
 import type { WorldScene } from '../worlds-content-server/types'
 
+const GENESIS_WORLD_NAME = 'main'
+
 /**
- * Creates the deployment consumer component: a long-lived SQS consumer of
- * worlds-content-server deployment/undeployment SNS events that keeps
- * `scene_logs_access` current for Worlds scenes.
+ * Creates the deployment consumer component: an SQS consumer of worlds-content-server
+ * WORLD events and catalyst CATALYST_DEPLOYMENT scene events that keep
+ * `scene_logs_access` current.
  *
  * Deployment events carry only the deployed entity id, so the world it belongs to is
  * resolved by fetching the entity itself (content-addressed, so `entityId` is both the
@@ -163,6 +165,25 @@ export async function createDeploymentConsumerComponent(
     }
   }
 
+  async function handleCatalystDeployment(event: unknown): Promise<void> {
+    const entity = isRecord(event) ? event.entity : undefined
+    const scene = mapSceneEntity(entity)
+
+    if (!scene) {
+      logger.warn('Discarding catalyst deployment event with an unexpected scene entity shape')
+      return
+    }
+
+    await sceneLogsAccess.upsertForScene({
+      sceneId: scene.sceneId,
+      worldName: GENESIS_WORLD_NAME,
+      baseParcel: scene.base,
+      title: scene.title,
+      realmKind: 'genesis',
+      addresses: scene.logsPermissions
+    })
+  }
+
   queueConsumer.addMessageHandler(Events.Type.WORLD, Events.SubType.Worlds.DEPLOYMENT, handleDeployment)
   queueConsumer.addMessageHandler(
     Events.Type.WORLD,
@@ -170,6 +191,11 @@ export async function createDeploymentConsumerComponent(
     handleScenesUndeployment
   )
   queueConsumer.addMessageHandler(Events.Type.WORLD, Events.SubType.Worlds.WORLD_UNDEPLOYMENT, handleWorldUndeployment)
+  queueConsumer.addMessageHandler(
+    Events.Type.CATALYST_DEPLOYMENT,
+    Events.SubType.CatalystDeployment.SCENE,
+    handleCatalystDeployment
+  )
 
   return {}
 }

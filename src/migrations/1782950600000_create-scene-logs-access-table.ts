@@ -16,15 +16,8 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
     primaryKey: ['scene_id', 'address']
   })
   pgm.createIndex('scene_logs_access', 'address', { name: 'scene_logs_access_address_idx' })
-
-  pgm.createTable('sync_cursor', {
-    name: { type: 'varchar(64)', notNull: true, primaryKey: true },
-    cursor: { type: 'text', notNull: false },
-    updated_at: { type: 'timestamp', notNull: true, default: pgm.func('current_timestamp') }
-  })
 }
 
 export async function down(pgm: MigrationBuilder): Promise<void> {
-  pgm.dropTable('sync_cursor')
   pgm.dropTable('scene_logs_access')
 }
