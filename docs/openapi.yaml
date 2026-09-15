@@ -1361,15 +1361,19 @@ paths:
       operationId: listCollaboratorScenes
       tags:
         - Collaborator
-      summary: List scenes the signed-in wallet may watch
+      summary: List scenes the signed-in wallet collaborates on
       description: |
-        Returns the scenes where the signed-fetch signer appears in `logsPermissions`, for a
-        "watch the logs" style discovery view. Self-scoped: there is no address parameter, so a
-        signer can only ever list its own scenes. Does not require realm/parcel context.
+        Returns the scenes where the signed-fetch signer appears in `logsPermissions` (a
+        collaborator that may read/write/delete that scene's storage). Self-scoped: there is no
+        address parameter, so a signer can only ever list its own scenes. Does not require
+        realm/parcel context.
 
-        This is a discovery index only: rows may lag behind or hold stale-positive entries
-        (e.g. a wallet since removed from `logsPermissions`). The actual storage read endpoints
-        always re-verify `logsPermissions` live, independently of this list.
+        This is a best-effort discovery index, eventually consistent: it is populated from
+        deployment events and a write-through on the first authorized access, so a scene may be
+        absent until its collaborator first accesses it or the scene is (re)deployed, and it may
+        briefly hold stale-positive entries. It is a UX convenience, not a source of truth — a
+        collaborator can always access a scene directly by realm/parcel, and every storage
+        endpoint re-verifies `logsPermissions` live, independently of this list.
       parameters:
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/OffsetParam'
