@@ -5,6 +5,7 @@ import type { IWorldsContentServerComponent, WorldPermissions, WorldScene } from
 import type { AppComponents } from '../../types'
 
 interface WorldSceneItem {
+  entityId?: unknown
   entity?: unknown
 }
 
@@ -154,7 +155,8 @@ export async function createWorldsContentServerComponent(
       assertWorldScenesShape(body, worldName)
 
       const scenes = body.scenes.flatMap(item => {
-        const scene = mapSceneEntity(item.entity)
+        const fallbackId = typeof item.entityId === 'string' ? item.entityId : undefined
+        const scene = mapSceneEntity(item.entity, fallbackId)
         if (!scene) {
           logger.warn('Skipping malformed scene in world scenes response', { worldName })
           return []

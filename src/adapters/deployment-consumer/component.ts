@@ -123,46 +123,36 @@ export async function createDeploymentConsumerComponent(
   }
 
   async function handleScenesUndeployment(event: unknown): Promise<void> {
-    try {
-      const metadata = isRecord(event) ? event.metadata : undefined
-      const scenes = isRecord(metadata) ? metadata.scenes : undefined
+    const metadata = isRecord(event) ? event.metadata : undefined
+    const scenes = isRecord(metadata) ? metadata.scenes : undefined
 
-      if (!Array.isArray(scenes)) {
-        logger.warn('Skipping world_scenes_undeployment event with missing scenes')
-        return
+    if (!Array.isArray(scenes)) {
+      logger.warn('Discarding world_scenes_undeployment event with missing scenes')
+      return
+    }
+
+    for (const scene of scenes) {
+      const sceneId = isRecord(scene) ? scene.entityId : undefined
+
+      if (typeof sceneId !== 'string' || sceneId.length === 0) {
+        logger.warn('Skipping undeployed scene with missing entityId')
+        continue
       }
 
-      for (const scene of scenes) {
-        const sceneId = isRecord(scene) ? scene.entityId : undefined
-
-        if (typeof sceneId !== 'string' || sceneId.length === 0) {
-          logger.warn('Skipping undeployed scene with missing entityId')
-          continue
-        }
-
-        await sceneLogsAccess.removeScene(sceneId)
-      }
-    } catch (error) {
-      logger.error('Unexpected error handling world_scenes_undeployment event', {
-        error: errorMessageOrDefault(error)
-      })
+      await sceneLogsAccess.removeScene(sceneId)
     }
   }
 
   async function handleWorldUndeployment(event: unknown): Promise<void> {
-    try {
-      const metadata = isRecord(event) ? event.metadata : undefined
-      const worldName = isRecord(metadata) ? metadata.worldName : undefined
+    const metadata = isRecord(event) ? event.metadata : undefined
+    const worldName = isRecord(metadata) ? metadata.worldName : undefined
 
-      if (typeof worldName !== 'string' || worldName.length === 0) {
-        logger.warn('Skipping world_undeployment event with missing worldName')
-        return
-      }
-
-      await sceneLogsAccess.removeByWorld(worldName)
-    } catch (error) {
-      logger.error('Unexpected error handling world_undeployment event', { error: errorMessageOrDefault(error) })
+    if (typeof worldName !== 'string' || worldName.length === 0) {
+      logger.warn('Discarding world_undeployment event with missing worldName')
+      return
     }
+
+    await sceneLogsAccess.removeByWorld(worldName)
   }
 
   async function handleCatalystDeployment(event: unknown): Promise<void> {

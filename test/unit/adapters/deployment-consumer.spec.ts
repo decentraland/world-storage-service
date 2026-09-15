@@ -222,6 +222,20 @@ describe('DeploymentConsumerComponent', () => {
         expect(sceneLogsAccess.removeScene).not.toHaveBeenCalled()
       })
     })
+
+    describe('and removing a scene fails transiently', () => {
+      beforeEach(() => {
+        sceneLogsAccess.removeScene.mockRejectedValueOnce(new Error('db unavailable'))
+      })
+
+      it('should reject so the undeployment is not acknowledged as processed', async () => {
+        await expect(
+          scenesUndeploymentHandler()({
+            metadata: { worldName: WORLD_NAMES.DEFAULT, scenes: [{ entityId: 'scene-a' }] }
+          })
+        ).rejects.toThrow()
+      })
+    })
   })
 
   describe('when a world_undeployment event is received', () => {
@@ -236,6 +250,16 @@ describe('DeploymentConsumerComponent', () => {
         await expect(worldUndeploymentHandler()({ metadata: {} })).resolves.toBeUndefined()
 
         expect(sceneLogsAccess.removeByWorld).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and removing the world rows fails transiently', () => {
+      beforeEach(() => {
+        sceneLogsAccess.removeByWorld.mockRejectedValueOnce(new Error('db unavailable'))
+      })
+
+      it('should reject so the undeployment is not acknowledged as processed', async () => {
+        await expect(worldUndeploymentHandler()({ metadata: { worldName: WORLD_NAMES.DEFAULT } })).rejects.toThrow()
       })
     })
   })

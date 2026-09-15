@@ -288,6 +288,44 @@ describe('Worlds Content Server Component', () => {
       })
     })
 
+    describe('and a scene entity document omits its own id', () => {
+      let component: IWorldsContentServerComponent
+
+      beforeEach(async () => {
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              scenes: [
+                {
+                  entityId: 'item-level-entity-id',
+                  entity: {
+                    metadata: {
+                      display: { title: 'Idless Scene' },
+                      scene: { base: PARCELS.DEFAULT, parcels: [PARCELS.DEFAULT] },
+                      logsPermissions: [ADDRESSES.AUTHORIZED]
+                    }
+                  }
+                }
+              ]
+            })
+        })
+        component = await createComponent()
+      })
+
+      it('should map the scene using the item-level entityId as the scene id', async () => {
+        const [scene] = await component.getScenes(WORLD_NAMES.DEFAULT)
+
+        expect(scene).toEqual({
+          sceneId: 'item-level-entity-id',
+          base: PARCELS.DEFAULT,
+          parcels: [PARCELS.DEFAULT],
+          title: 'Idless Scene',
+          logsPermissions: [ADDRESSES.AUTHORIZED.toLowerCase()]
+        })
+      })
+    })
+
     describe('and the scenes are already cached', () => {
       let component: IWorldsContentServerComponent
       let cachedScenes: WorldScene[]
