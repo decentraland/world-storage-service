@@ -35,7 +35,7 @@ tags:
   - name: Usage
     description: Storage usage and limits for each namespace
   - name: Collaborator
-    description: Discovery of the scenes a wallet may watch via `logsPermissions`
+    description: Discovery of the scenes a wallet collaborates on via `logsPermissions`
 
 security:
   - SignedFetch: []
@@ -1379,7 +1379,7 @@ paths:
         - $ref: '#/components/parameters/OffsetParam'
       responses:
         '200':
-          description: Paginated list of watchable scenes
+          description: Paginated list of scenes the signer collaborates on
           content:
             application/json:
               schema:
@@ -1627,7 +1627,7 @@ components:
         - sceneId
         - title
         - realmKind
-      description: A scene identifier the signer may watch. Never carries storage values.
+      description: A scene identifier the signer collaborates on. Never carries storage values.
     ListCollaboratorScenesResponse:
       type: object
       properties:
@@ -1635,7 +1635,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CollaboratorScene'
-          description: Array of scenes the signer may watch
+          description: Array of scenes the signer collaborates on
         pagination:
           $ref: '#/components/schemas/Pagination'
       required:
