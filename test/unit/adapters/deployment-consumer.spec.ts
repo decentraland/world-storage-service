@@ -30,6 +30,7 @@ describe('DeploymentConsumerComponent', () => {
       base: overrides.base ?? '0,0',
       parcels: overrides.parcels ?? ['0,0'],
       title: overrides.title === undefined ? 'My Scene' : overrides.title,
+      deployedAt: overrides.deployedAt ?? 0,
       logsPermissions: overrides.logsPermissions ?? [ADDRESSES.AUTHORIZED.toLowerCase()]
     }
   }
@@ -133,6 +134,7 @@ describe('DeploymentConsumerComponent', () => {
           sceneId: scene.sceneId,
           title: scene.title,
           realmKind: 'world',
+          deployedAt: 0,
           addresses: scene.logsPermissions
         })
       })
@@ -300,6 +302,7 @@ describe('DeploymentConsumerComponent', () => {
           baseParcel: scene.base,
           title: scene.title,
           realmKind: 'genesis',
+          deployedAt: 0,
           addresses: scene.logsPermissions
         })
       })

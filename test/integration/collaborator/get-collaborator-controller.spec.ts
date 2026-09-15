@@ -75,7 +75,7 @@ test('when listing watchable scenes via GET /collaborator', function ({ componen
         title: 'Collaborator Scene',
         realmKind: 'world'
       }
-      await components.sceneCollaborators.upsertForScene({ ...scene, addresses: [address] })
+      await components.sceneCollaborators.upsertForScene({ ...scene, deployedAt: 0, addresses: [address] })
     })
 
     it('should respond with a 200 and the scene the wallet may watch', async () => {
@@ -99,6 +99,7 @@ test('when listing watchable scenes via GET /collaborator', function ({ componen
         baseParcel: PARCELS.SCENE_B,
         title: 'Other Scene',
         realmKind: 'world',
+        deployedAt: 0,
         addresses: [ADDRESSES.OTHER]
       })
     })
@@ -124,6 +125,7 @@ test('when listing watchable scenes via GET /collaborator', function ({ componen
         baseParcel: PARCELS.SCENE_A,
         title: 'Scene 1',
         realmKind: 'world',
+        deployedAt: 0,
         addresses: [address]
       })
       await components.sceneCollaborators.upsertForScene({
@@ -132,6 +134,7 @@ test('when listing watchable scenes via GET /collaborator', function ({ componen
         baseParcel: PARCELS.SCENE_B,
         title: 'Scene 2',
         realmKind: 'world',
+        deployedAt: 0,
         addresses: [address]
       })
     })

@@ -34,61 +34,89 @@ describe('SceneCollaboratorsComponent', () => {
   })
 
   describe('when upserting the address set for a scene', () => {
-    let scene: CollaboratorScene & { addresses: string[] }
+    let scene: CollaboratorScene & { addresses: string[]; deployedAt: number }
 
     describe('and there are addresses in the new set', () => {
       beforeEach(() => {
-        scene = { sceneId, worldName, baseParcel, title, realmKind, addresses: ['0xAbC', '0xDeF'] }
+        scene = { sceneId, worldName, baseParcel, title, realmKind, deployedAt: 100, addresses: ['0xAbC', '0xDeF'] }
+      })
+
+      it('should first read the newest deployment indexed at the world and parcel', async () => {
+        await sceneCollaborators.upsertForScene(scene)
+        const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
+        expect(statement.text).toContain('MAX(deployed_at)')
+        expect(statement.values).toEqual([worldName, baseParcel])
       })
 
       it('should replace any other scene indexed at the same world and parcel', async () => {
         await sceneCollaborators.upsertForScene(scene)
-        const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
+        const statement = pg.query.mock.calls[1][0] as unknown as { text: string; values: unknown[] }
         expect(statement.text).toContain('DELETE FROM scene_collaborators')
-        expect(statement.text).toContain('world_name =')
-        expect(statement.text).toContain('base_parcel =')
         expect(statement.text).toContain('scene_id <>')
         expect(statement.values).toEqual([worldName, baseParcel, sceneId])
       })
 
       it('should delete rows for the scene whose address is not in the new set', async () => {
         await sceneCollaborators.upsertForScene(scene)
-        const statement = pg.query.mock.calls[1][0] as unknown as { text: string; values: unknown[] }
+        const statement = pg.query.mock.calls[2][0] as unknown as { text: string; values: unknown[] }
         expect(statement.text).toContain('address <> ALL(')
         expect(statement.values).toEqual([sceneId, ['0xabc', '0xdef']])
       })
 
-      it('should upsert the lowercased addresses in a single insert statement', async () => {
+      it('should upsert the lowercased addresses with the deployment timestamp', async () => {
         await sceneCollaborators.upsertForScene(scene)
-        const statement = pg.query.mock.calls[2][0] as unknown as { text: string; values: unknown[] }
+        const statement = pg.query.mock.calls[3][0] as unknown as { text: string; values: unknown[] }
         expect(statement.text).toContain('INSERT INTO scene_collaborators')
         expect(statement.text).toContain('ON CONFLICT (scene_id, address) DO UPDATE')
         expect(statement.values).toContain(sceneId)
+        expect(statement.values).toContain(100)
         expect(statement.values).toEqual(expect.arrayContaining([['0xabc', '0xdef']]))
+      })
+    })
+
+    describe('and a newer deployment is already indexed at the world and parcel', () => {
+      beforeEach(() => {
+        scene = { sceneId, worldName, baseParcel, title, realmKind, deployedAt: 100, addresses: ['0xAbC'] }
+        pg.query.mockResolvedValueOnce({ rows: [{ max_deployed_at: '200' }] } as never)
+      })
+
+      it('should skip the destructive replacement and issue no other statement', async () => {
+        await sceneCollaborators.upsertForScene(scene)
+        expect(pg.query).toHaveBeenCalledTimes(1)
+        const statement = pg.query.mock.calls[0][0] as unknown as { text: string }
+        expect(statement.text).toContain('MAX(deployed_at)')
       })
     })
 
     describe('and the new set has duplicate and casing-only-duplicate addresses', () => {
       beforeEach(() => {
-        scene = { sceneId, worldName, baseParcel, title, realmKind, addresses: ['0xAbC', '0xabc', '0xDeF', '0xdef'] }
+        scene = {
+          sceneId,
+          worldName,
+          baseParcel,
+          title,
+          realmKind,
+          deployedAt: 100,
+          addresses: ['0xAbC', '0xabc', '0xDeF', '0xdef']
+        }
       })
 
       it('should deduplicate to one normalized address per row before inserting', async () => {
         await sceneCollaborators.upsertForScene(scene)
-        const statement = pg.query.mock.calls[2][0] as unknown as { values: unknown[] }
+        const statement = pg.query.mock.calls[3][0] as unknown as { values: unknown[] }
         expect(statement.values).toEqual(expect.arrayContaining([['0xabc', '0xdef']]))
       })
     })
 
     describe('and the new address set is empty', () => {
       beforeEach(() => {
-        scene = { sceneId, worldName, baseParcel, title, realmKind, addresses: [] }
+        scene = { sceneId, worldName, baseParcel, title, realmKind, deployedAt: 100, addresses: [] }
       })
 
-      it('should clear every row indexed at the world and parcel and issue no other statement', async () => {
+      it('should clear every row indexed at the world and parcel after the newest check', async () => {
         await sceneCollaborators.upsertForScene(scene)
-        expect(pg.query).toHaveBeenCalledTimes(1)
-        const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
+        expect(pg.query).toHaveBeenCalledTimes(2)
+        const statement = pg.query.mock.calls[1][0] as unknown as { text: string; values: unknown[] }
         expect(statement.text).toContain('DELETE FROM scene_collaborators')
         expect(statement.text).toContain('world_name =')
         expect(statement.text).toContain('base_parcel =')
@@ -101,7 +129,7 @@ describe('SceneCollaboratorsComponent', () => {
     let row: SceneCollaboratorsRow
 
     beforeEach(() => {
-      row = { address: '0xAbC', sceneId, worldName, baseParcel, title, realmKind }
+      row = { address: '0xAbC', sceneId, worldName, baseParcel, title, realmKind, deployedAt: 150 }
     })
 
     it('should insert the lowercased address with ON CONFLICT DO NOTHING', async () => {
@@ -109,6 +137,7 @@ describe('SceneCollaboratorsComponent', () => {
       const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
       expect(statement.text).toContain('ON CONFLICT (scene_id, address) DO NOTHING')
       expect(statement.values).toContain('0xabc')
+      expect(statement.values).toContain(150)
     })
   })
 

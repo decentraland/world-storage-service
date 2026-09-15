@@ -193,7 +193,8 @@ export function createAuthorizationMiddleware(
               worldName,
               baseParcel: logsScene.base,
               title: logsScene.title,
-              realmKind: isSharedRealmName(worldName) ? 'genesis' : 'world'
+              realmKind: isSharedRealmName(worldName) ? 'genesis' : 'world',
+              deployedAt: logsScene.deployedAt
             })
             .then(() => {
               recentlyTouched.add(touchKey)

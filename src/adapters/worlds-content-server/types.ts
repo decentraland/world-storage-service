@@ -23,6 +23,8 @@ export interface WorldScene {
   parcels: string[]
   /** Human title (metadata.display.title), or null. */
   title: string | null
+  /** Entity deployment timestamp (ms), used to order deployment events; 0 when absent. */
+  deployedAt: number
   /** Lowercased addresses allowed to view this scene's logs (from scene metadata). */
   logsPermissions: string[]
 }

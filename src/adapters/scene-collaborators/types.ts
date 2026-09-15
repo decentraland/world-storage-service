@@ -9,16 +9,19 @@ export interface CollaboratorScene {
 
 export interface SceneCollaboratorsRow extends CollaboratorScene {
   address: string
+  deployedAt: number
 }
 
 export interface ISceneCollaboratorsComponent {
   /**
    * Replaces the address set for a scene with `addresses` (lowercased), deleting rows
-   * for addresses no longer present and upserting the rest.
+   * for addresses no longer present and upserting the rest. Skipped when a newer deployment
+   * (higher `deployedAt`) is already indexed at the scene's world/parcel, so out-of-order
+   * SQS delivery cannot let a stale deployment overwrite a newer one.
    *
-   * @param scene - Scene identifiers plus the full new address set
+   * @param scene - Scene identifiers, the full new address set, and the deployment timestamp
    */
-  upsertForScene(scene: CollaboratorScene & { addresses: string[] }): Promise<void>
+  upsertForScene(scene: CollaboratorScene & { addresses: string[]; deployedAt: number }): Promise<void>
 
   /**
    * Inserts a single (scene, address) row if absent; a no-op when it already exists.

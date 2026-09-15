@@ -70,6 +70,7 @@ describe('World Permission Component', () => {
       base: PARCELS.DEFAULT,
       parcels: [PARCELS.DEFAULT],
       title: 'Test scene',
+      deployedAt: 0,
       logsPermissions: [],
       ...overrides
     }

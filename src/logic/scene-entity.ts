@@ -29,6 +29,7 @@ export function mapSceneEntity(entity: unknown, fallbackId?: string): WorldScene
     base,
     parcels: parcels.filter((parcel): parcel is string => typeof parcel === 'string'),
     title: typeof title === 'string' ? title : null,
+    deployedAt: typeof entity.timestamp === 'number' ? entity.timestamp : 0,
     logsPermissions: extractLogsPermissions(metadata)
   }
 }

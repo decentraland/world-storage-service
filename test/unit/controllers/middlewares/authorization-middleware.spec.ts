@@ -17,6 +17,7 @@ const LOGS_READABLE_SCENE: WorldScene = {
   base: PARCELS.DEFAULT,
   parcels: [PARCELS.DEFAULT],
   title: 'Test scene',
+  deployedAt: 0,
   logsPermissions: [ADDRESSES.UNAUTHORIZED]
 }
 
@@ -508,7 +509,8 @@ describe('Authorization Middleware', () => {
           worldName: WORLD_NAMES.DEFAULT,
           baseParcel: LOGS_READABLE_SCENE.base,
           title: LOGS_READABLE_SCENE.title,
-          realmKind: 'world'
+          realmKind: 'world',
+          deployedAt: 0
         })
       })
 

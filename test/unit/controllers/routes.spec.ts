@@ -69,6 +69,7 @@ const LOGS_ACCESSIBLE_SCENE: WorldScene = {
   base: PARCELS.DEFAULT,
   parcels: [PARCELS.DEFAULT],
   title: 'Test scene',
+  deployedAt: 0,
   logsPermissions: [ADDRESSES.UNAUTHORIZED]
 }
 

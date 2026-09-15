@@ -118,6 +118,7 @@ export async function createDeploymentConsumerComponent(
       sceneId: resolved.scene.sceneId,
       title: resolved.scene.title,
       realmKind: 'world',
+      deployedAt: resolved.scene.deployedAt,
       addresses: resolved.scene.logsPermissions
     })
   }
@@ -170,6 +171,7 @@ export async function createDeploymentConsumerComponent(
       baseParcel: scene.base,
       title: scene.title,
       realmKind: 'genesis',
+      deployedAt: scene.deployedAt,
       addresses: scene.logsPermissions
     })
   }

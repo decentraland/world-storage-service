@@ -93,6 +93,7 @@ describe('CatalystContentComponent', () => {
           base: PARCELS.GENESIS_CITY,
           parcels: [PARCELS.GENESIS_CITY],
           title: 'My Scene',
+          deployedAt: 0,
           logsPermissions: [ADDRESSES.AUTHORIZED.toLowerCase()]
         }
         expect(result).toEqual(expected)
@@ -231,6 +232,7 @@ describe('CatalystContentComponent', () => {
         base: PARCELS.GENESIS_CITY,
         parcels: [PARCELS.GENESIS_CITY],
         title: null,
+        deployedAt: 0,
         logsPermissions: []
       }
 

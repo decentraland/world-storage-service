@@ -10,6 +10,7 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
     base_parcel: { type: 'varchar(64)', notNull: true },
     title: { type: 'varchar(255)', notNull: false },
     realm_kind: { type: 'varchar(16)', notNull: true },
+    deployed_at: { type: 'bigint', notNull: true, default: 0 },
     updated_at: { type: 'timestamp', notNull: true, default: pgm.func('current_timestamp') }
   })
   pgm.addConstraint('scene_collaborators', 'scene_collaborators_pkey', {

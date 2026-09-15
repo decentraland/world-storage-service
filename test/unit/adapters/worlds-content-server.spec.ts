@@ -249,6 +249,7 @@ describe('Worlds Content Server Component', () => {
           base: PARCELS.DEFAULT,
           parcels: [PARCELS.DEFAULT],
           title: 'My Scene',
+          deployedAt: 0,
           logsPermissions: [ADDRESSES.AUTHORIZED.toLowerCase()]
         }
         expect(result).toEqual([expected])
@@ -321,6 +322,7 @@ describe('Worlds Content Server Component', () => {
           base: PARCELS.DEFAULT,
           parcels: [PARCELS.DEFAULT],
           title: 'Idless Scene',
+          deployedAt: 0,
           logsPermissions: [ADDRESSES.AUTHORIZED.toLowerCase()]
         })
       })
@@ -337,6 +339,7 @@ describe('Worlds Content Server Component', () => {
             base: PARCELS.DEFAULT,
             parcels: [PARCELS.DEFAULT],
             title: null,
+            deployedAt: 0,
             logsPermissions: []
           }
         ]
@@ -398,7 +401,7 @@ describe('Worlds Content Server Component', () => {
 
       it('should skip the malformed scene and return the valid one', async () => {
         await expect(component.getScenes(WORLD_NAMES.DEFAULT)).resolves.toEqual([
-          { sceneId: 'good', base: '1,2', parcels: ['1,2'], title: 'Good', logsPermissions: [] }
+          { sceneId: 'good', base: '1,2', parcels: ['1,2'], title: 'Good', deployedAt: 0, logsPermissions: [] }
         ])
       })
     })

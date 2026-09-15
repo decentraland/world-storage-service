@@ -17,13 +17,24 @@ export const createSceneCollaboratorsComponent = async ({
 }: Pick<AppComponents, 'pg' | 'logs'>): Promise<ISceneCollaboratorsComponent> => {
   const logger = logs.getLogger('scene-collaborators')
 
-  async function upsertForScene(scene: CollaboratorScene & { addresses: string[] }): Promise<void> {
-    const { sceneId, worldName, baseParcel, title, realmKind, addresses } = scene
+  async function upsertForScene(scene: CollaboratorScene & { addresses: string[]; deployedAt: number }): Promise<void> {
+    const { sceneId, worldName, baseParcel, title, realmKind, addresses, deployedAt } = scene
     const normalizedAddresses = [...new Set(addresses.map(address => address.toLowerCase()))]
 
     logger.debug('Upserting scene collaborators', { sceneId, addressCount: normalizedAddresses.length })
 
     await pg.withAsyncContextTransaction(async () => {
+      const newest = await pg.query<{ max_deployed_at: string | null }>(SQL`
+        SELECT MAX(deployed_at) AS max_deployed_at FROM scene_collaborators
+        WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}`)
+      if (Number(newest.rows[0]?.max_deployed_at ?? 0) > deployedAt) {
+        logger.debug('Skipping stale deployment; a newer one is already indexed at this location', {
+          sceneId,
+          deployedAt
+        })
+        return
+      }
+
       if (normalizedAddresses.length === 0) {
         await pg.query(SQL`
           DELETE FROM scene_collaborators WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}`)
@@ -39,23 +50,23 @@ export const createSceneCollaboratorsComponent = async ({
         WHERE scene_id = ${sceneId} AND address <> ALL(${normalizedAddresses})`)
 
       await pg.query(SQL`
-        INSERT INTO scene_collaborators (scene_id, address, world_name, base_parcel, title, realm_kind, updated_at)
-        SELECT ${sceneId}, address, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, current_timestamp
+        INSERT INTO scene_collaborators (scene_id, address, world_name, base_parcel, title, realm_kind, deployed_at, updated_at)
+        SELECT ${sceneId}, address, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, ${deployedAt}, current_timestamp
         FROM UNNEST(${normalizedAddresses}::text[]) AS address
         ON CONFLICT (scene_id, address) DO UPDATE
-        SET world_name = ${worldName}, base_parcel = ${baseParcel}, title = ${title}, realm_kind = ${realmKind}, updated_at = current_timestamp`)
+        SET world_name = ${worldName}, base_parcel = ${baseParcel}, title = ${title}, realm_kind = ${realmKind}, deployed_at = ${deployedAt}, updated_at = current_timestamp`)
     })
 
     logger.debug('Scene collaborators upserted successfully', { sceneId })
   }
 
   async function touch(row: SceneCollaboratorsRow): Promise<void> {
-    const { sceneId, address, worldName, baseParcel, title, realmKind } = row
+    const { sceneId, address, worldName, baseParcel, title, realmKind, deployedAt } = row
     const lowercasedAddress = address.toLowerCase()
 
     await pg.query(SQL`
-      INSERT INTO scene_collaborators (scene_id, address, world_name, base_parcel, title, realm_kind, updated_at)
-      VALUES (${sceneId}, ${lowercasedAddress}, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, current_timestamp)
+      INSERT INTO scene_collaborators (scene_id, address, world_name, base_parcel, title, realm_kind, deployed_at, updated_at)
+      VALUES (${sceneId}, ${lowercasedAddress}, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, ${deployedAt}, current_timestamp)
       ON CONFLICT (scene_id, address) DO NOTHING`)
   }
 
