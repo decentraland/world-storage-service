@@ -23,7 +23,7 @@ import { createEncryptionComponent } from './adapters/encryption'
 import { createEnvStorageComponent } from './adapters/env-storage'
 import { createPlacesComponent } from './adapters/places'
 import { createPlayerStorageComponent } from './adapters/player-storage'
-import { createSceneLogsAccessComponent } from './adapters/scene-logs-access'
+import { createSceneCollaboratorsComponent } from './adapters/scene-collaborators'
 import { createWorldStorageComponent } from './adapters/world-storage'
 import { createWorldsContentServerComponent } from './adapters/worlds-content-server'
 import { createStorageLimitsComponent } from './logic/storage-limits'
@@ -158,7 +158,7 @@ export async function initComponents(): Promise<AppComponents> {
   const worldStorage = await createWorldStorageComponent({ pg, config, storageCache, logs })
   const playerStorage = await createPlayerStorageComponent({ pg, config, storageCache, logs })
   const envStorage = createEnvStorageComponent({ pg, encryption, logs })
-  const sceneLogsAccess = await createSceneLogsAccessComponent({ pg, logs })
+  const sceneCollaborators = await createSceneCollaboratorsComponent({ pg, logs })
   const storageLimits = await createStorageLimitsComponent({ config, logs, worldStorage, playerStorage, envStorage })
   const storageOperations = await createStorageOperationsComponent({
     pg,
@@ -187,7 +187,7 @@ export async function initComponents(): Promise<AppComponents> {
     logs,
     fetcher,
     queueConsumer,
-    sceneLogsAccess
+    sceneCollaborators
   })
 
   return {
@@ -211,7 +211,7 @@ export async function initComponents(): Promise<AppComponents> {
     places,
     catalystContent,
     schemaValidator,
-    sceneLogsAccess,
+    sceneCollaborators,
     sqs,
     queueConsumer,
     deploymentConsumer

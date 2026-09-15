@@ -15,7 +15,7 @@ import type { IEncryptionComponent } from '../adapters/encryption/types'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'
 import type { IPlacesComponent } from '../adapters/places/types'
 import type { IPlayerStorageComponent } from '../adapters/player-storage/types'
-import type { ISceneLogsAccessComponent } from '../adapters/scene-logs-access/types'
+import type { ISceneCollaboratorsComponent } from '../adapters/scene-collaborators/types'
 import type { IWorldStorageComponent } from '../adapters/world-storage/types'
 import type { IWorldsContentServerComponent } from '../adapters/worlds-content-server/types'
 import type { IStorageLimitsComponent } from '../logic/storage-limits/types'
@@ -55,7 +55,7 @@ export interface BaseComponents {
   storageLimits: IStorageLimitsComponent
   storageOperations: IStorageOperationsComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
-  sceneLogsAccess: ISceneLogsAccessComponent
+  sceneCollaborators: ISceneCollaboratorsComponent
   sqs: IQueueComponent
   queueConsumer: IQueueConsumerComponent
   deploymentConsumer: IDeploymentConsumerComponent

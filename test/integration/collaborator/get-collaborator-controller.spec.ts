@@ -4,9 +4,9 @@ import { test } from '../../components'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../fixtures'
 import { TEST_REALM_METADATA } from '../utils/auth'
 import { createTestSetup } from '../utils/setup'
-import type { WatcherScene } from '../../../src/adapters/scene-logs-access/types'
+import type { CollaboratorScene } from '../../../src/adapters/scene-collaborators/types'
 
-test('when listing watchable scenes via GET /watcher', function ({ components, stubComponents }) {
+test('when listing watchable scenes via GET /collaborator', function ({ components, stubComponents }) {
   let signedFetch: ReturnType<typeof signedFetchFactory>
   let baseUrl: string
   let resetStubs: () => void
@@ -14,7 +14,7 @@ test('when listing watchable scenes via GET /watcher', function ({ components, s
   let address: string
 
   beforeEach(async () => {
-    await components.sceneLogsAccess.removeByWorld(WORLD_NAMES.DEFAULT)
+    await components.sceneCollaborators.removeByWorld(WORLD_NAMES.DEFAULT)
     const setup = await createTestSetup(components, stubComponents)
     signedFetch = setup.signedFetch
     baseUrl = setup.baseUrl
@@ -25,14 +25,14 @@ test('when listing watchable scenes via GET /watcher', function ({ components, s
 
   afterEach(async () => {
     resetStubs()
-    await components.sceneLogsAccess.removeByWorld(WORLD_NAMES.DEFAULT)
+    await components.sceneCollaborators.removeByWorld(WORLD_NAMES.DEFAULT)
   })
 
   describe('and the request does not include an identity', () => {
     let response: Awaited<ReturnType<typeof signedFetch>>
 
     beforeEach(async () => {
-      response = await signedFetch(`${baseUrl}/watcher`, { method: 'GET' })
+      response = await signedFetch(`${baseUrl}/collaborator`, { method: 'GET' })
     })
 
     it('should respond with a 400 and a signed fetch required message', async () => {
@@ -49,7 +49,11 @@ test('when listing watchable scenes via GET /watcher', function ({ components, s
     let response: Awaited<ReturnType<typeof signedFetch>>
 
     beforeEach(async () => {
-      response = await signedFetch(`${baseUrl}/watcher`, { method: 'GET', identity, metadata: TEST_REALM_METADATA })
+      response = await signedFetch(`${baseUrl}/collaborator`, {
+        method: 'GET',
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
     })
 
     it('should respond with a 200 and an empty page', async () => {
@@ -61,21 +65,21 @@ test('when listing watchable scenes via GET /watcher', function ({ components, s
   })
 
   describe('and the wallet has an accessible scene', () => {
-    let scene: WatcherScene
+    let scene: CollaboratorScene
 
     beforeEach(async () => {
       scene = {
-        sceneId: 'bafkrei-watcher-scene',
+        sceneId: 'bafkrei-collaborator-scene',
         worldName: WORLD_NAMES.DEFAULT,
         baseParcel: PARCELS.SCENE_A,
-        title: 'Watcher Scene',
+        title: 'Collaborator Scene',
         realmKind: 'world'
       }
-      await components.sceneLogsAccess.upsertForScene({ ...scene, addresses: [address] })
+      await components.sceneCollaborators.upsertForScene({ ...scene, addresses: [address] })
     })
 
     it('should respond with a 200 and the scene the wallet may watch', async () => {
-      const response = await signedFetch(`${baseUrl}/watcher`, {
+      const response = await signedFetch(`${baseUrl}/collaborator`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
@@ -89,7 +93,7 @@ test('when listing watchable scenes via GET /watcher', function ({ components, s
 
   describe('and another wallet has an accessible scene', () => {
     beforeEach(async () => {
-      await components.sceneLogsAccess.upsertForScene({
+      await components.sceneCollaborators.upsertForScene({
         sceneId: 'bafkrei-other-scene',
         worldName: WORLD_NAMES.DEFAULT,
         baseParcel: PARCELS.SCENE_B,
@@ -100,7 +104,7 @@ test('when listing watchable scenes via GET /watcher', function ({ components, s
     })
 
     it('should not include scenes that belong to a different wallet', async () => {
-      const response = await signedFetch(`${baseUrl}/watcher`, {
+      const response = await signedFetch(`${baseUrl}/collaborator`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA
@@ -114,7 +118,7 @@ test('when listing watchable scenes via GET /watcher', function ({ components, s
 
   describe('and the wallet has more scenes than the requested page size', () => {
     beforeEach(async () => {
-      await components.sceneLogsAccess.upsertForScene({
+      await components.sceneCollaborators.upsertForScene({
         sceneId: 'bafkrei-scene-1',
         worldName: WORLD_NAMES.DEFAULT,
         baseParcel: PARCELS.SCENE_A,
@@ -122,7 +126,7 @@ test('when listing watchable scenes via GET /watcher', function ({ components, s
         realmKind: 'world',
         addresses: [address]
       })
-      await components.sceneLogsAccess.upsertForScene({
+      await components.sceneCollaborators.upsertForScene({
         sceneId: 'bafkrei-scene-2',
         worldName: WORLD_NAMES.DEFAULT,
         baseParcel: PARCELS.SCENE_B,
@@ -133,7 +137,7 @@ test('when listing watchable scenes via GET /watcher', function ({ components, s
     })
 
     it('should return only the requested page while reporting the full total', async () => {
-      const response = await signedFetch(`${baseUrl}/watcher?limit=1&offset=0`, {
+      const response = await signedFetch(`${baseUrl}/collaborator?limit=1&offset=0`, {
         method: 'GET',
         identity,
         metadata: TEST_REALM_METADATA

@@ -11,7 +11,7 @@ const GENESIS_WORLD_NAME = 'main'
 /**
  * Creates the deployment consumer component: an SQS consumer of worlds-content-server
  * WORLD events and catalyst CATALYST_DEPLOYMENT scene events that keep
- * `scene_logs_access` current.
+ * `scene_collaborators` current.
  *
  * Deployment events carry only the deployed entity id, so the world it belongs to is
  * resolved by fetching the entity itself (content-addressed, so `entityId` is both the
@@ -22,13 +22,13 @@ const GENESIS_WORLD_NAME = 'main'
  * unrecognized payload is logged and skipped rather than thrown.
  *
  * @param components - Required components: config, logs, fetcher, queueConsumer,
- * sceneLogsAccess
+ * sceneCollaborators
  * @returns Promise resolving to IDeploymentConsumerComponent implementation
  */
 export async function createDeploymentConsumerComponent(
-  components: Pick<AppComponents, 'config' | 'logs' | 'fetcher' | 'queueConsumer' | 'sceneLogsAccess'>
+  components: Pick<AppComponents, 'config' | 'logs' | 'fetcher' | 'queueConsumer' | 'sceneCollaborators'>
 ): Promise<IDeploymentConsumerComponent> {
-  const { config, logs, fetcher, queueConsumer, sceneLogsAccess } = components
+  const { config, logs, fetcher, queueConsumer, sceneCollaborators } = components
   const logger = logs.getLogger('deployment-consumer')
 
   const worldsContentServerUrl = (await config.requireString('WORLDS_CONTENT_SERVER_URL')).replace(/\/$/, '')
@@ -112,7 +112,7 @@ export async function createDeploymentConsumerComponent(
       return
     }
 
-    await sceneLogsAccess.upsertForScene({
+    await sceneCollaborators.upsertForScene({
       worldName: resolved.worldName,
       baseParcel: resolved.scene.base,
       sceneId: resolved.scene.sceneId,
@@ -139,7 +139,7 @@ export async function createDeploymentConsumerComponent(
         continue
       }
 
-      await sceneLogsAccess.removeScene(sceneId)
+      await sceneCollaborators.removeScene(sceneId)
     }
   }
 
@@ -152,7 +152,7 @@ export async function createDeploymentConsumerComponent(
       return
     }
 
-    await sceneLogsAccess.removeByWorld(worldName)
+    await sceneCollaborators.removeByWorld(worldName)
   }
 
   async function handleCatalystDeployment(event: unknown): Promise<void> {
@@ -164,7 +164,7 @@ export async function createDeploymentConsumerComponent(
       return
     }
 
-    await sceneLogsAccess.upsertForScene({
+    await sceneCollaborators.upsertForScene({
       sceneId: scene.sceneId,
       worldName: GENESIS_WORLD_NAME,
       baseParcel: scene.base,

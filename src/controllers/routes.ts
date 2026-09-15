@@ -3,6 +3,7 @@ import { wellKnownComponents } from '@dcl/crypto-middleware'
 import { errorHandler } from '@dcl/http-commons'
 import type { RoutedContext } from '@dcl/http-server'
 import { Router } from '@dcl/http-server'
+import { getCollaboratorHandler } from './handlers/collaborator/get-collaborator'
 import { clearEnvStorageHandler } from './handlers/env-storage/clear-env-storage'
 import { deleteEnvStorageHandler } from './handlers/env-storage/delete-env-storage'
 import { getEnvStorageHandler } from './handlers/env-storage/get-env-storage'
@@ -20,7 +21,6 @@ import { listPlayerStorageHandler } from './handlers/player-storage/list-player-
 import { listPlayersHandler } from './handlers/player-storage/list-players'
 import { upsertPlayerStorageHandler } from './handlers/player-storage/upsert-player-storage'
 import { UpsertEnvStorageRequestSchema, UpsertStorageRequestSchema } from './handlers/schemas'
-import { getWatcherHandler } from './handlers/watcher/get-watcher'
 import { clearWorldStorageHandler } from './handlers/world-storage/clear-world-storage'
 import { deleteWorldStorageHandler } from './handlers/world-storage/delete-world-storage'
 import { getWorldStorageHandler } from './handlers/world-storage/get-world-storage'
@@ -77,7 +77,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   const envBodySizeLimitMiddleware = createBodySizeLimitMiddleware(storageLimits.limits.env.maxValueSizeBytes)
 
   router.use(signedFetchMiddleware())
-  router.get('/watcher', getWatcherHandler)
+  router.get('/collaborator', getCollaboratorHandler)
   router.use(sceneContextMiddleware)
 
   // All handlers below run after sceneContextMiddleware, so worldName, parcel, and placeId are guaranteed to be present.

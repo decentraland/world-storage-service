@@ -49,7 +49,7 @@ const ingestionTest = createRunner<TestComponents>({
       logs: components.logs,
       fetcher: components.fetcher,
       queueConsumer: realConsumer,
-      sceneLogsAccess: components.sceneLogsAccess
+      sceneCollaborators: components.sceneCollaborators
     })
 
     return { ...components, localFetch: await createLocalFetchComponent(components.config) }
@@ -74,11 +74,11 @@ describeIngestion(
     let address: string
     let resetStubs: () => void
 
-    async function waitForWatcherData(timeoutMs = 15000): Promise<Array<Record<string, unknown>>> {
+    async function waitForCollaboratorData(timeoutMs = 15000): Promise<Array<Record<string, unknown>>> {
       const deadline = Date.now() + timeoutMs
       let lastData: Array<Record<string, unknown>> = []
       while (Date.now() < deadline) {
-        const response = await signedFetch(`${baseUrl}/watcher`, {
+        const response = await signedFetch(`${baseUrl}/collaborator`, {
           method: 'GET',
           identity,
           metadata: TEST_REALM_METADATA
@@ -110,8 +110,8 @@ describeIngestion(
     })
 
     beforeEach(async () => {
-      await components.sceneLogsAccess.removeByWorld(GENESIS_WORLD_NAME)
-      await components.sceneLogsAccess.removeByWorld(WORLD_NAMES.DEFAULT)
+      await components.sceneCollaborators.removeByWorld(GENESIS_WORLD_NAME)
+      await components.sceneCollaborators.removeByWorld(WORLD_NAMES.DEFAULT)
       const setup = await createTestSetup(components, stubComponents)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
@@ -122,8 +122,8 @@ describeIngestion(
 
     afterEach(async () => {
       resetStubs()
-      await components.sceneLogsAccess.removeByWorld(GENESIS_WORLD_NAME)
-      await components.sceneLogsAccess.removeByWorld(WORLD_NAMES.DEFAULT)
+      await components.sceneCollaborators.removeByWorld(GENESIS_WORLD_NAME)
+      await components.sceneCollaborators.removeByWorld(WORLD_NAMES.DEFAULT)
     })
 
     describe('and a catalyst scene deployment lists the signed-in wallet in logsPermissions', () => {
@@ -150,8 +150,8 @@ describeIngestion(
         )
       })
 
-      it('should index the genesis scene so the wallet sees it via GET /watcher', async () => {
-        const data = await waitForWatcherData()
+      it('should index the genesis scene so the wallet sees it via GET /collaborator', async () => {
+        const data = await waitForCollaboratorData()
         expect(data).toEqual([
           {
             sceneId: 'bafkrei-genesis-scene',
@@ -199,8 +199,8 @@ describeIngestion(
         components.fetcher.fetch = originalFetch
       })
 
-      it('should index the world scene so the wallet sees it via GET /watcher', async () => {
-        const data = await waitForWatcherData()
+      it('should index the world scene so the wallet sees it via GET /collaborator', async () => {
+        const data = await waitForCollaboratorData()
         expect(data).toEqual([
           {
             sceneId: 'bafkrei-world-scene',

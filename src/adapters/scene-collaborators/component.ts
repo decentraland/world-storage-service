@@ -1,88 +1,90 @@
 import { SQL } from 'sql-template-strings'
-import type { ISceneLogsAccessComponent, SceneLogsAccessRow, WatcherScene } from './types'
+import type { CollaboratorScene, ISceneCollaboratorsComponent, SceneCollaboratorsRow } from './types'
 import type { AppComponents } from '../../types'
 
 /**
- * Creates the scene logs access component: the reverse index of wallets allowed to
- * watch a scene's logs, keyed by (sceneId, address).
+ * Creates the scene collaborators component: the reverse index of a scene's collaborators,
+ * keyed by (sceneId, address). A collaborator is a wallet in the scene's `logsPermissions`
+ * (the only grant source at this time), which authorizes read/write/delete on the scene's
+ * storage.
  *
  * @param components - Required components: pg (database), logs (logger)
- * @returns ISceneLogsAccessComponent implementation
+ * @returns ISceneCollaboratorsComponent implementation
  */
-export const createSceneLogsAccessComponent = async ({
+export const createSceneCollaboratorsComponent = async ({
   pg,
   logs
-}: Pick<AppComponents, 'pg' | 'logs'>): Promise<ISceneLogsAccessComponent> => {
-  const logger = logs.getLogger('scene-logs-access')
+}: Pick<AppComponents, 'pg' | 'logs'>): Promise<ISceneCollaboratorsComponent> => {
+  const logger = logs.getLogger('scene-collaborators')
 
-  async function upsertForScene(scene: WatcherScene & { addresses: string[] }): Promise<void> {
+  async function upsertForScene(scene: CollaboratorScene & { addresses: string[] }): Promise<void> {
     const { sceneId, worldName, baseParcel, title, realmKind, addresses } = scene
     const normalizedAddresses = [...new Set(addresses.map(address => address.toLowerCase()))]
 
-    logger.debug('Upserting scene logs access', { sceneId, addressCount: normalizedAddresses.length })
+    logger.debug('Upserting scene collaborators', { sceneId, addressCount: normalizedAddresses.length })
 
     await pg.withAsyncContextTransaction(async () => {
       if (normalizedAddresses.length === 0) {
         await pg.query(SQL`
-          DELETE FROM scene_logs_access WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}`)
+          DELETE FROM scene_collaborators WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}`)
         return
       }
 
       await pg.query(SQL`
-        DELETE FROM scene_logs_access
+        DELETE FROM scene_collaborators
         WHERE world_name = ${worldName} AND base_parcel = ${baseParcel} AND scene_id <> ${sceneId}`)
 
       await pg.query(SQL`
-        DELETE FROM scene_logs_access
+        DELETE FROM scene_collaborators
         WHERE scene_id = ${sceneId} AND address <> ALL(${normalizedAddresses})`)
 
       await pg.query(SQL`
-        INSERT INTO scene_logs_access (scene_id, address, world_name, base_parcel, title, realm_kind, updated_at)
+        INSERT INTO scene_collaborators (scene_id, address, world_name, base_parcel, title, realm_kind, updated_at)
         SELECT ${sceneId}, address, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, current_timestamp
         FROM UNNEST(${normalizedAddresses}::text[]) AS address
         ON CONFLICT (scene_id, address) DO UPDATE
         SET world_name = ${worldName}, base_parcel = ${baseParcel}, title = ${title}, realm_kind = ${realmKind}, updated_at = current_timestamp`)
     })
 
-    logger.debug('Scene logs access upserted successfully', { sceneId })
+    logger.debug('Scene collaborators upserted successfully', { sceneId })
   }
 
-  async function touch(row: SceneLogsAccessRow): Promise<void> {
+  async function touch(row: SceneCollaboratorsRow): Promise<void> {
     const { sceneId, address, worldName, baseParcel, title, realmKind } = row
     const lowercasedAddress = address.toLowerCase()
 
     await pg.query(SQL`
-      INSERT INTO scene_logs_access (scene_id, address, world_name, base_parcel, title, realm_kind, updated_at)
+      INSERT INTO scene_collaborators (scene_id, address, world_name, base_parcel, title, realm_kind, updated_at)
       VALUES (${sceneId}, ${lowercasedAddress}, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, current_timestamp)
       ON CONFLICT (scene_id, address) DO NOTHING`)
   }
 
   async function removeScene(sceneId: string): Promise<void> {
-    logger.debug('Removing scene logs access', { sceneId })
+    logger.debug('Removing scene collaborators', { sceneId })
 
-    await pg.query(SQL`DELETE FROM scene_logs_access WHERE scene_id = ${sceneId}`)
+    await pg.query(SQL`DELETE FROM scene_collaborators WHERE scene_id = ${sceneId}`)
 
-    logger.debug('Scene logs access removed successfully', { sceneId })
+    logger.debug('Scene collaborators removed successfully', { sceneId })
   }
 
   async function removeByWorld(worldName: string): Promise<void> {
-    logger.debug('Removing scene logs access for world', { worldName })
+    logger.debug('Removing scene collaborators for world', { worldName })
 
-    await pg.query(SQL`DELETE FROM scene_logs_access WHERE world_name = ${worldName}`)
+    await pg.query(SQL`DELETE FROM scene_collaborators WHERE world_name = ${worldName}`)
 
-    logger.debug('Scene logs access removed for world successfully', { worldName })
+    logger.debug('Scene collaborators removed for world successfully', { worldName })
   }
 
   async function listByAddress(
     address: string,
     limit: number,
     offset: number
-  ): Promise<{ data: WatcherScene[]; total: number }> {
+  ): Promise<{ data: CollaboratorScene[]; total: number }> {
     const lowercasedAddress = address.toLowerCase()
 
     const [countResult, dataResult] = await Promise.all([
       pg.query<{ count: number }>(
-        SQL`SELECT COUNT(*)::int as count FROM scene_logs_access WHERE address = ${lowercasedAddress}`
+        SQL`SELECT COUNT(*)::int as count FROM scene_collaborators WHERE address = ${lowercasedAddress}`
       ),
       pg.query<{
         scene_id: string
@@ -92,13 +94,13 @@ export const createSceneLogsAccessComponent = async ({
         realm_kind: 'world' | 'genesis'
       }>(SQL`
         SELECT scene_id, world_name, base_parcel, title, realm_kind
-        FROM scene_logs_access
+        FROM scene_collaborators
         WHERE address = ${lowercasedAddress}
         ORDER BY updated_at DESC, scene_id ASC
         LIMIT ${limit} OFFSET ${offset}`)
     ])
 
-    const data: WatcherScene[] = dataResult.rows.map(row => ({
+    const data: CollaboratorScene[] = dataResult.rows.map(row => ({
       sceneId: row.scene_id,
       worldName: row.world_name,
       baseParcel: row.base_parcel,

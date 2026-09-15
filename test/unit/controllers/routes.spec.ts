@@ -132,7 +132,7 @@ describe('Route authorization policy', () => {
           hasWorldPermission: hasWorldPermissionMock,
           getLogsAccessibleScene: getLogsAccessibleSceneMock
         },
-        sceneLogsAccess: { touch: jest.fn().mockResolvedValue(undefined) }
+        sceneCollaborators: { touch: jest.fn().mockResolvedValue(undefined) }
       } as unknown as BaseComponents
     })
   }

@@ -55,7 +55,7 @@ describe('Authorization Middleware', () => {
           hasWorldPermission: hasWorldPermissionMock,
           getLogsAccessibleScene: getLogsAccessibleSceneMock
         },
-        sceneLogsAccess: { touch: touchMock }
+        sceneCollaborators: { touch: touchMock }
       } as unknown as BaseComponents
     })
   }
@@ -498,7 +498,7 @@ describe('Authorization Middleware', () => {
         expect(result).toEqual({ status: 200 })
       })
 
-      it('should fire-and-forget a watcher backfill upsert with the scene and lowercased signer', async () => {
+      it('should fire-and-forget a collaborator backfill upsert with the scene and lowercased signer', async () => {
         await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
 
         expect(touchMock).toHaveBeenCalledTimes(1)
@@ -523,7 +523,7 @@ describe('Authorization Middleware', () => {
       })
     })
 
-    describe('and the watcher backfill upsert rejects', () => {
+    describe('and the collaborator backfill upsert rejects', () => {
       beforeEach(() => {
         getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
         touchMock.mockRejectedValueOnce(new Error('insert failed'))
@@ -551,7 +551,7 @@ describe('Authorization Middleware', () => {
         expect(next).not.toHaveBeenCalled()
       })
 
-      it('should never call the watcher backfill upsert', async () => {
+      it('should never call the collaborator backfill upsert', async () => {
         await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
         expect(touchMock).not.toHaveBeenCalled()
       })

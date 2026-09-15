@@ -1,4 +1,5 @@
-export interface WatcherScene {
+/** A scene a wallet may collaborate on. Collaborators are the wallets in a scene's `logsPermissions` at this time. */
+export interface CollaboratorScene {
   worldName: string
   baseParcel: string
   sceneId: string
@@ -6,25 +7,25 @@ export interface WatcherScene {
   realmKind: 'world' | 'genesis'
 }
 
-export interface SceneLogsAccessRow extends WatcherScene {
+export interface SceneCollaboratorsRow extends CollaboratorScene {
   address: string
 }
 
-export interface ISceneLogsAccessComponent {
+export interface ISceneCollaboratorsComponent {
   /**
    * Replaces the address set for a scene with `addresses` (lowercased), deleting rows
    * for addresses no longer present and upserting the rest.
    *
    * @param scene - Scene identifiers plus the full new address set
    */
-  upsertForScene(scene: WatcherScene & { addresses: string[] }): Promise<void>
+  upsertForScene(scene: CollaboratorScene & { addresses: string[] }): Promise<void>
 
   /**
    * Inserts a single (scene, address) row if absent; a no-op when it already exists.
    *
    * @param row - The scene/address row to insert
    */
-  touch(row: SceneLogsAccessRow): Promise<void>
+  touch(row: SceneCollaboratorsRow): Promise<void>
 
   /**
    * Removes every row for a scene.
@@ -48,5 +49,5 @@ export interface ISceneLogsAccessComponent {
    * @param offset - Number of rows to skip
    * @returns The page of scenes and the total matching count
    */
-  listByAddress(address: string, limit: number, offset: number): Promise<{ data: WatcherScene[]; total: number }>
+  listByAddress(address: string, limit: number, offset: number): Promise<{ data: CollaboratorScene[]; total: number }>
 }

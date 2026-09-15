@@ -34,7 +34,7 @@ tags:
     description: Endpoints for encrypted environment variable storage (scoped by world)
   - name: Usage
     description: Storage usage and limits for each namespace
-  - name: Watcher
+  - name: Collaborator
     description: Discovery of the scenes a wallet may watch via `logsPermissions`
 
 security:
@@ -1356,11 +1356,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /watcher:
+  /collaborator:
     get:
-      operationId: listWatcherScenes
+      operationId: listCollaboratorScenes
       tags:
-        - Watcher
+        - Collaborator
       summary: List scenes the signed-in wallet may watch
       description: |
         Returns the scenes where the signed-fetch signer appears in `logsPermissions`, for a
@@ -1379,7 +1379,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListWatcherScenesResponse'
+                $ref: '#/components/schemas/ListCollaboratorScenesResponse'
               examples:
                 withScenes:
                   value:
@@ -1593,7 +1593,7 @@ components:
       description: |
         Paginated response for listing player addresses that have stored values in the world.
         Addresses are sorted alphabetically (ASC) for deterministic pagination.
-    WatcherScene:
+    CollaboratorScene:
       type: object
       properties:
         worldName:
@@ -1624,13 +1624,13 @@ components:
         - title
         - realmKind
       description: A scene identifier the signer may watch. Never carries storage values.
-    ListWatcherScenesResponse:
+    ListCollaboratorScenesResponse:
       type: object
       properties:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/WatcherScene'
+            $ref: '#/components/schemas/CollaboratorScene'
           description: Array of scenes the signer may watch
         pagination:
           $ref: '#/components/schemas/Pagination'

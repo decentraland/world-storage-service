@@ -1,15 +1,15 @@
 import type { IPgComponent } from '@dcl/pg-component'
-import { createSceneLogsAccessComponent } from '../../../src/adapters/scene-logs-access'
+import { createSceneCollaboratorsComponent } from '../../../src/adapters/scene-collaborators'
 import { createLogsMockedComponent, createPgMockedComponent } from '../../mocks/components'
 import type {
-  ISceneLogsAccessComponent,
-  SceneLogsAccessRow,
-  WatcherScene
-} from '../../../src/adapters/scene-logs-access/types'
+  CollaboratorScene,
+  ISceneCollaboratorsComponent,
+  SceneCollaboratorsRow
+} from '../../../src/adapters/scene-collaborators/types'
 
-describe('SceneLogsAccessComponent', () => {
+describe('SceneCollaboratorsComponent', () => {
   let pg: jest.Mocked<IPgComponent>
-  let sceneLogsAccess: ISceneLogsAccessComponent
+  let sceneCollaborators: ISceneCollaboratorsComponent
   let sceneId: string
   let worldName: string
   let baseParcel: string
@@ -26,7 +26,7 @@ describe('SceneLogsAccessComponent', () => {
     pg = createPgMockedComponent()
     pg.query.mockResolvedValue({ rows: [] } as never)
 
-    sceneLogsAccess = await createSceneLogsAccessComponent({ pg, logs: createLogsMockedComponent() })
+    sceneCollaborators = await createSceneCollaboratorsComponent({ pg, logs: createLogsMockedComponent() })
   })
 
   afterEach(() => {
@@ -34,7 +34,7 @@ describe('SceneLogsAccessComponent', () => {
   })
 
   describe('when upserting the address set for a scene', () => {
-    let scene: WatcherScene & { addresses: string[] }
+    let scene: CollaboratorScene & { addresses: string[] }
 
     describe('and there are addresses in the new set', () => {
       beforeEach(() => {
@@ -42,9 +42,9 @@ describe('SceneLogsAccessComponent', () => {
       })
 
       it('should replace any other scene indexed at the same world and parcel', async () => {
-        await sceneLogsAccess.upsertForScene(scene)
+        await sceneCollaborators.upsertForScene(scene)
         const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
-        expect(statement.text).toContain('DELETE FROM scene_logs_access')
+        expect(statement.text).toContain('DELETE FROM scene_collaborators')
         expect(statement.text).toContain('world_name =')
         expect(statement.text).toContain('base_parcel =')
         expect(statement.text).toContain('scene_id <>')
@@ -52,16 +52,16 @@ describe('SceneLogsAccessComponent', () => {
       })
 
       it('should delete rows for the scene whose address is not in the new set', async () => {
-        await sceneLogsAccess.upsertForScene(scene)
+        await sceneCollaborators.upsertForScene(scene)
         const statement = pg.query.mock.calls[1][0] as unknown as { text: string; values: unknown[] }
         expect(statement.text).toContain('address <> ALL(')
         expect(statement.values).toEqual([sceneId, ['0xabc', '0xdef']])
       })
 
       it('should upsert the lowercased addresses in a single insert statement', async () => {
-        await sceneLogsAccess.upsertForScene(scene)
+        await sceneCollaborators.upsertForScene(scene)
         const statement = pg.query.mock.calls[2][0] as unknown as { text: string; values: unknown[] }
-        expect(statement.text).toContain('INSERT INTO scene_logs_access')
+        expect(statement.text).toContain('INSERT INTO scene_collaborators')
         expect(statement.text).toContain('ON CONFLICT (scene_id, address) DO UPDATE')
         expect(statement.values).toContain(sceneId)
         expect(statement.values).toEqual(expect.arrayContaining([['0xabc', '0xdef']]))
@@ -74,7 +74,7 @@ describe('SceneLogsAccessComponent', () => {
       })
 
       it('should deduplicate to one normalized address per row before inserting', async () => {
-        await sceneLogsAccess.upsertForScene(scene)
+        await sceneCollaborators.upsertForScene(scene)
         const statement = pg.query.mock.calls[2][0] as unknown as { values: unknown[] }
         expect(statement.values).toEqual(expect.arrayContaining([['0xabc', '0xdef']]))
       })
@@ -86,10 +86,10 @@ describe('SceneLogsAccessComponent', () => {
       })
 
       it('should clear every row indexed at the world and parcel and issue no other statement', async () => {
-        await sceneLogsAccess.upsertForScene(scene)
+        await sceneCollaborators.upsertForScene(scene)
         expect(pg.query).toHaveBeenCalledTimes(1)
         const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
-        expect(statement.text).toContain('DELETE FROM scene_logs_access')
+        expect(statement.text).toContain('DELETE FROM scene_collaborators')
         expect(statement.text).toContain('world_name =')
         expect(statement.text).toContain('base_parcel =')
         expect(statement.values).toEqual([worldName, baseParcel])
@@ -98,14 +98,14 @@ describe('SceneLogsAccessComponent', () => {
   })
 
   describe('when touching a single scene/address row', () => {
-    let row: SceneLogsAccessRow
+    let row: SceneCollaboratorsRow
 
     beforeEach(() => {
       row = { address: '0xAbC', sceneId, worldName, baseParcel, title, realmKind }
     })
 
     it('should insert the lowercased address with ON CONFLICT DO NOTHING', async () => {
-      await sceneLogsAccess.touch(row)
+      await sceneCollaborators.touch(row)
       const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
       expect(statement.text).toContain('ON CONFLICT (scene_id, address) DO NOTHING')
       expect(statement.values).toContain('0xabc')
@@ -114,18 +114,18 @@ describe('SceneLogsAccessComponent', () => {
 
   describe('when removing every row for a world', () => {
     it('should delete by world_name', async () => {
-      await sceneLogsAccess.removeByWorld('myworld.dcl.eth')
+      await sceneCollaborators.removeByWorld('myworld.dcl.eth')
       const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
-      expect(statement.text).toBe('DELETE FROM scene_logs_access WHERE world_name = $1')
+      expect(statement.text).toBe('DELETE FROM scene_collaborators WHERE world_name = $1')
       expect(statement.values).toEqual(['myworld.dcl.eth'])
     })
   })
 
   describe('when removing a scene', () => {
     it('should delete every row for the scene', async () => {
-      await sceneLogsAccess.removeScene(sceneId)
+      await sceneCollaborators.removeScene(sceneId)
       const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
-      expect(statement.text).toBe('DELETE FROM scene_logs_access WHERE scene_id = $1')
+      expect(statement.text).toBe('DELETE FROM scene_collaborators WHERE scene_id = $1')
       expect(statement.values).toEqual([sceneId])
     })
   })
@@ -138,7 +138,7 @@ describe('SceneLogsAccessComponent', () => {
     })
 
     it('should lowercase the address and paginate', async () => {
-      await sceneLogsAccess.listByAddress('0xAbC', 10, 5)
+      await sceneCollaborators.listByAddress('0xAbC', 10, 5)
       const countStatement = pg.query.mock.calls[0][0] as unknown as { values: unknown[] }
       const dataStatement = pg.query.mock.calls[1][0] as unknown as { text: string; values: unknown[] }
       expect(countStatement.values).toEqual(['0xabc'])
@@ -148,7 +148,7 @@ describe('SceneLogsAccessComponent', () => {
     })
 
     it('should return the mapped page and total count', async () => {
-      const result = await sceneLogsAccess.listByAddress('0xAbC', 10, 5)
+      const result = await sceneCollaborators.listByAddress('0xAbC', 10, 5)
       expect(result).toEqual({
         data: [{ sceneId, worldName, baseParcel, title, realmKind }],
         total: 1

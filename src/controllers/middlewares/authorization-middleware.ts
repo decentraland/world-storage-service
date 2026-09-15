@@ -186,7 +186,7 @@ export function createAuthorizationMiddleware(
         logger.debug('Authorization granted via logs-access permission', { worldName })
         const touchKey = `${logsScene.sceneId}:${signerAddress}`
         if (!recentlyTouched.has(touchKey)) {
-          void ctx.components.sceneLogsAccess
+          void ctx.components.sceneCollaborators
             .touch({
               address: signerAddress,
               sceneId: logsScene.sceneId,
@@ -205,7 +205,7 @@ export function createAuthorizationMiddleware(
               }
             })
             .catch(error =>
-              logger.debug('watcher backfill upsert failed (non-fatal); will retry on next request', {
+              logger.debug('collaborator backfill upsert failed (non-fatal); will retry on next request', {
                 error: isErrorWithMessage(error) ? error.message : 'Unknown error'
               })
             )

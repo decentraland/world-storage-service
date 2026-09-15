@@ -1,18 +1,21 @@
 import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { NotAuthorizedError } from '@dcl/http-commons'
-import { getWatcherHandler } from '../../../../src/controllers/handlers/watcher/get-watcher'
+import { getCollaboratorHandler } from '../../../../src/controllers/handlers/collaborator/get-collaborator'
 import { createLogsMockedComponent } from '../../../mocks/components'
-import type { ISceneLogsAccessComponent, WatcherScene } from '../../../../src/adapters/scene-logs-access/types'
+import type {
+  CollaboratorScene,
+  ISceneCollaboratorsComponent
+} from '../../../../src/adapters/scene-collaborators/types'
 import type { HandlerContextWithPath } from '../../../../src/types'
 
-describe('getWatcherHandler', () => {
-  let sceneLogsAccess: jest.Mocked<ISceneLogsAccessComponent>
-  let ctx: Pick<HandlerContextWithPath<'sceneLogsAccess' | 'logs', '/watcher'>, 'url' | 'components'> &
+describe('getCollaboratorHandler', () => {
+  let sceneCollaborators: jest.Mocked<ISceneCollaboratorsComponent>
+  let ctx: Pick<HandlerContextWithPath<'sceneCollaborators' | 'logs', '/collaborator'>, 'url' | 'components'> &
     DecentralandSignatureContext<Record<string, unknown>>
-  let scenes: WatcherScene[]
+  let scenes: CollaboratorScene[]
 
   beforeEach(() => {
-    sceneLogsAccess = {
+    sceneCollaborators = {
       upsertForScene: jest.fn(),
       touch: jest.fn(),
       removeScene: jest.fn(),
@@ -21,9 +24,9 @@ describe('getWatcherHandler', () => {
     }
 
     ctx = {
-      url: new URL('http://localhost/watcher'),
+      url: new URL('http://localhost/collaborator'),
       components: {
-        sceneLogsAccess,
+        sceneCollaborators,
         logs: createLogsMockedComponent()
       },
       verification: { auth: '0xABCDEF1234567890ABCDEF1234567890ABCDEF12', authMetadata: {} }
@@ -40,7 +43,7 @@ describe('getWatcherHandler', () => {
     })
 
     it('should throw a NotAuthorizedError', async () => {
-      await expect(getWatcherHandler(ctx)).rejects.toThrow(NotAuthorizedError)
+      await expect(getCollaboratorHandler(ctx)).rejects.toThrow(NotAuthorizedError)
     })
   })
 
@@ -56,13 +59,13 @@ describe('getWatcherHandler', () => {
         }
       ]
 
-      sceneLogsAccess.listByAddress.mockResolvedValue({ data: scenes, total: 1 })
+      sceneCollaborators.listByAddress.mockResolvedValue({ data: scenes, total: 1 })
     })
 
     it('should query listByAddress with the lowercased signer address', async () => {
-      await getWatcherHandler(ctx)
+      await getCollaboratorHandler(ctx)
 
-      expect(sceneLogsAccess.listByAddress).toHaveBeenCalledWith(
+      expect(sceneCollaborators.listByAddress).toHaveBeenCalledWith(
         '0xabcdef1234567890abcdef1234567890abcdef12',
         expect.any(Number),
         expect.any(Number)
@@ -70,15 +73,15 @@ describe('getWatcherHandler', () => {
     })
 
     it('should query listByAddress with the parsed pagination parameters', async () => {
-      ctx.url = new URL('http://localhost/watcher?limit=10&offset=5')
+      ctx.url = new URL('http://localhost/collaborator?limit=10&offset=5')
 
-      await getWatcherHandler(ctx)
+      await getCollaboratorHandler(ctx)
 
-      expect(sceneLogsAccess.listByAddress).toHaveBeenCalledWith(expect.any(String), 10, 5)
+      expect(sceneCollaborators.listByAddress).toHaveBeenCalledWith(expect.any(String), 10, 5)
     })
 
     it('should return the scenes with a paginated response shape', async () => {
-      const response = await getWatcherHandler(ctx)
+      const response = await getCollaboratorHandler(ctx)
 
       expect(response).toEqual({
         status: 200,
@@ -90,11 +93,11 @@ describe('getWatcherHandler', () => {
     })
 
     it('should never derive the signer address from the request instead of the signature verification', async () => {
-      ctx.url = new URL('http://localhost/watcher?address=0x0000000000000000000000000000000000dead')
+      ctx.url = new URL('http://localhost/collaborator?address=0x0000000000000000000000000000000000dead')
 
-      await getWatcherHandler(ctx)
+      await getCollaboratorHandler(ctx)
 
-      expect(sceneLogsAccess.listByAddress).toHaveBeenCalledWith(
+      expect(sceneCollaborators.listByAddress).toHaveBeenCalledWith(
         '0xabcdef1234567890abcdef1234567890abcdef12',
         expect.any(Number),
         expect.any(Number)

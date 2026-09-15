@@ -5,7 +5,7 @@ import { Events } from '@dcl/schemas'
 import { createDeploymentConsumerComponent } from '../../../src/adapters/deployment-consumer'
 import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
 import { createLogsMockedComponent } from '../../mocks/components'
-import type { ISceneLogsAccessComponent } from '../../../src/adapters/scene-logs-access/types'
+import type { ISceneCollaboratorsComponent } from '../../../src/adapters/scene-collaborators/types'
 import type { WorldScene } from '../../../src/adapters/worlds-content-server/types'
 
 type MessageHandler = (event: unknown) => Promise<void>
@@ -17,7 +17,7 @@ describe('DeploymentConsumerComponent', () => {
 
   let fetcher: jest.Mocked<IFetchComponent>
   let queueConsumer: jest.Mocked<IQueueConsumerComponent>
-  let sceneLogsAccess: jest.Mocked<ISceneLogsAccessComponent>
+  let sceneCollaborators: jest.Mocked<ISceneCollaboratorsComponent>
   let handlers: Map<string, MessageHandler>
 
   function mockResponse(response: Partial<Response>): Response {
@@ -68,7 +68,7 @@ describe('DeploymentConsumerComponent', () => {
       }),
       removeMessageHandler: jest.fn()
     } as unknown as jest.Mocked<IQueueConsumerComponent>
-    sceneLogsAccess = {
+    sceneCollaborators = {
       upsertForScene: jest.fn(),
       touch: jest.fn(),
       removeScene: jest.fn(),
@@ -81,7 +81,7 @@ describe('DeploymentConsumerComponent', () => {
       logs: createLogsMockedComponent(),
       fetcher,
       queueConsumer,
-      sceneLogsAccess
+      sceneCollaborators
     })
   })
 
@@ -127,7 +127,7 @@ describe('DeploymentConsumerComponent', () => {
       it('should upsert the scene resolved from the deployed entity with its lowercased addresses', async () => {
         await deploymentHandler()({ entity: { entityId } })
 
-        expect(sceneLogsAccess.upsertForScene).toHaveBeenCalledWith({
+        expect(sceneCollaborators.upsertForScene).toHaveBeenCalledWith({
           worldName: WORLD_NAMES.DEFAULT,
           baseParcel: scene.base,
           sceneId: scene.sceneId,
@@ -146,7 +146,7 @@ describe('DeploymentConsumerComponent', () => {
       it('should upsert the scene with an empty address set', async () => {
         await deploymentHandler()({ entity: { entityId } })
 
-        expect(sceneLogsAccess.upsertForScene).toHaveBeenCalledWith(expect.objectContaining({ addresses: [] }))
+        expect(sceneCollaborators.upsertForScene).toHaveBeenCalledWith(expect.objectContaining({ addresses: [] }))
       })
     })
 
@@ -158,7 +158,7 @@ describe('DeploymentConsumerComponent', () => {
       it('should reject so the transient failure is not acknowledged as a success', async () => {
         await expect(deploymentHandler()({ entity: { entityId } })).rejects.toThrow()
 
-        expect(sceneLogsAccess.upsertForScene).not.toHaveBeenCalled()
+        expect(sceneCollaborators.upsertForScene).not.toHaveBeenCalled()
       })
     })
 
@@ -170,7 +170,7 @@ describe('DeploymentConsumerComponent', () => {
       it('should reject so the transient failure is not acknowledged as a success', async () => {
         await expect(deploymentHandler()({ entity: { entityId } })).rejects.toThrow()
 
-        expect(sceneLogsAccess.upsertForScene).not.toHaveBeenCalled()
+        expect(sceneCollaborators.upsertForScene).not.toHaveBeenCalled()
       })
     })
 
@@ -182,7 +182,7 @@ describe('DeploymentConsumerComponent', () => {
       it('should discard the event without upserting or rejecting', async () => {
         await expect(deploymentHandler()({ entity: { entityId } })).resolves.toBeUndefined()
 
-        expect(sceneLogsAccess.upsertForScene).not.toHaveBeenCalled()
+        expect(sceneCollaborators.upsertForScene).not.toHaveBeenCalled()
       })
     })
   })
@@ -192,7 +192,7 @@ describe('DeploymentConsumerComponent', () => {
       await expect(deploymentHandler()({ entity: {} })).resolves.toBeUndefined()
 
       expect(fetcher.fetch).not.toHaveBeenCalled()
-      expect(sceneLogsAccess.upsertForScene).not.toHaveBeenCalled()
+      expect(sceneCollaborators.upsertForScene).not.toHaveBeenCalled()
     })
   })
 
@@ -208,9 +208,9 @@ describe('DeploymentConsumerComponent', () => {
         }
       })
 
-      expect(sceneLogsAccess.removeScene).toHaveBeenCalledWith('scene-a')
-      expect(sceneLogsAccess.removeScene).toHaveBeenCalledWith('scene-b')
-      expect(sceneLogsAccess.removeScene).toHaveBeenCalledTimes(2)
+      expect(sceneCollaborators.removeScene).toHaveBeenCalledWith('scene-a')
+      expect(sceneCollaborators.removeScene).toHaveBeenCalledWith('scene-b')
+      expect(sceneCollaborators.removeScene).toHaveBeenCalledTimes(2)
     })
 
     describe('and the event has a malformed scenes field', () => {
@@ -219,13 +219,13 @@ describe('DeploymentConsumerComponent', () => {
           scenesUndeploymentHandler()({ metadata: { worldName: WORLD_NAMES.DEFAULT } })
         ).resolves.toBeUndefined()
 
-        expect(sceneLogsAccess.removeScene).not.toHaveBeenCalled()
+        expect(sceneCollaborators.removeScene).not.toHaveBeenCalled()
       })
     })
 
     describe('and removing a scene fails transiently', () => {
       beforeEach(() => {
-        sceneLogsAccess.removeScene.mockRejectedValueOnce(new Error('db unavailable'))
+        sceneCollaborators.removeScene.mockRejectedValueOnce(new Error('db unavailable'))
       })
 
       it('should reject so the undeployment is not acknowledged as processed', async () => {
@@ -239,23 +239,23 @@ describe('DeploymentConsumerComponent', () => {
   })
 
   describe('when a world_undeployment event is received', () => {
-    it('should remove every scene_logs_access row for the world', async () => {
+    it('should remove every scene_collaborators row for the world', async () => {
       await worldUndeploymentHandler()({ metadata: { worldName: WORLD_NAMES.DEFAULT } })
 
-      expect(sceneLogsAccess.removeByWorld).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT)
+      expect(sceneCollaborators.removeByWorld).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT)
     })
 
     describe('and the event has a missing worldName', () => {
       it('should not throw and should not remove anything', async () => {
         await expect(worldUndeploymentHandler()({ metadata: {} })).resolves.toBeUndefined()
 
-        expect(sceneLogsAccess.removeByWorld).not.toHaveBeenCalled()
+        expect(sceneCollaborators.removeByWorld).not.toHaveBeenCalled()
       })
     })
 
     describe('and removing the world rows fails transiently', () => {
       beforeEach(() => {
-        sceneLogsAccess.removeByWorld.mockRejectedValueOnce(new Error('db unavailable'))
+        sceneCollaborators.removeByWorld.mockRejectedValueOnce(new Error('db unavailable'))
       })
 
       it('should reject so the undeployment is not acknowledged as processed', async () => {
@@ -294,7 +294,7 @@ describe('DeploymentConsumerComponent', () => {
         await catalystDeploymentHandler()(buildCatalystEvent(scene))
 
         expect(fetcher.fetch).not.toHaveBeenCalled()
-        expect(sceneLogsAccess.upsertForScene).toHaveBeenCalledWith({
+        expect(sceneCollaborators.upsertForScene).toHaveBeenCalledWith({
           sceneId: scene.sceneId,
           worldName: 'main',
           baseParcel: scene.base,
@@ -309,7 +309,7 @@ describe('DeploymentConsumerComponent', () => {
       it('should not throw and should not upsert', async () => {
         await expect(catalystDeploymentHandler()({ entity: { id: 'only-an-id' } })).resolves.toBeUndefined()
 
-        expect(sceneLogsAccess.upsertForScene).not.toHaveBeenCalled()
+        expect(sceneCollaborators.upsertForScene).not.toHaveBeenCalled()
       })
     })
   })
