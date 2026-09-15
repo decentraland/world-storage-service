@@ -186,13 +186,6 @@ export function createAuthorizationMiddleware(
         logger.debug('Authorization granted via logs-access permission', { worldName })
         const touchKey = `${logsScene.sceneId}:${signerAddress}`
         if (!recentlyTouched.has(touchKey)) {
-          recentlyTouched.add(touchKey)
-          if (recentlyTouched.size > MAX_TOUCHED_KEYS) {
-            const oldest = recentlyTouched.values().next().value
-            if (oldest !== undefined) {
-              recentlyTouched.delete(oldest)
-            }
-          }
           void ctx.components.sceneLogsAccess
             .touch({
               address: signerAddress,
@@ -202,8 +195,17 @@ export function createAuthorizationMiddleware(
               title: logsScene.title,
               realmKind: isSharedRealmName(worldName) ? 'genesis' : 'world'
             })
+            .then(() => {
+              recentlyTouched.add(touchKey)
+              if (recentlyTouched.size > MAX_TOUCHED_KEYS) {
+                const oldest = recentlyTouched.values().next().value
+                if (oldest !== undefined) {
+                  recentlyTouched.delete(oldest)
+                }
+              }
+            })
             .catch(error =>
-              logger.debug('watcher backfill upsert failed (non-fatal)', {
+              logger.debug('watcher backfill upsert failed (non-fatal); will retry on next request', {
                 error: isErrorWithMessage(error) ? error.message : 'Unknown error'
               })
             )
