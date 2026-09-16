@@ -1367,11 +1367,13 @@ paths:
         realm/parcel context.
 
         This is a best-effort discovery index, eventually consistent: it is populated from
-        deployment events and a write-through on the first authorized access, so a scene may be
-        absent until its collaborator first accesses it or the scene is (re)deployed, and it may
-        briefly hold stale-positive entries. It is a UX convenience, not a source of truth — a
-        collaborator can always access a scene directly by realm/parcel, and every storage
-        endpoint re-verifies `logsPermissions` live, independently of this list.
+        deployment events (at-most-once) and a write-through on the first authorized access, so a
+        scene may be absent until its collaborator first accesses it or the scene is (re)deployed,
+        and it may briefly hold stale-positive entries. Scenes deployed before this service began
+        consuming events, or whose collaborator never accesses storage, may never appear. It is a
+        UX convenience, not a source of truth — a collaborator can always access a scene directly
+        by realm/parcel, and every storage endpoint re-checks `logsPermissions` per request
+        (against scene metadata cached for a short TTL), independently of this list.
       parameters:
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/OffsetParam'
@@ -1635,8 +1637,8 @@ components:
         - pagination
       description: |
         Paginated response listing the scenes the signed-fetch signer appears in via
-        `logsPermissions`. Discovery-only: authorization for the actual storage reads is always
-        re-verified live and may differ from this list.
+        `logsPermissions`. Discovery-only: authorization for the actual storage reads is re-checked
+        per request (against scene metadata cached for a short TTL) and may differ from this list.
     ListStorageItemsResponse:
       type: object
       properties:
