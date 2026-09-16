@@ -152,13 +152,13 @@ describe('DeploymentConsumerComponent', () => {
       })
     })
 
-    describe('and the deployed entity fetch returns a retryable error', () => {
+    describe('and the deployed entity fetch returns a server error', () => {
       beforeEach(() => {
         fetcher.fetch.mockResolvedValueOnce(mockResponse({ ok: false, status: 500, statusText: 'error' }))
       })
 
-      it('should reject so the transient failure is not acknowledged as a success', async () => {
-        await expect(deploymentHandler()({ entity: { entityId } })).rejects.toThrow()
+      it('should discard the event without upserting or rejecting', async () => {
+        await expect(deploymentHandler()({ entity: { entityId } })).resolves.toBeUndefined()
 
         expect(sceneCollaborators.upsertForScene).not.toHaveBeenCalled()
       })
@@ -169,8 +169,8 @@ describe('DeploymentConsumerComponent', () => {
         fetcher.fetch.mockRejectedValueOnce(new Error('network down'))
       })
 
-      it('should reject so the transient failure is not acknowledged as a success', async () => {
-        await expect(deploymentHandler()({ entity: { entityId } })).rejects.toThrow()
+      it('should discard the event without upserting or rejecting', async () => {
+        await expect(deploymentHandler()({ entity: { entityId } })).resolves.toBeUndefined()
 
         expect(sceneCollaborators.upsertForScene).not.toHaveBeenCalled()
       })

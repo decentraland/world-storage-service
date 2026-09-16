@@ -1405,13 +1405,7 @@ paths:
                       offset: 0
                       total: 0
         '400':
-          description: Signed fetch is invalid, or limit/offset are invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Signed fetch is missing, or no signer address could be recovered
+          description: Signed fetch is missing or invalid, or limit/offset are invalid
           content:
             application/json:
               schema:

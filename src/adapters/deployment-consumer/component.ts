@@ -41,26 +41,16 @@ export async function createDeploymentConsumerComponent(
     try {
       response = await fetcher.fetch(url, UPSTREAM_FETCH_OPTIONS)
     } catch (error) {
-      logger.warn('Failed to fetch deployed entity: network error', {
+      logger.warn('Discarding deployment: network error fetching deployed entity', {
         entityId,
         url,
         error: errorMessageOrDefault(error)
       })
-      throw new Error(`Failed to fetch deployed entity ${entityId}: network error`)
+      return null
     }
 
     if (!response.ok) {
       await discardResponseBody(response)
-
-      if (response.status >= 500 || response.status === 429) {
-        logger.warn('Failed to fetch deployed entity: retryable response', {
-          entityId,
-          url,
-          status: response.status,
-          statusText: response.statusText
-        })
-        throw new Error(`Failed to fetch deployed entity ${entityId}: HTTP ${response.status}`)
-      }
 
       logger.warn('Discarding deployment: deployed entity is not available', {
         entityId,
