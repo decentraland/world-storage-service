@@ -1,22 +1,39 @@
 import { createUnsafeIdentity } from '@dcl/crypto/dist/crypto'
 import { Authenticator } from '@dcl/crypto'
 import { NotAuthorizedError } from '@dcl/http-commons'
-import { createAuthorizationMiddleware } from '../../../../src/controllers/middlewares/authorization-middleware'
+import {
+  createAuthorizationMiddleware,
+  logsAccessAuthorizationMiddleware
+} from '../../../../src/controllers/middlewares/authorization-middleware'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../../fixtures'
 import { createLogsMockedComponent } from '../../../mocks/components'
 import { buildTestContext } from '../../utils/context'
+import type { WorldScene } from '../../../../src/adapters/worlds-content-server/types'
 import type { BaseComponents } from '../../../../src/types'
 import type { TestContext } from '../../utils/context'
+
+const LOGS_READABLE_SCENE: WorldScene = {
+  sceneId: 'bafkrei-logs-scene',
+  base: PARCELS.DEFAULT,
+  parcels: [PARCELS.DEFAULT],
+  title: 'Test scene',
+  deployedAt: 0,
+  logsPermissions: [ADDRESSES.UNAUTHORIZED]
+}
 
 describe('Authorization Middleware', () => {
   const next = jest.fn()
   let middleware: ReturnType<typeof createAuthorizationMiddleware>
   let configGetString: jest.Mock
   let hasWorldPermissionMock: jest.Mock
+  let getLogsAccessibleSceneMock: jest.Mock
+  let touchMock: jest.Mock
 
   beforeEach(() => {
     configGetString = jest.fn()
     hasWorldPermissionMock = jest.fn()
+    getLogsAccessibleSceneMock = jest.fn()
+    touchMock = jest.fn().mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -35,7 +52,11 @@ describe('Authorization Middleware', () => {
       components: {
         config: { getString: configGetString },
         logs: createLogsMockedComponent(),
-        worldPermission: { hasWorldPermission: hasWorldPermissionMock }
+        worldPermission: {
+          hasWorldPermission: hasWorldPermissionMock,
+          getLogsAccessibleScene: getLogsAccessibleSceneMock
+        },
+        sceneCollaborators: { touch: touchMock }
       } as unknown as BaseComponents
     })
   }
@@ -197,7 +218,10 @@ describe('Authorization Middleware', () => {
             components: {
               config: { getString: configGetString },
               logs: createLogsMockedComponent(),
-              worldPermission: { hasWorldPermission: hasWorldPermissionMock }
+              worldPermission: {
+                hasWorldPermission: hasWorldPermissionMock,
+                getLogsAccessibleScene: getLogsAccessibleSceneMock
+              }
             } as unknown as BaseComponents
           })
         }
@@ -444,6 +468,151 @@ describe('Authorization Middleware', () => {
           })
         })
       })
+    })
+  })
+
+  describe('when allowLogsAccess is true', () => {
+    beforeEach(() => {
+      middleware = createAuthorizationMiddleware({
+        allowAuthorizedAddresses: false,
+        allowOwnersAndDeployers: false,
+        allowLogsAccess: true
+      })
+      hasWorldPermissionMock.mockResolvedValue(false)
+    })
+
+    describe('and getLogsAccessibleScene resolves a scene', () => {
+      beforeEach(() => {
+        getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+        next.mockResolvedValueOnce({ status: 200 })
+      })
+
+      it('should allow the request', async () => {
+        const result = await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+
+        expect(getLogsAccessibleSceneMock).toHaveBeenCalledWith(
+          WORLD_NAMES.DEFAULT,
+          ADDRESSES.UNAUTHORIZED.toLowerCase(),
+          PARCELS.DEFAULT
+        )
+        expect(next).toHaveBeenCalled()
+        expect(result).toEqual({ status: 200 })
+      })
+
+      it('should fire-and-forget a collaborator backfill upsert with the scene and lowercased signer', async () => {
+        await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+
+        expect(touchMock).toHaveBeenCalledTimes(1)
+        expect(touchMock).toHaveBeenCalledWith({
+          address: ADDRESSES.UNAUTHORIZED.toLowerCase(),
+          sceneId: LOGS_READABLE_SCENE.sceneId,
+          worldName: WORLD_NAMES.DEFAULT,
+          baseParcel: LOGS_READABLE_SCENE.base,
+          title: LOGS_READABLE_SCENE.title,
+          realmKind: 'world',
+          deployedAt: 0
+        })
+      })
+
+      it('should touch only once across repeated grants for the same scene and wallet', async () => {
+        getLogsAccessibleSceneMock.mockResolvedValue(LOGS_READABLE_SCENE)
+        next.mockResolvedValue({ status: 200 })
+
+        await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+        await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+
+        expect(touchMock).toHaveBeenCalledTimes(1)
+      })
+    })
+
+    describe('and the collaborator backfill upsert rejects', () => {
+      beforeEach(() => {
+        getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+        touchMock.mockRejectedValueOnce(new Error('insert failed'))
+        next.mockResolvedValueOnce({ status: 200 })
+      })
+
+      it('should still allow the request', async () => {
+        const result = await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+        await Promise.resolve()
+
+        expect(next).toHaveBeenCalled()
+        expect(result).toEqual({ status: 200 })
+      })
+    })
+
+    describe('and getLogsAccessibleScene resolves null', () => {
+      beforeEach(() => {
+        getLogsAccessibleSceneMock.mockResolvedValueOnce(null)
+      })
+
+      it('should throw a NotAuthorizedError', async () => {
+        await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
+          new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
+        )
+        expect(next).not.toHaveBeenCalled()
+      })
+
+      it('should never call the collaborator backfill upsert', async () => {
+        await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
+        expect(touchMock).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and getLogsAccessibleScene rejects', () => {
+      beforeEach(() => {
+        getLogsAccessibleSceneMock.mockRejectedValueOnce(new Error('Failed to resolve scene'))
+      })
+
+      it('should throw a NotAuthorizedError', async () => {
+        await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(
+          new NotAuthorizedError('Unauthorized: Failed to verify logs-access permission')
+        )
+        expect(next).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('when allowLogsAccess is false (default)', () => {
+    beforeEach(() => {
+      middleware = createAuthorizationMiddleware({
+        allowAuthorizedAddresses: false,
+        allowOwnersAndDeployers: false
+      })
+      hasWorldPermissionMock.mockResolvedValue(false)
+    })
+
+    it('should never consult getLogsAccessibleScene', async () => {
+      await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
+      expect(getLogsAccessibleSceneMock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('the logsAccessAuthorizationMiddleware preset', () => {
+    it('should grant access when getLogsAccessibleScene resolves a scene', async () => {
+      hasWorldPermissionMock.mockResolvedValueOnce(false)
+      getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+      next.mockResolvedValueOnce({ status: 200 })
+
+      const result = await logsAccessAuthorizationMiddleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
+
+      expect(next).toHaveBeenCalled()
+      expect(result).toEqual({ status: 200 })
+    })
+  })
+
+  describe('a preset without logs-access', () => {
+    it('should never consult getLogsAccessibleScene, even when it would grant access', async () => {
+      const noLogsPreset = createAuthorizationMiddleware({
+        allowAuthorizedAddresses: true,
+        allowOwnersAndDeployers: true
+      })
+      hasWorldPermissionMock.mockResolvedValueOnce(false)
+      getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
+
+      await expect(noLogsPreset(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
+      expect(getLogsAccessibleSceneMock).not.toHaveBeenCalled()
+      expect(next).not.toHaveBeenCalled()
     })
   })
 })

@@ -2,7 +2,7 @@ import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import { isSharedRealmName } from '../../utils/worldName'
 import type { IWorldPermissionComponent } from './types'
-import type { WorldPermissions } from '../../adapters/worlds-content-server/types'
+import type { WorldPermissions, WorldScene } from '../../adapters/worlds-content-server/types'
 import type { AppComponents } from '../../types'
 
 interface LandsParcelPermissionsResponse {
@@ -22,13 +22,13 @@ interface LandsParcelPermissionsResponse {
  * 3. Routing worlds (`*.eth`, DCL NAMEs and ENS) through worlds-content-server permission checks.
  * 4. Granting access when the address is either the world owner or an allowed deployer.
  *
- * @param components - Required components: worldsContentServer, fetcher, config, logs
+ * @param components - Required components: worldsContentServer, catalystContent, fetcher, config, logs
  * @returns Promise resolving to IWorldPermissionComponent implementation
  */
 export async function createWorldPermissionComponent(
-  components: Pick<AppComponents, 'worldsContentServer' | 'fetcher' | 'config' | 'logs'>
+  components: Pick<AppComponents, 'worldsContentServer' | 'catalystContent' | 'fetcher' | 'config' | 'logs'>
 ): Promise<IWorldPermissionComponent> {
-  const { worldsContentServer, fetcher, config, logs } = components
+  const { worldsContentServer, catalystContent, fetcher, config, logs } = components
   const logger = logs.getLogger('world-permission')
 
   // Required at startup so a missing/typoed variable fails the deployment immediately
@@ -163,6 +163,10 @@ export async function createWorldPermissionComponent(
     return false
   }
 
+  function sceneCoversParcel(scene: WorldScene, parcel: string): boolean {
+    return scene.parcels.includes(parcel) || scene.base === parcel
+  }
+
   return {
     hasWorldPermission: async (worldName: string, address: string, parcel: string): Promise<boolean> => {
       const normalizedAddress = address.toLowerCase()
@@ -178,6 +182,31 @@ export async function createWorldPermissionComponent(
       }
 
       return await checkWorldPermission(worldName, normalizedAddress)
+    },
+
+    getLogsAccessibleScene: async (worldName: string, address: string, parcel: string): Promise<WorldScene | null> => {
+      const normalizedAddress = address.toLowerCase()
+      try {
+        let scene: WorldScene | null
+        if (isSharedRealmName(worldName)) {
+          scene = await catalystContent.getActiveSceneEntity(parcel)
+        } else {
+          const scenes = await worldsContentServer.getScenes(worldName)
+          const matches = scenes.filter(candidate => sceneCoversParcel(candidate, parcel))
+          scene = matches.length === 1 ? matches[0] : null
+        }
+        if (!scene?.logsPermissions.includes(normalizedAddress)) {
+          return null
+        }
+        return scene
+      } catch (error) {
+        logger.warn('Logs-access permission check failed; denying', {
+          worldName,
+          parcel,
+          error: errorMessageOrDefault(error)
+        })
+        return null
+      }
     }
   }
 }

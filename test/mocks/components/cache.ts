@@ -14,6 +14,7 @@ export function createCacheMockedComponent(): jest.Mocked<ICacheStorageComponent
     acquireLock: jest.fn(),
     releaseLock: jest.fn(),
     tryAcquireLock: jest.fn(),
-    tryReleaseLock: jest.fn()
+    tryReleaseLock: jest.fn(),
+    increment: jest.fn()
   }
 }

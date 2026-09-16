@@ -3,6 +3,8 @@ import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { NotAuthorizedError } from '@dcl/http-commons'
 import { isErrorWithMessage } from '../../utils/errors'
 import { verifyStorageDelegation } from '../../utils/storage-delegation'
+import { isSharedRealmName } from '../../utils/worldName'
+import type { WorldScene } from '../../adapters/worlds-content-server/types'
 import type { WorldStorageContext } from '../../types'
 
 // Header carrying a world-scoped authoritative storage delegation (base64 JSON).
@@ -11,12 +13,10 @@ const AUTHORITATIVE_SCOPE_HEADER = 'x-authoritative-scope'
 export interface AuthorizationMiddlewareOptions {
   allowAuthorizedAddresses: boolean
   allowOwnersAndDeployers: boolean
-  // When true, a request signed by a throwaway ephemeral carrying a valid
-  // `x-authoritative-scope` claim (root-signed, bound to this scene) is authorized.
-  // Enabled on the /values/* routes and on GET /env/:key, so an authoritative scene
-  // worker can read its own scene's storage and env values without ever holding the
-  // authoritative key. Defaults to false.
+  /** Accepts a valid `x-authoritative-scope` delegation claim as authorization. Defaults to false. */
   allowScopedDelegation?: boolean
+  /** Grants access to a wallet listed in the scene's `logsPermissions`. Defaults to false. */
+  allowLogsAccess?: boolean
 }
 
 /**
@@ -46,14 +46,23 @@ function safeAddress(signerAddress: string, authoritativeServerAddress: string |
  * Authorization flow:
  * 1. If `allowAuthorizedAddresses` is true and signer is in AUTHORITATIVE_SERVER_ADDRESS or AUTHORIZED_ADDRESSES → allowed
  * 2. If `allowOwnersAndDeployers` is true and the signer address is the owner or has deployer permissions → allowed
- * 3. Otherwise → unauthorized error
+ * 3. If `allowLogsAccess` is true and the signer is listed in the scene's `logsPermissions` → allowed
+ * 4. Otherwise → unauthorized error
  */
 export function createAuthorizationMiddleware(
   options: AuthorizationMiddlewareOptions
 ): IHttpServerComponent.IRequestHandler<
   IHttpServerComponent.PathAwareContext<WorldStorageContext, string> & DecentralandSignatureContext
 > {
-  const { allowAuthorizedAddresses, allowOwnersAndDeployers, allowScopedDelegation = false } = options
+  const {
+    allowAuthorizedAddresses,
+    allowOwnersAndDeployers,
+    allowScopedDelegation = false,
+    allowLogsAccess = false
+  } = options
+
+  const MAX_TOUCHED_KEYS = 10_000
+  const recentlyTouched = new Set<string>()
 
   return async (ctx, next) => {
     const {
@@ -160,7 +169,52 @@ export function createAuthorizationMiddleware(
       }
     }
 
-    // 3. Otherwise, deny access
+    if (allowLogsAccess) {
+      let logsScene: WorldScene | null
+      try {
+        logsScene = await worldPermission.getLogsAccessibleScene(worldName, signerAddress, parcel)
+      } catch (error) {
+        logger.warn('Logs-access authorization check failed', {
+          worldName,
+          signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
+          error: isErrorWithMessage(error) ? error.message : 'Unknown error'
+        })
+        throw new NotAuthorizedError('Unauthorized: Failed to verify logs-access permission')
+      }
+
+      if (logsScene) {
+        logger.debug('Authorization granted via logs-access permission', { worldName })
+        const touchKey = `${logsScene.sceneId}:${signerAddress}`
+        if (!recentlyTouched.has(touchKey)) {
+          void ctx.components.sceneCollaborators
+            .touch({
+              address: signerAddress,
+              sceneId: logsScene.sceneId,
+              worldName,
+              baseParcel: logsScene.base,
+              title: logsScene.title,
+              realmKind: isSharedRealmName(worldName) ? 'genesis' : 'world',
+              deployedAt: logsScene.deployedAt
+            })
+            .then(() => {
+              recentlyTouched.add(touchKey)
+              if (recentlyTouched.size > MAX_TOUCHED_KEYS) {
+                const oldest = recentlyTouched.values().next().value
+                if (oldest !== undefined) {
+                  recentlyTouched.delete(oldest)
+                }
+              }
+            })
+            .catch(error =>
+              logger.debug('collaborator backfill upsert failed (non-fatal); will retry on next request', {
+                error: isErrorWithMessage(error) ? error.message : 'Unknown error'
+              })
+            )
+        }
+        return await next()
+      }
+    }
+
     logger.warn('Authorization denied: signer has no permission for this world', {
       signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
       worldName,
@@ -170,25 +224,6 @@ export function createAuthorizationMiddleware(
     throw new NotAuthorizedError('Unauthorized: Signer is not authorized to perform operations on this world')
   }
 }
-
-/**
- * General-purpose authorization middleware that allows:
- * - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS and addresses in AUTHORIZED_ADDRESSES)
- * - World owners and deployers
- *
- * Use this for standard operations where both authorized addresses and world permissions
- * should have access. This is the default choice for most endpoints.
- *
- * Accepts a world-scoped storage delegation (an authoritative scene worker signing for
- * its own scene). Env VALUE reads (GET /env/:key) use the stricter
- * `authorizedAddressesOrScopedDelegationAuthorizationMiddleware` below (no owners/
- * deployers); the remaining env routes are owner/deployer-only and never accept a delegation.
- */
-export const authorizationMiddleware = createAuthorizationMiddleware({
-  allowAuthorizedAddresses: true,
-  allowOwnersAndDeployers: true,
-  allowScopedDelegation: true
-})
 
 /**
  * Restrictive authorization middleware that allows:
@@ -218,4 +253,19 @@ export const authorizedAddressesOrScopedDelegationAuthorizationMiddleware = crea
   allowAuthorizedAddresses: true,
   allowOwnersAndDeployers: false,
   allowScopedDelegation: true
+})
+
+/** Authorized addresses, owners/deployers, and scoped delegation (no logs-access collaborators); for the usage endpoints. */
+export const authorizationMiddleware = createAuthorizationMiddleware({
+  allowAuthorizedAddresses: true,
+  allowOwnersAndDeployers: true,
+  allowScopedDelegation: true
+})
+
+/** Default preset plus `allowLogsAccess`, for Scene/Player GET reads and per-key PUT/DELETE writes (not bulk clear-all or `/env`). */
+export const logsAccessAuthorizationMiddleware = createAuthorizationMiddleware({
+  allowAuthorizedAddresses: true,
+  allowOwnersAndDeployers: true,
+  allowScopedDelegation: true,
+  allowLogsAccess: true
 })

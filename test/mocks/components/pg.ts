@@ -11,7 +11,7 @@ export function createPgMockedComponent(overrides: Partial<jest.Mocked<IPgCompon
     stop: jest.fn(),
     streamQuery: jest.fn(),
     withTransaction: jest.fn(),
-    withAsyncContextTransaction: jest.fn(),
+    withAsyncContextTransaction: jest.fn(async (fn: () => Promise<unknown>) => fn()),
     getPool: jest.fn(),
     ...overrides
   } as unknown as jest.Mocked<IPgComponent>

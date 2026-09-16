@@ -14,6 +14,22 @@ export interface WorldPermissions {
   owner: string
 }
 
+export interface WorldScene {
+  /** Entity id (scene hash). */
+  sceneId: string
+  /** Base parcel "x,y" of the scene. */
+  base: string
+  /** All parcels the scene occupies. */
+  parcels: string[]
+  /** Human title (metadata.display.title), or null. */
+  title: string | null
+  /** Entity deployment timestamp (ms), used to order deployment events; 0 when absent. */
+  deployedAt: number
+  /** Lowercased addresses allowed to view this scene's logs (from scene metadata). */
+  logsPermissions: string[]
+}
+
 export interface IWorldsContentServerComponent {
   getPermissions(worldName: string): Promise<WorldPermissions>
+  getScenes(worldName: string): Promise<WorldScene[]>
 }

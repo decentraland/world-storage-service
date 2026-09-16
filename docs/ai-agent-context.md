@@ -13,6 +13,7 @@ The World Storage Service is a standalone service that provides secure, isolated
   - **Player storage**: Per-player key-value storage scoped to both world and player address (`/players/:player_address/values/:key`)
 - **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time (`/env/:key`). Values are encrypted at rest. GET value reads are restricted to authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES) OR an authoritative scene worker presenting a valid scene-scoped storage delegation for its own scene, while write/delete operations (PUT/DELETE) are restricted to world owners and deployers only. This lets a headless authoritative worker consume its own scene's secrets (confined to its `place_id`) while keeping management in the owners' hands.
 - **Bulk Delete Operations**: Supports clearing all values in a storage namespace. These operations require a confirmation header (`X-Confirm-Delete-All`) to prevent accidental data loss.
+- **Collaborator Access & Discovery**: Wallets in a scene's `logsPermissions` metadata are granted read/write/delete on that scene's Scene and Player storage, alongside the world owner and deployers. A deployment-fed index (`scene_collaborators`) records which wallets collaborate on which scenes so a signed-in wallet can discover the scenes it may access via the self-scoped `GET /collaborator` endpoint (returns scene identifiers only, never storage values). The index is eventually consistent and discovery-only; authorization is re-checked per request against scene metadata (cached up to a short TTL, default 30s), never read from the index. See `docs/database-schemas.md` for the index's staleness model.
 
 **Communication Pattern:**
 
@@ -35,6 +36,8 @@ HTTP REST API using signed fetch authentication. The service exposes REST endpoi
   - `world_storage` table: Stores world-scoped key-value pairs (world_name, key, value)
   - `player_storage` table: Stores player-scoped key-value pairs (world_name, player_addr, key, value)
   - `env_variables` table: Stores encrypted environment variables (world_name, key, value_enc)
+  - `scene_collaborators` table: Reverse index of scene collaborators (wallets in a scene's `logsPermissions`), keyed by `(scene_id, address)`; powers `GET /collaborator` discovery
+- **Deployment Events (SQS)**: An at-most-once SQS consumer ingests scene deployment/undeployment events (Worlds `WORLD` events from Worlds Content Server and catalyst `CATALYST_DEPLOYMENT` scene events, both delivered via the shared `event-driven-sns` bus) to keep the `scene_collaborators` index in sync. Events carry a deployment timestamp; a latest-deployment-wins guard prevents an out-of-order event from resurrecting a stale scene. Ingestion is best-effort by design: the consumer acknowledges each message once, so a deployment dropped on a transient upstream failure is not retried — it is backfilled by write-through on first authorized access or by a later redeployment. Because the index is discovery-only and authorization is re-checked per request against the content server (never from the index), this staleness affects only the discovery list, never access. `docs/database-schemas.md` documents the full staleness model. The queue and `CONTENT_URL` are provisioned per environment in the `definitions` repo.
 
 **Key Concepts:**
 
@@ -49,11 +52,12 @@ HTTP REST API using signed fetch authentication. The service exposes REST endpoi
 
 **Authorization Model:**
 
-The service uses three types of authorization middleware with different access levels:
+The service uses four types of authorization middleware with different access levels:
 
-1. **General Authorization** (`authorizationMiddleware`): Used for most endpoints (GET/PUT/DELETE on `/values/:key` and `/players/:player_address/values/:key`). Allows both:
+1. **Collaborator Access** (`logsAccessAuthorizationMiddleware`): Used for read/write/delete of individual Scene and Player storage entries (GET/PUT/DELETE on `/values/:key`, GET `/values`, and the `/players/:player_address/values*` equivalents). Allows:
    - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES environment variable)
    - World owners and deployers (verified via Worlds Content Server)
+   - Collaborators: wallets listed in the scene's `logsPermissions` metadata. `logsPermissions` is the only grant source at this time and confers full read/write/delete on that scene's Scene and Player storage. Membership is re-checked on every request against the deploying content server's scene metadata (Worlds Content Server for worlds, catalyst content for Genesis City), which is cached for up to `SCENE_METADATA_CACHE_TTL_SECONDS` (default 30s) — so a revoked collaborator loses access within that window, not instantly. The `scene_collaborators` index is never trusted for authorization.
 
 2. **Owner/Deployer Only** (`ownerAndDeployerOnlyAuthorizationMiddleware`): Used for sensitive bulk delete operations (DELETE `/values`, DELETE `/players/:player_address/values`, DELETE `/players`) and env variable write/delete operations (PUT/DELETE `/env/:key`, DELETE `/env`). Only allows:
    - World owners and deployers (authorized addresses are explicitly blocked)
@@ -63,10 +67,17 @@ The service uses three types of authorization middleware with different access l
    - An authoritative scene worker presenting a valid world-scoped storage delegation (`x-authoritative-scope`) bound to its own scene (env is keyed by `place_id = f(world, parcel)`, the same scope the claim pins, so the worker reads only its own scene's env values)
    - World owners and deployers are explicitly blocked, even if they have permissions
 
+4. **Usage / General** (`authorizationMiddleware`): Used for the usage endpoints (GET `/usage/world`, GET `/usage/players/:player_address`). Allows:
+   - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES)
+   - World owners and deployers
+   - An authoritative scene worker presenting a valid world-scoped storage delegation
+   - Collaborators are NOT granted here: usage reports world-wide totals (the per-world quota is not partitioned per scene), so a scene-scoped collaborator is excluded.
+
 **Database notes:**
 
 - **World Storage Table**: `world_storage` with composite primary key (world_name, place_id, key). The `world_name` comes from the signed fetch metadata and `place_id = f(world, parcel)`, ensuring per-scene isolation.
 - **Player Storage Table**: `player_storage` with composite primary key (world_name, place_id, player_addr, key). world_name, place_id, and player_addr are all used for scoping.
 - **Environment Variables Table**: `env_variables` with composite primary key (world_name, place_id, key). Values are stored encrypted (BYTEA type) for security.
+- **Scene Collaborators Table**: `scene_collaborators` with composite primary key (scene_id, address) and an address index, plus a `deployed_at` column for latest-deployment-wins ordering. It is a discovery-only, eventually-consistent reverse index fed by deployment events (SQS) and a write-through on first authorized access; it is never consulted for authorization, which is re-checked per request against scene metadata (cached up to a short TTL). See `docs/database-schemas.md` for the full column and staleness-model breakdown.
 - **Isolation Guarantee**: All database queries MUST use `world_name` extracted from the signed fetch signature, never from request parameters. This is a critical security requirement.
 - **JSONB Storage**: Storage values use JSONB type for flexible JSON storage with PostgreSQL's JSON querying capabilities.

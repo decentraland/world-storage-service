@@ -1,4 +1,5 @@
 export * from './cache'
+export * from './catalyst-content'
 export * from './env-storage'
 export * from './logs'
 export * from './pg'

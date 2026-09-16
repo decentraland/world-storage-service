@@ -9,7 +9,7 @@ import type { VerifyAuthChainHeadersOptions } from '@dcl/crypto-middleware'
  * delivering the metadata verbatim. The metadata they send is camelCase -- `realmName`, `sceneId`,
  * `isGuest`, `realm.serverName` -- so the folded bytes and the delivered bytes differ and 6.x, which
  * joins the delivered metadata as-is, fails the signature. Every such request is a 401, before
- * `authorizationMiddleware` runs, so a perfectly good storage delegation is never even consulted.
+ * the authorization middleware runs, so a perfectly good storage delegation is never even consulted.
  *
  * Declaring the keys is what keeps that scoped rather than a blanket downgrade: the fold leaves key
  * casing outside the signature, so a legacy request could otherwise deliver any of these under a
