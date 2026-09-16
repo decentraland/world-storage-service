@@ -123,6 +123,32 @@ describe('SceneCollaboratorsComponent', () => {
         expect(statement.values).toEqual([worldName, baseParcel])
       })
     })
+
+    describe('and the world name has mixed casing', () => {
+      beforeEach(() => {
+        scene = {
+          sceneId,
+          worldName: 'My-World.DCL.eth',
+          baseParcel,
+          title,
+          realmKind,
+          deployedAt: 100,
+          addresses: ['0xAbC']
+        }
+      })
+
+      it('should lowercase the world name in the staleness guard', async () => {
+        await sceneCollaborators.upsertForScene(scene)
+        const statement = pg.query.mock.calls[0][0] as unknown as { values: unknown[] }
+        expect(statement.values).toEqual(['my-world.dcl.eth', baseParcel])
+      })
+
+      it('should lowercase the world name in the insert', async () => {
+        await sceneCollaborators.upsertForScene(scene)
+        const statement = pg.query.mock.calls[3][0] as unknown as { values: unknown[] }
+        expect(statement.values).toEqual(expect.arrayContaining(['my-world.dcl.eth']))
+      })
+    })
   })
 
   describe('when touching a single scene/address row', () => {
@@ -139,6 +165,12 @@ describe('SceneCollaboratorsComponent', () => {
       expect(statement.values).toContain('0xabc')
       expect(statement.values).toContain(150)
     })
+
+    it('should lowercase the world name', async () => {
+      await sceneCollaborators.touch({ ...row, worldName: 'My-World.DCL.eth' })
+      const statement = pg.query.mock.calls[0][0] as unknown as { values: unknown[] }
+      expect(statement.values).toContain('my-world.dcl.eth')
+    })
   })
 
   describe('when removing every row for a world', () => {
@@ -146,6 +178,12 @@ describe('SceneCollaboratorsComponent', () => {
       await sceneCollaborators.removeByWorld('myworld.dcl.eth')
       const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
       expect(statement.text).toBe('DELETE FROM scene_collaborators WHERE world_name = $1')
+      expect(statement.values).toEqual(['myworld.dcl.eth'])
+    })
+
+    it('should lowercase the world name', async () => {
+      await sceneCollaborators.removeByWorld('MyWorld.DCL.eth')
+      const statement = pg.query.mock.calls[0][0] as unknown as { values: unknown[] }
       expect(statement.values).toEqual(['myworld.dcl.eth'])
     })
   })

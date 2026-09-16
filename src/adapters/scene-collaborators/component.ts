@@ -18,7 +18,8 @@ export const createSceneCollaboratorsComponent = async ({
   const logger = logs.getLogger('scene-collaborators')
 
   async function upsertForScene(scene: CollaboratorScene & { addresses: string[]; deployedAt: number }): Promise<void> {
-    const { sceneId, worldName, baseParcel, title, realmKind, addresses, deployedAt } = scene
+    const { sceneId, baseParcel, title, realmKind, addresses, deployedAt } = scene
+    const worldName = scene.worldName.toLowerCase()
     const normalizedAddresses = [...new Set(addresses.map(address => address.toLowerCase()))]
 
     logger.debug('Upserting scene collaborators', { sceneId, addressCount: normalizedAddresses.length })
@@ -61,8 +62,9 @@ export const createSceneCollaboratorsComponent = async ({
   }
 
   async function touch(row: SceneCollaboratorsRow): Promise<void> {
-    const { sceneId, address, worldName, baseParcel, title, realmKind, deployedAt } = row
-    const lowercasedAddress = address.toLowerCase()
+    const { sceneId, baseParcel, title, realmKind, deployedAt } = row
+    const worldName = row.worldName.toLowerCase()
+    const lowercasedAddress = row.address.toLowerCase()
 
     await pg.query(SQL`
       INSERT INTO scene_collaborators (scene_id, address, world_name, base_parcel, title, realm_kind, deployed_at, updated_at)
@@ -79,11 +81,13 @@ export const createSceneCollaboratorsComponent = async ({
   }
 
   async function removeByWorld(worldName: string): Promise<void> {
-    logger.debug('Removing scene collaborators for world', { worldName })
+    const normalizedWorldName = worldName.toLowerCase()
 
-    await pg.query(SQL`DELETE FROM scene_collaborators WHERE world_name = ${worldName}`)
+    logger.debug('Removing scene collaborators for world', { worldName: normalizedWorldName })
 
-    logger.debug('Scene collaborators removed for world successfully', { worldName })
+    await pg.query(SQL`DELETE FROM scene_collaborators WHERE world_name = ${normalizedWorldName}`)
+
+    logger.debug('Scene collaborators removed for world successfully', { worldName: normalizedWorldName })
   }
 
   async function listByAddress(

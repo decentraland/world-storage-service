@@ -17,6 +17,9 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
     primaryKey: ['scene_id', 'address']
   })
   pgm.createIndex('scene_collaborators', 'address', { name: 'scene_collaborators_address_idx' })
+  pgm.createIndex('scene_collaborators', ['world_name', 'base_parcel'], {
+    name: 'scene_collaborators_location_idx'
+  })
 }
 
 export async function down(pgm: MigrationBuilder): Promise<void> {
