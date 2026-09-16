@@ -52,7 +52,7 @@ HTTP REST API using signed fetch authentication. The service exposes REST endpoi
 
 **Authorization Model:**
 
-The service uses three types of authorization middleware with different access levels:
+The service uses four types of authorization middleware with different access levels:
 
 1. **Collaborator Access** (`logsAccessAuthorizationMiddleware`): Used for read/write/delete of individual Scene and Player storage entries (GET/PUT/DELETE on `/values/:key`, GET `/values`, and the `/players/:player_address/values*` equivalents). Allows:
    - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES environment variable)
@@ -66,6 +66,12 @@ The service uses three types of authorization middleware with different access l
    - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES), and
    - An authoritative scene worker presenting a valid world-scoped storage delegation (`x-authoritative-scope`) bound to its own scene (env is keyed by `place_id = f(world, parcel)`, the same scope the claim pins, so the worker reads only its own scene's env values)
    - World owners and deployers are explicitly blocked, even if they have permissions
+
+4. **Usage / General** (`authorizationMiddleware`): Used for the usage endpoints (GET `/usage/world`, GET `/usage/players/:player_address`). Allows:
+   - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES)
+   - World owners and deployers
+   - An authoritative scene worker presenting a valid world-scoped storage delegation
+   - Collaborators are NOT granted here: usage reports world-wide totals (the per-world quota is not partitioned per scene), so a scene-scoped collaborator is excluded.
 
 **Database notes:**
 
