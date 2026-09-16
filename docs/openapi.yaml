@@ -50,7 +50,6 @@ paths:
       description: |
         Returns current world storage usage and the configured maximum total size limit.
         The world identifier is resolved from the Signed Fetch metadata.
-        Read access is also granted to a wallet listed in the scene's `logsPermissions`.
       responses:
         '200':
           description: Usage information retrieved successfully
@@ -100,7 +99,6 @@ paths:
       description: |
         Returns current usage and maximum total size limit for a specific player within the calling world.
         The world identifier is resolved from the Signed Fetch metadata.
-        Read access is also granted to a wallet listed in the scene's `logsPermissions`.
       parameters:
         - name: player_address
           in: path

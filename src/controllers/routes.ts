@@ -28,6 +28,7 @@ import { getWorldUsageHandler } from './handlers/world-storage/get-world-usage'
 import { listWorldStorageHandler } from './handlers/world-storage/list-world-storage'
 import { upsertWorldStorageHandler } from './handlers/world-storage/upsert-world-storage'
 import {
+  authorizationMiddleware,
   authorizedAddressesOrScopedDelegationAuthorizationMiddleware,
   logsAccessAuthorizationMiddleware,
   ownerAndDeployerOnlyAuthorizationMiddleware
@@ -83,15 +84,10 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   // All handlers below run after sceneContextMiddleware, so worldName, parcel, and placeId are guaranteed to be present.
   // The withSceneContext helper casts handlers to be compatible with the router's GlobalContext type.
 
-  // Usage endpoints
-  router.get(
-    '/usage/world',
-    withSceneContext(logsAccessAuthorizationMiddleware),
-    withSceneContext(getWorldUsageHandler)
-  )
+  router.get('/usage/world', withSceneContext(authorizationMiddleware), withSceneContext(getWorldUsageHandler))
   router.get(
     '/usage/players/:player_address',
-    withSceneContext(logsAccessAuthorizationMiddleware),
+    withSceneContext(authorizationMiddleware),
     withSceneContext(getPlayerUsageHandler)
   )
   router.get(

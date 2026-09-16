@@ -255,6 +255,13 @@ export const authorizedAddressesOrScopedDelegationAuthorizationMiddleware = crea
   allowScopedDelegation: true
 })
 
+/** Authorized addresses, owners/deployers, and scoped delegation (no logs-access collaborators); for the usage endpoints. */
+export const authorizationMiddleware = createAuthorizationMiddleware({
+  allowAuthorizedAddresses: true,
+  allowOwnersAndDeployers: true,
+  allowScopedDelegation: true
+})
+
 /** Default preset plus `allowLogsAccess`, for Scene/Player GET reads and per-key PUT/DELETE writes (not bulk clear-all or `/env`). */
 export const logsAccessAuthorizationMiddleware = createAuthorizationMiddleware({
   allowAuthorizedAddresses: true,

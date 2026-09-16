@@ -1,13 +1,11 @@
 import { NotAuthorizedError } from '@dcl/http-commons'
 import { deletePlayerStorageHandler } from '../../../src/controllers/handlers/player-storage/delete-player-storage'
 import { getPlayerStorageHandler } from '../../../src/controllers/handlers/player-storage/get-player-storage'
-import { getPlayerUsageHandler } from '../../../src/controllers/handlers/player-storage/get-player-usage'
 import { listPlayerStorageHandler } from '../../../src/controllers/handlers/player-storage/list-player-storage'
 import { listPlayersHandler } from '../../../src/controllers/handlers/player-storage/list-players'
 import { upsertPlayerStorageHandler } from '../../../src/controllers/handlers/player-storage/upsert-player-storage'
 import { deleteWorldStorageHandler } from '../../../src/controllers/handlers/world-storage/delete-world-storage'
 import { getWorldStorageHandler } from '../../../src/controllers/handlers/world-storage/get-world-storage'
-import { getWorldUsageHandler } from '../../../src/controllers/handlers/world-storage/get-world-usage'
 import { listWorldStorageHandler } from '../../../src/controllers/handlers/world-storage/list-world-storage'
 import { upsertWorldStorageHandler } from '../../../src/controllers/handlers/world-storage/upsert-world-storage'
 import { setupRouter } from '../../../src/controllers/routes'
@@ -18,12 +16,6 @@ import type { WorldScene } from '../../../src/adapters/worlds-content-server/typ
 import type { BaseComponents, GlobalContext } from '../../../src/types'
 import type { TestContext } from '../utils/context'
 
-jest.mock('../../../src/controllers/handlers/world-storage/get-world-usage', () => ({
-  getWorldUsageHandler: jest.fn()
-}))
-jest.mock('../../../src/controllers/handlers/player-storage/get-player-usage', () => ({
-  getPlayerUsageHandler: jest.fn()
-}))
 jest.mock('../../../src/controllers/handlers/world-storage/list-world-storage', () => ({
   listWorldStorageHandler: jest.fn()
 }))
@@ -74,8 +66,6 @@ const LOGS_ACCESSIBLE_SCENE: WorldScene = {
 }
 
 const LOGS_ACCESS_ROUTES: Array<{ method: string; path: string; handler: jest.Mock }> = [
-  { method: 'GET', path: '/usage/world', handler: getWorldUsageHandler as jest.Mock },
-  { method: 'GET', path: '/usage/players/:player_address', handler: getPlayerUsageHandler as jest.Mock },
   { method: 'GET', path: '/values', handler: listWorldStorageHandler as jest.Mock },
   { method: 'GET', path: '/values/:key', handler: getWorldStorageHandler as jest.Mock },
   { method: 'PUT', path: '/values/:key', handler: upsertWorldStorageHandler as jest.Mock },
@@ -88,6 +78,8 @@ const LOGS_ACCESS_ROUTES: Array<{ method: string; path: string; handler: jest.Mo
 ]
 
 const DENY_ROUTES: Array<{ method: string; path: string }> = [
+  { method: 'GET', path: '/usage/world' },
+  { method: 'GET', path: '/usage/players/:player_address' },
   { method: 'DELETE', path: '/values' },
   { method: 'DELETE', path: '/players/:player_address/values' },
   { method: 'DELETE', path: '/players' },
@@ -187,7 +179,7 @@ describe('Route authorization policy', () => {
     )
   })
 
-  describe('when a logsPermissions wallet requests a bulk clear-all or /env route', () => {
+  describe('when a logsPermissions wallet requests a usage, bulk clear-all, or /env route', () => {
     it.each(DENY_ROUTES)(
       'should deny access on $method $path without consulting getLogsAccessibleScene',
       async ({ method, path }) => {
