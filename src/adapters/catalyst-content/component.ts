@@ -1,5 +1,5 @@
-import { isRecord, mapSceneEntity, pickString } from '../../logic/scene-entity'
 import { errorMessageOrDefault } from '../../utils/errors'
+import { isRecord, pickString } from '../../utils/typeGuards'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { ICatalystContentComponent } from './types'
 import type { AppComponents } from '../../types'
@@ -10,9 +10,9 @@ import type { WorldScene } from '../worlds-content-server/types'
  * @returns Promise resolving to ICatalystContentComponent implementation
  */
 export async function createCatalystContentComponent(
-  components: Pick<AppComponents, 'fetcher' | 'config' | 'cache' | 'logs'>
+  components: Pick<AppComponents, 'fetcher' | 'config' | 'cache' | 'logs' | 'sceneEntity'>
 ): Promise<ICatalystContentComponent> {
-  const { fetcher, config, cache, logs } = components
+  const { fetcher, config, cache, logs, sceneEntity } = components
   const logger = logs.getLogger('catalyst-content')
 
   const contentUrl = (await config.requireString('CONTENT_URL')).replace(/\/$/, '')
@@ -85,7 +85,7 @@ export async function createCatalystContentComponent(
       }
 
       const sceneId = pickString(isRecord(activeEntity) ? activeEntity.id : undefined)
-      const scene = sceneId ? mapSceneEntity(activeEntity, sceneId) : null
+      const scene = sceneId ? sceneEntity.mapSceneEntity(activeEntity, sceneId) : null
       if (!scene) {
         throw new Error(`Catalyst content server returned an entity with an unexpected shape for parcel ${parcel}`)
       }

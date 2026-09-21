@@ -1,7 +1,11 @@
 import type { ICacheStorageComponent } from '@dcl/core-commons'
 import { createWorldsContentServerComponent } from '../../../src/adapters/worlds-content-server'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../fixtures'
-import { createCacheMockedComponent, createLogsMockedComponent } from '../../mocks/components'
+import {
+  createCacheMockedComponent,
+  createLogsMockedComponent,
+  createSceneEntityMockedComponent
+} from '../../mocks/components'
 import type {
   IWorldsContentServerComponent,
   WorldPermissions,
@@ -42,7 +46,8 @@ describe('Worlds Content Server Component', () => {
       fetcher: { fetch: fetchMock },
       config: { requireString: configRequireString, getNumber: jest.fn().mockResolvedValue(undefined) },
       cache,
-      logs: createLogsMockedComponent()
+      logs: createLogsMockedComponent(),
+      sceneEntity: await createSceneEntityMockedComponent()
     } as unknown as AppComponents)
   }
 

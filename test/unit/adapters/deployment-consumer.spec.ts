@@ -4,7 +4,7 @@ import type { IQueueConsumerComponent } from '@dcl/queue-consumer-component'
 import { Events } from '@dcl/schemas'
 import { createDeploymentConsumerComponent } from '../../../src/adapters/deployment-consumer'
 import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
-import { createLogsMockedComponent } from '../../mocks/components'
+import { createLogsMockedComponent, createSceneEntityMockedComponent } from '../../mocks/components'
 import type { ISceneCollaboratorsComponent } from '../../../src/adapters/scene-collaborators/types'
 import type { WorldScene } from '../../../src/adapters/worlds-content-server/types'
 
@@ -88,7 +88,8 @@ describe('DeploymentConsumerComponent', () => {
       logs: createLogsMockedComponent(),
       fetcher,
       queueConsumer,
-      sceneCollaborators
+      sceneCollaborators,
+      sceneEntity: await createSceneEntityMockedComponent()
     })
   })
 

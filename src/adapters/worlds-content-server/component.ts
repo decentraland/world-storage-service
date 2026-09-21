@@ -1,5 +1,5 @@
-import { isRecord, mapSceneEntity, pickString } from '../../logic/scene-entity'
 import { errorMessageOrDefault } from '../../utils/errors'
+import { isRecord, pickString } from '../../utils/typeGuards'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { IWorldsContentServerComponent, WorldPermissions, WorldScene } from './types'
 import type { AppComponents } from '../../types'
@@ -23,9 +23,9 @@ interface WorldSceneItem {
  * @returns Promise resolving to IWorldsContentServerComponent implementation
  */
 export async function createWorldsContentServerComponent(
-  components: Pick<AppComponents, 'fetcher' | 'config' | 'cache' | 'logs'>
+  components: Pick<AppComponents, 'fetcher' | 'config' | 'cache' | 'logs' | 'sceneEntity'>
 ): Promise<IWorldsContentServerComponent> {
-  const { fetcher, config, cache, logs } = components
+  const { fetcher, config, cache, logs, sceneEntity } = components
   const logger = logs.getLogger('worlds-content-server')
 
   const worldsContentServerUrl = await config.requireString('WORLDS_CONTENT_SERVER_URL')
@@ -162,7 +162,7 @@ export async function createWorldsContentServerComponent(
 
       const scenes = body.scenes.flatMap(item => {
         const sceneId = pickString(item.entityId, isRecord(item.entity) ? item.entity.id : undefined)
-        const scene = sceneId ? mapSceneEntity(item.entity, sceneId) : null
+        const scene = sceneId ? sceneEntity.mapSceneEntity(item.entity, sceneId) : null
         if (!scene) {
           logger.warn('Skipping malformed scene in world scenes response', { worldName })
           return []

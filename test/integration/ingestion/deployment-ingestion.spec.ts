@@ -49,7 +49,8 @@ const ingestionTest = createRunner<TestComponents>({
       logs: components.logs,
       fetcher: components.fetcher,
       queueConsumer: realConsumer,
-      sceneCollaborators: components.sceneCollaborators
+      sceneCollaborators: components.sceneCollaborators,
+      sceneEntity: components.sceneEntity
     })
 
     return { ...components, localFetch: await createLocalFetchComponent(components.config) }

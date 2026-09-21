@@ -26,11 +26,12 @@ import { createPlayerStorageComponent } from './adapters/player-storage'
 import { createSceneCollaboratorsComponent } from './adapters/scene-collaborators'
 import { createWorldStorageComponent } from './adapters/world-storage'
 import { createWorldsContentServerComponent } from './adapters/worlds-content-server'
+import { createSceneEntityComponent } from './logic/scene-entity'
 import { createStorageLimitsComponent } from './logic/storage-limits'
 import { createStorageOperationsComponent } from './logic/storage-operations'
-import { getDbConnectionString } from './logic/utils'
 import { createWorldPermissionComponent } from './logic/world-permission'
 import { metricDeclarations } from './metrics'
+import { getDbConnectionString } from './utils/database'
 import type { AppComponents, GlobalContext } from './types'
 
 /**
@@ -168,9 +169,16 @@ export async function initComponents(): Promise<AppComponents> {
     envStorage
   })
   const cache = createInMemoryCacheComponent()
-  const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config, cache, logs })
   const places = await createPlacesComponent({ fetcher, config, cache, logs })
-  const catalystContent = await createCatalystContentComponent({ fetcher, config, cache, logs })
+  const sceneEntity = await createSceneEntityComponent()
+  const worldsContentServer = await createWorldsContentServerComponent({
+    fetcher,
+    config,
+    cache,
+    logs,
+    sceneEntity
+  })
+  const catalystContent = await createCatalystContentComponent({ fetcher, config, cache, logs, sceneEntity })
   const worldPermission = await createWorldPermissionComponent({
     worldsContentServer,
     catalystContent,
@@ -187,7 +195,8 @@ export async function initComponents(): Promise<AppComponents> {
     logs,
     fetcher,
     queueConsumer,
-    sceneCollaborators
+    sceneCollaborators,
+    sceneEntity
   })
 
   return {
@@ -212,6 +221,7 @@ export async function initComponents(): Promise<AppComponents> {
     catalystContent,
     schemaValidator,
     sceneCollaborators,
+    sceneEntity,
     sqs,
     queueConsumer,
     deploymentConsumer

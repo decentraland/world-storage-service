@@ -2,7 +2,11 @@ import type { ICacheStorageComponent, IFetchComponent } from '@dcl/core-commons'
 import { createConfigMockedComponent, createFetchMockedComponent } from '@dcl/core-commons'
 import { createCatalystContentComponent } from '../../../src/adapters/catalyst-content'
 import { ADDRESSES, PARCELS } from '../../fixtures'
-import { createCacheMockedComponent, createLogsMockedComponent } from '../../mocks/components'
+import {
+  createCacheMockedComponent,
+  createLogsMockedComponent,
+  createSceneEntityMockedComponent
+} from '../../mocks/components'
 import type { ICatalystContentComponent } from '../../../src/adapters/catalyst-content/types'
 import type { WorldScene } from '../../../src/adapters/worlds-content-server/types'
 
@@ -52,7 +56,8 @@ describe('CatalystContentComponent', () => {
       fetcher,
       config,
       cache,
-      logs: createLogsMockedComponent()
+      logs: createLogsMockedComponent(),
+      sceneEntity: await createSceneEntityMockedComponent()
     })
   })
 

@@ -34,3 +34,7 @@ A `resolutions` override pins `@dcl/core-commons` tree-wide because `@dcl/http-c
   Without it the migration fails with `SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a
   string`, which reads like a credentials bug rather than a missing variable:
   `DATABASE_URL=postgres://postgres:pass1234@localhost:5433/world_storage npx node-pg-migrate ...`
+- `yarn build` type-checks `src` only — `tsconfig.json` does not include `test/`. A refactor that
+  changes a component's dependencies can leave every spec broken with a green `tsc`; jest's TS
+  transform is what catches it. Always run the tests, not just the build, before calling a refactor
+  done.

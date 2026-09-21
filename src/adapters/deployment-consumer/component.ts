@@ -1,6 +1,6 @@
 import { Events } from '@dcl/schemas'
-import { isRecord, mapSceneEntity, pickString } from '../../logic/scene-entity'
 import { errorMessageOrDefault } from '../../utils/errors'
+import { isRecord, pickString } from '../../utils/typeGuards'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { IDeploymentConsumerComponent } from './types'
 import type { AppComponents } from '../../types'
@@ -26,9 +26,12 @@ const GENESIS_WORLD_NAME = 'main'
  * @returns Promise resolving to IDeploymentConsumerComponent implementation
  */
 export async function createDeploymentConsumerComponent(
-  components: Pick<AppComponents, 'config' | 'logs' | 'fetcher' | 'queueConsumer' | 'sceneCollaborators'>
+  components: Pick<
+    AppComponents,
+    'config' | 'logs' | 'fetcher' | 'queueConsumer' | 'sceneCollaborators' | 'sceneEntity'
+  >
 ): Promise<IDeploymentConsumerComponent> {
-  const { config, logs, fetcher, queueConsumer, sceneCollaborators } = components
+  const { config, logs, fetcher, queueConsumer, sceneCollaborators, sceneEntity } = components
   const logger = logs.getLogger('deployment-consumer')
 
   const worldsContentServerUrl = (await config.requireString('WORLDS_CONTENT_SERVER_URL')).replace(/\/$/, '')
@@ -85,7 +88,7 @@ export async function createDeploymentConsumerComponent(
       return null
     }
 
-    const scene = mapSceneEntity(body, entityId)
+    const scene = sceneEntity.mapSceneEntity(body, entityId)
     if (!scene) {
       logger.warn('Deployed entity has an unexpected scene shape', { entityId })
       return null
@@ -167,7 +170,8 @@ export async function createDeploymentConsumerComponent(
     }
 
     const scene =
-      mapSceneEntity(entity, entityId) ?? mapSceneEntity(await fetchEntityBody(contentUrl, entityId), entityId)
+      sceneEntity.mapSceneEntity(entity, entityId) ??
+      sceneEntity.mapSceneEntity(await fetchEntityBody(contentUrl, entityId), entityId)
 
     if (!scene) {
       logger.warn('Discarding catalyst deployment event with an unexpected scene entity shape', { entityId })
