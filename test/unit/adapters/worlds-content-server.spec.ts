@@ -203,7 +203,7 @@ describe('Worlds Content Server Component', () => {
     })
   })
 
-  describe('when getting world scenes', () => {
+  describe('when getting the world scenes at a parcel', () => {
     function buildSceneItem(
       overrides: {
         sceneId?: string
@@ -242,7 +242,7 @@ describe('Worlds Content Server Component', () => {
       })
 
       it('should map the scenes and extract logsPermissions', async () => {
-        const result = await component.getScenes(WORLD_NAMES.DEFAULT)
+        const result = await component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)
 
         const expected: WorldScene = {
           sceneId: 'scene-entity-id',
@@ -255,19 +255,24 @@ describe('Worlds Content Server Component', () => {
         expect(result).toEqual([expected])
       })
 
-      it('should call the content server scenes endpoint', async () => {
-        await component.getScenes(WORLD_NAMES.DEFAULT)
+      it('should ask the content server only for the scenes covering that parcel', async () => {
+        await component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)
 
         expect(fetchMock).toHaveBeenCalledWith(
           `${WORLDS_CONTENT_SERVER_URL}/world/${encodeURIComponent(WORLD_NAMES.DEFAULT)}/scenes`,
-          FETCH_OPTIONS
+          {
+            ...FETCH_OPTIONS,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ coordinates: [PARCELS.DEFAULT] })
+          }
         )
       })
 
-      it('should cache the scenes under world-scenes:<world>', async () => {
-        const result = await component.getScenes(WORLD_NAMES.DEFAULT)
+      it('should cache the scenes under world-scenes:<world>:<parcel>', async () => {
+        const result = await component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)
 
-        expect(cache.set).toHaveBeenCalledWith(`world-scenes:${WORLD_NAMES.DEFAULT}`, result, 30)
+        expect(cache.set).toHaveBeenCalledWith(`world-scenes:${WORLD_NAMES.DEFAULT}:${PARCELS.DEFAULT}`, result, 30)
       })
     })
 
@@ -283,7 +288,7 @@ describe('Worlds Content Server Component', () => {
       })
 
       it('should default the title to null', async () => {
-        const [scene] = await component.getScenes(WORLD_NAMES.DEFAULT)
+        const [scene] = await component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)
 
         expect(scene.title).toBeNull()
       })
@@ -315,7 +320,7 @@ describe('Worlds Content Server Component', () => {
       })
 
       it('should map the scene using the item-level entityId as the scene id', async () => {
-        const [scene] = await component.getScenes(WORLD_NAMES.DEFAULT)
+        const [scene] = await component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)
 
         expect(scene).toEqual({
           sceneId: 'item-level-entity-id',
@@ -348,7 +353,7 @@ describe('Worlds Content Server Component', () => {
       })
 
       it('should return the cached scenes without fetching', async () => {
-        const result = await component.getScenes(WORLD_NAMES.DEFAULT)
+        const result = await component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)
 
         expect(result).toEqual(cachedScenes)
         expect(fetchMock).not.toHaveBeenCalled()
@@ -367,7 +372,7 @@ describe('Worlds Content Server Component', () => {
       })
 
       it('should throw an error indicating an unexpected payload', async () => {
-        await expect(component.getScenes(WORLD_NAMES.DEFAULT)).rejects.toThrow(
+        await expect(component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)).rejects.toThrow(
           `Worlds content server returned an unexpected scenes payload for ${WORLD_NAMES.DEFAULT}`
         )
       })
@@ -400,7 +405,7 @@ describe('Worlds Content Server Component', () => {
       })
 
       it('should skip the malformed scene and return the valid one', async () => {
-        await expect(component.getScenes(WORLD_NAMES.DEFAULT)).resolves.toEqual([
+        await expect(component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)).resolves.toEqual([
           { sceneId: 'good', base: '1,2', parcels: ['1,2'], title: 'Good', deployedAt: 0, logsPermissions: [] }
         ])
       })
@@ -418,7 +423,7 @@ describe('Worlds Content Server Component', () => {
       })
 
       it('should throw an error with the world name', async () => {
-        await expect(component.getScenes(WORLD_NAMES.DEFAULT)).rejects.toThrow(
+        await expect(component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)).rejects.toThrow(
           `Failed to fetch world scenes for ${WORLD_NAMES.DEFAULT}`
         )
       })
@@ -433,7 +438,7 @@ describe('Worlds Content Server Component', () => {
       })
 
       it('should throw an error indicating network error', async () => {
-        await expect(component.getScenes(WORLD_NAMES.DEFAULT)).rejects.toThrow(
+        await expect(component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)).rejects.toThrow(
           `Failed to fetch world scenes for ${WORLD_NAMES.DEFAULT}: network error`
         )
       })

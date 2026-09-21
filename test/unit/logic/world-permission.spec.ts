@@ -14,7 +14,7 @@ import type { IWorldPermissionComponent } from '../../../src/logic/world-permiss
 
 describe('World Permission Component', () => {
   let getPermissionsMock: jest.Mock
-  let getScenesMock: jest.Mock
+  let getScenesAtParcelMock: jest.Mock
   let worldsContentServerMock: IWorldsContentServerComponent
   let catalystContent: jest.Mocked<ICatalystContentComponent>
   let fetcher: jest.Mocked<IFetchComponent>
@@ -22,10 +22,10 @@ describe('World Permission Component', () => {
 
   beforeEach(async () => {
     getPermissionsMock = jest.fn()
-    getScenesMock = jest.fn()
+    getScenesAtParcelMock = jest.fn()
     worldsContentServerMock = {
       getPermissions: getPermissionsMock,
-      getScenes: getScenesMock
+      getScenesAtParcel: getScenesAtParcelMock
     }
     catalystContent = createCatalystContentMockedComponent()
     fetcher = createFetchMockedComponent() as jest.Mocked<IFetchComponent>
@@ -414,7 +414,7 @@ describe('World Permission Component', () => {
 
         beforeEach(async () => {
           scene = buildWorldScene({ logsPermissions: [ADDRESSES.PLAYER.toLowerCase()] })
-          getScenesMock.mockResolvedValueOnce([scene])
+          getScenesAtParcelMock.mockResolvedValueOnce([scene])
           component = await createComponent()
           result = await component.getLogsAccessibleScene(WORLD_NAMES.DEFAULT, ADDRESSES.PLAYER, PARCELS.DEFAULT)
         })
@@ -429,7 +429,7 @@ describe('World Permission Component', () => {
         let result: WorldScene | null
 
         beforeEach(async () => {
-          getScenesMock.mockResolvedValueOnce([buildWorldScene({ logsPermissions: [ADDRESSES.OWNER] })])
+          getScenesAtParcelMock.mockResolvedValueOnce([buildWorldScene({ logsPermissions: [ADDRESSES.OWNER] })])
           component = await createComponent()
           result = await component.getLogsAccessibleScene(WORLD_NAMES.DEFAULT, ADDRESSES.PLAYER, PARCELS.DEFAULT)
         })
@@ -446,7 +446,7 @@ describe('World Permission Component', () => {
 
         beforeEach(async () => {
           scene = buildWorldScene({ logsPermissions: [ADDRESSES.PLAYER.toLowerCase()] })
-          getScenesMock.mockResolvedValueOnce([scene])
+          getScenesAtParcelMock.mockResolvedValueOnce([scene])
           component = await createComponent()
           result = await component.getLogsAccessibleScene(
             WORLD_NAMES.DEFAULT,
@@ -465,7 +465,9 @@ describe('World Permission Component', () => {
         let result: WorldScene | null
 
         beforeEach(async () => {
-          getScenesMock.mockResolvedValueOnce([buildWorldScene({ base: PARCELS.SCENE_A, parcels: [PARCELS.SCENE_A] })])
+          getScenesAtParcelMock.mockResolvedValueOnce([
+            buildWorldScene({ base: PARCELS.SCENE_A, parcels: [PARCELS.SCENE_A] })
+          ])
           component = await createComponent()
           result = await component.getLogsAccessibleScene(WORLD_NAMES.DEFAULT, ADDRESSES.PLAYER, PARCELS.DEFAULT)
         })
@@ -480,7 +482,7 @@ describe('World Permission Component', () => {
         let result: WorldScene | null
 
         beforeEach(async () => {
-          getScenesMock.mockResolvedValueOnce([
+          getScenesAtParcelMock.mockResolvedValueOnce([
             buildWorldScene({ sceneId: 'scene-a', logsPermissions: [ADDRESSES.PLAYER] }),
             buildWorldScene({ sceneId: 'scene-b', logsPermissions: [ADDRESSES.PLAYER] })
           ])
@@ -533,7 +535,7 @@ describe('World Permission Component', () => {
       let result: WorldScene | null
 
       beforeEach(async () => {
-        getScenesMock.mockRejectedValueOnce(new Error('Network error'))
+        getScenesAtParcelMock.mockRejectedValueOnce(new Error('Network error'))
         component = await createComponent()
         result = await component.getLogsAccessibleScene(WORLD_NAMES.DEFAULT, ADDRESSES.PLAYER, PARCELS.DEFAULT)
       })

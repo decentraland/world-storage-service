@@ -31,5 +31,5 @@ export interface WorldScene {
 
 export interface IWorldsContentServerComponent {
   getPermissions(worldName: string): Promise<WorldPermissions>
-  getScenes(worldName: string): Promise<WorldScene[]>
+  getScenesAtParcel(worldName: string, parcel: string): Promise<WorldScene[]>
 }

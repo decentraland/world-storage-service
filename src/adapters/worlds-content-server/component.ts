@@ -108,8 +108,8 @@ export async function createWorldsContentServerComponent(
       return body
     },
 
-    getScenes: async (worldName: string): Promise<WorldScene[]> => {
-      const cacheKey = `world-scenes:${worldName}`
+    getScenesAtParcel: async (worldName: string, parcel: string): Promise<WorldScene[]> => {
+      const cacheKey = `world-scenes:${worldName}:${parcel}`
       const cached = await cache.get<WorldScene[]>(cacheKey)
       if (cached) {
         return cached
@@ -119,13 +119,19 @@ export async function createWorldsContentServerComponent(
 
       logger.debug('Fetching world scenes from content server', {
         worldName,
+        parcel,
         url
       })
 
       let response: Awaited<ReturnType<typeof fetcher.fetch>>
 
       try {
-        response = await fetcher.fetch(url, UPSTREAM_FETCH_OPTIONS)
+        response = await fetcher.fetch(url, {
+          ...UPSTREAM_FETCH_OPTIONS,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coordinates: [parcel] })
+        })
       } catch (error) {
         logger.error('Failed to fetch world scenes: network error', {
           worldName,

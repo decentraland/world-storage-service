@@ -28,3 +28,9 @@ A `resolutions` override pins `@dcl/core-commons` tree-wide because `@dcl/http-c
   replay into the next run and overwrite its index rows with the previous run's wallet.
   `PurgeQueue` cannot fix this — SQS rate-limits it to one call per minute and it cannot reach
   in-flight messages at all.
+- The suite needs postgres on `PG_COMPONENT_PSQL_HOST/PORT` (`.env.default` points at 5432). If that
+  port is taken, run postgres anywhere and pass `PG_COMPONENT_PSQL_PORT=<port>` to the test command.
+- `node-pg-migrate` does **not** read the `PG_COMPONENT_PSQL_*` vars — it wants `DATABASE_URL`.
+  Without it the migration fails with `SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a
+  string`, which reads like a credentials bug rather than a missing variable:
+  `DATABASE_URL=postgres://postgres:pass1234@localhost:5433/world_storage npx node-pg-migrate ...`

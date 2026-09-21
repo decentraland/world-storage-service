@@ -191,7 +191,7 @@ export async function createWorldPermissionComponent(
         if (isSharedRealmName(worldName)) {
           scene = await catalystContent.getActiveSceneEntity(parcel)
         } else {
-          const scenes = await worldsContentServer.getScenes(worldName)
+          const scenes = await worldsContentServer.getScenesAtParcel(worldName, parcel)
           const matches = scenes.filter(candidate => sceneCoversParcel(candidate, parcel))
           scene = matches.length === 1 ? matches[0] : null
         }
