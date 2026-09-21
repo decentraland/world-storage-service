@@ -7,6 +7,14 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+/**
+ * @param values - Candidate values, in precedence order.
+ * @returns The first non-empty string, or `undefined` when there is none.
+ */
+export function pickString(...values: unknown[]): string | undefined {
+  return values.find((value): value is string => typeof value === 'string' && value.length > 0)
+}
+
 function isControlCodePoint(codePoint: number): boolean {
   return codePoint < 0x20 || (codePoint >= 0x7f && codePoint <= 0x9f)
 }
@@ -28,8 +36,13 @@ export function normalizeTitle(value: unknown): string | null {
   return cleaned.length === 0 ? null : cleaned.slice(0, MAX_TITLE_LENGTH)
 }
 
-/** Maps a scene entity to a `WorldScene`, or `null` when `base`/`parcels` are missing; `id` falls back to `fallbackId` (the content-addressed file omits its own id). */
-export function mapSceneEntity(entity: unknown, fallbackId?: string): WorldScene | null {
+/**
+ * Maps a scene entity to a `WorldScene`, or `null` when `base`/`parcels` are missing.
+ *
+ * @param entity - Untrusted scene entity payload.
+ * @param sceneId - The entity id, resolved by the calling adapter from its own payload.
+ */
+export function mapSceneEntity(entity: unknown, sceneId: string): WorldScene | null {
   if (!isRecord(entity)) {
     return null
   }
@@ -38,11 +51,10 @@ export function mapSceneEntity(entity: unknown, fallbackId?: string): WorldScene
   const scene = isRecord(metadata?.scene) ? metadata.scene : undefined
   const display = isRecord(metadata?.display) ? metadata.display : undefined
 
-  const sceneId = typeof entity.id === 'string' ? entity.id : fallbackId
   const base = scene?.base
   const parcels = scene?.parcels
 
-  if (typeof sceneId !== 'string' || typeof base !== 'string' || !Array.isArray(parcels)) {
+  if (typeof base !== 'string' || !Array.isArray(parcels)) {
     return null
   }
 

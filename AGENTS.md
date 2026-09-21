@@ -22,3 +22,9 @@ A `resolutions` override pins `@dcl/core-commons` tree-wide because `@dcl/http-c
 - `yarn test:sqs` runs the real-SQS ingestion tests against the docker-compose localstack queue
   (`docker compose up -d localstack` first). They are gated behind `RUN_SQS_INTEGRATION=true` and
   skipped by default, so the shared CI (which has no localstack) stays green.
+- The ingestion spec creates its **queue per run** (`world-storage-deployments-${Date.now()}`) and
+  deletes it in `afterAll`. Do not revert to a fixed queue name: `--forceExit` kills the process
+  while messages are still in flight, and SQS makes them visible again ~60s later, where they
+  replay into the next run and overwrite its index rows with the previous run's wallet.
+  `PurgeQueue` cannot fix this — SQS rate-limits it to one call per minute and it cannot reach
+  in-flight messages at all.

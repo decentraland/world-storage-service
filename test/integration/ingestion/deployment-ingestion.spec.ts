@@ -1,4 +1,4 @@
-import { CreateQueueCommand, PurgeQueueCommand, SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs'
+import { CreateQueueCommand, DeleteQueueCommand, SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs'
 import { createConfigComponent } from '@well-known-components/env-config-provider'
 import { START_COMPONENT, STOP_COMPONENT } from '@well-known-components/interfaces'
 import type { AuthIdentity } from '@dcl/crypto'
@@ -18,7 +18,7 @@ import { createTestSetup } from '../utils/setup'
 import type { TestComponents } from '../../../src/types'
 
 const LOCALSTACK_ENDPOINT = process.env.AWS_SQS_ENDPOINT ?? 'http://localhost:4566'
-const QUEUE_NAME = 'world-storage-deployments'
+const QUEUE_NAME = `world-storage-deployments-${Date.now()}`
 const QUEUE_URL = `${LOCALSTACK_ENDPOINT}/000000000000/${QUEUE_NAME}`
 const GENESIS_WORLD_NAME = 'main'
 
@@ -95,7 +95,6 @@ describeIngestion(
 
     beforeAll(async () => {
       await sqsAdmin.send(new CreateQueueCommand({ QueueName: QUEUE_NAME }))
-      await sqsAdmin.send(new PurgeQueueCommand({ QueueUrl: QUEUE_URL })).catch(() => undefined)
       const start = realConsumer[START_COMPONENT]
       if (start) {
         await start({ started: () => true, live: () => true, getComponents: () => ({}) })
@@ -107,6 +106,7 @@ describeIngestion(
       if (stop) {
         await stop()
       }
+      await sqsAdmin.send(new DeleteQueueCommand({ QueueUrl: QUEUE_URL })).catch(() => undefined)
     })
 
     beforeEach(async () => {
@@ -134,10 +134,12 @@ describeIngestion(
             MessageBody: JSON.stringify({
               type: Events.Type.CATALYST_DEPLOYMENT,
               subType: Events.SubType.CatalystDeployment.SCENE,
+              key: 'bafkrei-genesis-scene',
+              timestamp: 1700000000000,
               entity: {
-                id: 'bafkrei-genesis-scene',
-                type: 'scene',
-                pointers: [PARCELS.SCENE_A],
+                entityId: 'bafkrei-genesis-scene',
+                entityType: 'scene',
+                authChain: [],
                 metadata: {
                   scene: { base: PARCELS.SCENE_A, parcels: [PARCELS.SCENE_A] },
                   display: { title: 'Genesis Scene' },

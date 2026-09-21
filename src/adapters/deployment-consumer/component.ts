@@ -1,5 +1,5 @@
 import { Events } from '@dcl/schemas'
-import { isRecord, mapSceneEntity } from '../../logic/scene-entity'
+import { isRecord, mapSceneEntity, pickString } from '../../logic/scene-entity'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { IDeploymentConsumerComponent } from './types'
@@ -32,9 +32,10 @@ export async function createDeploymentConsumerComponent(
   const logger = logs.getLogger('deployment-consumer')
 
   const worldsContentServerUrl = (await config.requireString('WORLDS_CONTENT_SERVER_URL')).replace(/\/$/, '')
+  const contentUrl = (await config.requireString('CONTENT_URL')).replace(/\/$/, '')
 
-  async function resolveDeployedScene(entityId: string): Promise<{ worldName: string; scene: WorldScene } | null> {
-    const url = `${worldsContentServerUrl}/contents/${encodeURIComponent(entityId)}`
+  async function fetchEntityBody(baseUrl: string, entityId: string): Promise<unknown> {
+    const url = `${baseUrl}/contents/${encodeURIComponent(entityId)}`
 
     let response: Awaited<ReturnType<typeof fetcher.fetch>>
 
@@ -61,11 +62,17 @@ export async function createDeploymentConsumerComponent(
       return null
     }
 
-    let body: unknown
     try {
-      body = await response.json()
+      return await response.json()
     } catch (error) {
       logger.warn('Failed to parse deployed entity response', { entityId, url, error: errorMessageOrDefault(error) })
+      return null
+    }
+  }
+
+  async function resolveDeployedScene(entityId: string): Promise<{ worldName: string; scene: WorldScene } | null> {
+    const body = await fetchEntityBody(worldsContentServerUrl, entityId)
+    if (!body) {
       return null
     }
 
@@ -74,13 +81,13 @@ export async function createDeploymentConsumerComponent(
     const worldName = isRecord(worldConfiguration) ? worldConfiguration.name : undefined
 
     if (typeof worldName !== 'string' || worldName.length === 0) {
-      logger.warn('Deployed entity has no world configuration name', { entityId, url })
+      logger.warn('Deployed entity has no world configuration name', { entityId })
       return null
     }
 
     const scene = mapSceneEntity(body, entityId)
     if (!scene) {
-      logger.warn('Deployed entity has an unexpected scene shape', { entityId, url })
+      logger.warn('Deployed entity has an unexpected scene shape', { entityId })
       return null
     }
 
@@ -148,12 +155,26 @@ export async function createDeploymentConsumerComponent(
 
   async function handleCatalystDeployment(event: unknown): Promise<void> {
     const entity = isRecord(event) ? event.entity : undefined
-    const scene = mapSceneEntity(entity)
+    const entityId = pickString(
+      isRecord(entity) ? entity.entityId : undefined,
+      isRecord(entity) ? entity.id : undefined,
+      isRecord(event) ? event.key : undefined
+    )
 
-    if (!scene) {
-      logger.warn('Discarding catalyst deployment event with an unexpected scene entity shape')
+    if (!entityId) {
+      logger.warn('Discarding catalyst deployment event with no resolvable entity id')
       return
     }
+
+    const scene =
+      mapSceneEntity(entity, entityId) ?? mapSceneEntity(await fetchEntityBody(contentUrl, entityId), entityId)
+
+    if (!scene) {
+      logger.warn('Discarding catalyst deployment event with an unexpected scene entity shape', { entityId })
+      return
+    }
+
+    const eventTimestamp = isRecord(event) && typeof event.timestamp === 'number' ? event.timestamp : 0
 
     await sceneCollaborators.upsertForScene({
       sceneId: scene.sceneId,
@@ -161,7 +182,7 @@ export async function createDeploymentConsumerComponent(
       baseParcel: scene.base,
       title: scene.title,
       realmKind: 'genesis',
-      deployedAt: scene.deployedAt,
+      deployedAt: scene.deployedAt || eventTimestamp,
       addresses: scene.logsPermissions
     })
   }

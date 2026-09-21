@@ -12,8 +12,10 @@ type MessageHandler = (event: unknown) => Promise<void>
 
 describe('DeploymentConsumerComponent', () => {
   const worldsContentServerUrl = 'https://worlds-content-server.decentraland.org'
+  const contentUrl = 'https://peer.decentraland.org/content'
   const FETCH_OPTIONS = { timeout: 5000, attempts: 3, retryDelay: 200 }
   const entityId = 'entity-1'
+  const eventTimestamp = 1700000000000
 
   let fetcher: jest.Mocked<IFetchComponent>
   let queueConsumer: jest.Mocked<IQueueConsumerComponent>
@@ -78,7 +80,11 @@ describe('DeploymentConsumerComponent', () => {
     }
 
     await createDeploymentConsumerComponent({
-      config: createConfigMockedComponent({ requireString: jest.fn().mockResolvedValue(worldsContentServerUrl) }),
+      config: createConfigMockedComponent({
+        requireString: jest
+          .fn()
+          .mockImplementation(async (key: string) => (key === 'CONTENT_URL' ? contentUrl : worldsContentServerUrl))
+      }),
       logs: createLogsMockedComponent(),
       fetcher,
       queueConsumer,
@@ -308,10 +314,117 @@ describe('DeploymentConsumerComponent', () => {
       })
     })
 
-    describe('and the event carries a malformed entity', () => {
-      it('should not throw and should not upsert', async () => {
-        await expect(catalystDeploymentHandler()({ entity: { id: 'only-an-id' } })).resolves.toBeUndefined()
+    describe('and the event carries the catalyst bus entity shape', () => {
+      let scene: WorldScene
+      let event: unknown
 
+      beforeEach(() => {
+        scene = buildScene({ sceneId: 'bafkrei-bus-scene' })
+        event = {
+          key: scene.sceneId,
+          timestamp: eventTimestamp,
+          entity: {
+            entityId: scene.sceneId,
+            entityType: 'scene',
+            authChain: [],
+            metadata: {
+              scene: { base: scene.base, parcels: scene.parcels },
+              display: { title: scene.title },
+              logsPermissions: scene.logsPermissions
+            }
+          }
+        }
+      })
+
+      it('should upsert the scene as genesis using the entityId and the event timestamp', async () => {
+        await catalystDeploymentHandler()(event)
+
+        expect(sceneCollaborators.upsertForScene).toHaveBeenCalledWith({
+          sceneId: scene.sceneId,
+          worldName: 'main',
+          baseParcel: scene.base,
+          title: scene.title,
+          realmKind: 'genesis',
+          deployedAt: eventTimestamp,
+          addresses: scene.logsPermissions
+        })
+      })
+
+      it('should not fetch the entity because the event already embeds its metadata', async () => {
+        await catalystDeploymentHandler()(event)
+
+        expect(fetcher.fetch).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and the event entity carries no metadata', () => {
+      let scene: WorldScene
+      let event: unknown
+
+      beforeEach(() => {
+        scene = buildScene({ sceneId: 'bafkrei-metadataless-scene', deployedAt: 1690000000000 })
+        event = {
+          key: scene.sceneId,
+          timestamp: eventTimestamp,
+          entity: { entityId: scene.sceneId, entityType: 'scene', authChain: [] }
+        }
+        fetcher.fetch.mockResolvedValueOnce(
+          mockResponse({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+              type: 'scene',
+              timestamp: scene.deployedAt,
+              pointers: scene.parcels,
+              metadata: {
+                scene: { base: scene.base, parcels: scene.parcels },
+                display: { title: scene.title },
+                logsPermissions: scene.logsPermissions
+              }
+            })
+          })
+        )
+      })
+
+      it('should refetch the entity from the configured catalyst content server', async () => {
+        await catalystDeploymentHandler()(event)
+
+        expect(fetcher.fetch).toHaveBeenCalledWith(`${contentUrl}/contents/${scene.sceneId}`, FETCH_OPTIONS)
+      })
+
+      it('should upsert the scene resolved from the refetched entity with its own deployment timestamp', async () => {
+        await catalystDeploymentHandler()(event)
+
+        expect(sceneCollaborators.upsertForScene).toHaveBeenCalledWith({
+          sceneId: scene.sceneId,
+          worldName: 'main',
+          baseParcel: scene.base,
+          title: scene.title,
+          realmKind: 'genesis',
+          deployedAt: scene.deployedAt,
+          addresses: scene.logsPermissions
+        })
+      })
+    })
+
+    describe('and the entity refetch does not yield a scene', () => {
+      beforeEach(() => {
+        fetcher.fetch.mockResolvedValueOnce(mockResponse({ ok: false, status: 404, statusText: 'not found' }))
+      })
+
+      it('should discard the event without upserting or rejecting', async () => {
+        await expect(
+          catalystDeploymentHandler()({ key: entityId, entity: { entityId, entityType: 'scene', authChain: [] } })
+        ).resolves.toBeUndefined()
+
+        expect(sceneCollaborators.upsertForScene).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and the event carries no resolvable entity id', () => {
+      it('should discard the event without fetching, upserting or rejecting', async () => {
+        await expect(catalystDeploymentHandler()({ entity: { entityType: 'scene' } })).resolves.toBeUndefined()
+
+        expect(fetcher.fetch).not.toHaveBeenCalled()
         expect(sceneCollaborators.upsertForScene).not.toHaveBeenCalled()
       })
     })

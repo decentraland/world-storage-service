@@ -1,4 +1,4 @@
-import { isRecord, mapSceneEntity } from '../../logic/scene-entity'
+import { isRecord, mapSceneEntity, pickString } from '../../logic/scene-entity'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { ICatalystContentComponent } from './types'
@@ -84,7 +84,8 @@ export async function createCatalystContentComponent(
         return null
       }
 
-      const scene = mapSceneEntity(activeEntity)
+      const sceneId = pickString(isRecord(activeEntity) ? activeEntity.id : undefined)
+      const scene = sceneId ? mapSceneEntity(activeEntity, sceneId) : null
       if (!scene) {
         throw new Error(`Catalyst content server returned an entity with an unexpected shape for parcel ${parcel}`)
       }

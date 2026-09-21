@@ -1,4 +1,4 @@
-import { mapSceneEntity } from '../../logic/scene-entity'
+import { isRecord, mapSceneEntity, pickString } from '../../logic/scene-entity'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
 import type { IWorldsContentServerComponent, WorldPermissions, WorldScene } from './types'
@@ -155,8 +155,8 @@ export async function createWorldsContentServerComponent(
       assertWorldScenesShape(body, worldName)
 
       const scenes = body.scenes.flatMap(item => {
-        const fallbackId = typeof item.entityId === 'string' ? item.entityId : undefined
-        const scene = mapSceneEntity(item.entity, fallbackId)
+        const sceneId = pickString(item.entityId, isRecord(item.entity) ? item.entity.id : undefined)
+        const scene = sceneId ? mapSceneEntity(item.entity, sceneId) : null
         if (!scene) {
           logger.warn('Skipping malformed scene in world scenes response', { worldName })
           return []

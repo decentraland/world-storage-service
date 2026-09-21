@@ -1,4 +1,4 @@
-import { mapSceneEntity, normalizeTitle } from '../../../src/logic/scene-entity'
+import { mapSceneEntity, normalizeTitle, pickString } from '../../../src/logic/scene-entity'
 
 describe('normalizeTitle', () => {
   describe('when the value is not a string', () => {
@@ -41,13 +41,32 @@ describe('normalizeTitle', () => {
   })
 })
 
+describe('pickString', () => {
+  describe('when several values are given', () => {
+    it('should return the first string one', () => {
+      expect(pickString(undefined, 42, 'first', 'second')).toBe('first')
+    })
+  })
+
+  describe('when no value is a string', () => {
+    it('should return undefined', () => {
+      expect(pickString(undefined, null, 42)).toBeUndefined()
+    })
+  })
+
+  describe('when the only string is empty', () => {
+    it('should return undefined so an empty id is never taken as resolved', () => {
+      expect(pickString('')).toBeUndefined()
+    })
+  })
+})
+
 describe('mapSceneEntity', () => {
   describe('when the entity title exceeds the column length', () => {
     let entity: Record<string, unknown>
 
     beforeEach(() => {
       entity = {
-        id: 'scene-1',
         timestamp: 100,
         metadata: {
           scene: { base: '0,0', parcels: ['0,0'] },
@@ -58,7 +77,22 @@ describe('mapSceneEntity', () => {
     })
 
     it('should return a normalized, bounded title', () => {
-      expect(mapSceneEntity(entity)?.title).toHaveLength(255)
+      expect(mapSceneEntity(entity, 'scene-1')?.title).toHaveLength(255)
+    })
+  })
+
+  describe('when the entity carries an id of its own', () => {
+    let entity: Record<string, unknown>
+
+    beforeEach(() => {
+      entity = {
+        id: 'id-from-the-payload',
+        metadata: { scene: { base: '0,0', parcels: ['0,0'] } }
+      }
+    })
+
+    it('should use the id supplied by the caller, never the one in the payload', () => {
+      expect(mapSceneEntity(entity, 'id-from-the-caller')?.sceneId).toBe('id-from-the-caller')
     })
   })
 })
