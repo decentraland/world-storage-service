@@ -61,8 +61,8 @@ export function createAuthorizationMiddleware(
     allowLogsAccess = false
   } = options
 
-  const MAX_TOUCHED_KEYS = 10_000
-  const recentlyTouched = new Set<string>()
+  const MAX_INSERTED_KEYS = 10_000
+  const recentlyInserted = new Set<string>()
 
   return async (ctx, next) => {
     const {
@@ -184,10 +184,10 @@ export function createAuthorizationMiddleware(
 
       if (logsScene) {
         logger.debug('Authorization granted via logs-access permission', { worldName })
-        const touchKey = `${logsScene.sceneId}:${signerAddress}`
-        if (!recentlyTouched.has(touchKey)) {
+        const insertKey = `${logsScene.sceneId}:${signerAddress}`
+        if (!recentlyInserted.has(insertKey)) {
           void ctx.components.sceneCollaborators
-            .touch({
+            .insert({
               address: signerAddress,
               sceneId: logsScene.sceneId,
               worldName,
@@ -197,11 +197,11 @@ export function createAuthorizationMiddleware(
               deployedAt: logsScene.deployedAt
             })
             .then(() => {
-              recentlyTouched.add(touchKey)
-              if (recentlyTouched.size > MAX_TOUCHED_KEYS) {
-                const oldest = recentlyTouched.values().next().value
+              recentlyInserted.add(insertKey)
+              if (recentlyInserted.size > MAX_INSERTED_KEYS) {
+                const oldest = recentlyInserted.values().next().value
                 if (oldest !== undefined) {
-                  recentlyTouched.delete(oldest)
+                  recentlyInserted.delete(oldest)
                 }
               }
             })

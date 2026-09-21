@@ -137,7 +137,7 @@ export async function createDeploymentConsumerComponent(
         continue
       }
 
-      await sceneCollaborators.removeScene(sceneId)
+      await sceneCollaborators.removeByScene(sceneId)
     }
   }
 

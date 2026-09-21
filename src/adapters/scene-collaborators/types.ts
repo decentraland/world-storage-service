@@ -28,14 +28,14 @@ export interface ISceneCollaboratorsComponent {
    *
    * @param row - The scene/address row to insert
    */
-  touch(row: SceneCollaboratorsRow): Promise<void>
+  insert(row: SceneCollaboratorsRow): Promise<void>
 
   /**
    * Removes every row for a scene.
    *
    * @param sceneId - The scene identifier
    */
-  removeScene(sceneId: string): Promise<void>
+  removeByScene(sceneId: string): Promise<void>
 
   /**
    * Removes every row for a world (used when a whole world is undeployed).

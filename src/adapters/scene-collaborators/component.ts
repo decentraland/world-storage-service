@@ -61,7 +61,7 @@ export const createSceneCollaboratorsComponent = async ({
     logger.debug('Scene collaborators upserted successfully', { sceneId })
   }
 
-  async function touch(row: SceneCollaboratorsRow): Promise<void> {
+  async function insert(row: SceneCollaboratorsRow): Promise<void> {
     const { sceneId, baseParcel, title, realmKind, deployedAt } = row
     const worldName = row.worldName.toLowerCase()
     const lowercasedAddress = row.address.toLowerCase()
@@ -72,7 +72,7 @@ export const createSceneCollaboratorsComponent = async ({
       ON CONFLICT (scene_id, address) DO NOTHING`)
   }
 
-  async function removeScene(sceneId: string): Promise<void> {
+  async function removeByScene(sceneId: string): Promise<void> {
     logger.debug('Removing scene collaborators', { sceneId })
 
     await pg.query(SQL`DELETE FROM scene_collaborators WHERE scene_id = ${sceneId}`)
@@ -128,8 +128,8 @@ export const createSceneCollaboratorsComponent = async ({
 
   return {
     upsertForScene,
-    touch,
-    removeScene,
+    insert,
+    removeByScene,
     removeByWorld,
     listByAddress
   }

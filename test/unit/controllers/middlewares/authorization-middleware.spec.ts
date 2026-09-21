@@ -27,13 +27,13 @@ describe('Authorization Middleware', () => {
   let configGetString: jest.Mock
   let hasWorldPermissionMock: jest.Mock
   let getLogsAccessibleSceneMock: jest.Mock
-  let touchMock: jest.Mock
+  let insertMock: jest.Mock
 
   beforeEach(() => {
     configGetString = jest.fn()
     hasWorldPermissionMock = jest.fn()
     getLogsAccessibleSceneMock = jest.fn()
-    touchMock = jest.fn().mockResolvedValue(undefined)
+    insertMock = jest.fn().mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -56,7 +56,7 @@ describe('Authorization Middleware', () => {
           hasWorldPermission: hasWorldPermissionMock,
           getLogsAccessibleScene: getLogsAccessibleSceneMock
         },
-        sceneCollaborators: { touch: touchMock }
+        sceneCollaborators: { insert: insertMock }
       } as unknown as BaseComponents
     })
   }
@@ -502,8 +502,8 @@ describe('Authorization Middleware', () => {
       it('should fire-and-forget a collaborator backfill upsert with the scene and lowercased signer', async () => {
         await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
 
-        expect(touchMock).toHaveBeenCalledTimes(1)
-        expect(touchMock).toHaveBeenCalledWith({
+        expect(insertMock).toHaveBeenCalledTimes(1)
+        expect(insertMock).toHaveBeenCalledWith({
           address: ADDRESSES.UNAUTHORIZED.toLowerCase(),
           sceneId: LOGS_READABLE_SCENE.sceneId,
           worldName: WORLD_NAMES.DEFAULT,
@@ -514,21 +514,21 @@ describe('Authorization Middleware', () => {
         })
       })
 
-      it('should touch only once across repeated grants for the same scene and wallet', async () => {
+      it('should insert only once across repeated grants for the same scene and wallet', async () => {
         getLogsAccessibleSceneMock.mockResolvedValue(LOGS_READABLE_SCENE)
         next.mockResolvedValue({ status: 200 })
 
         await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
         await middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)
 
-        expect(touchMock).toHaveBeenCalledTimes(1)
+        expect(insertMock).toHaveBeenCalledTimes(1)
       })
     })
 
     describe('and the collaborator backfill upsert rejects', () => {
       beforeEach(() => {
         getLogsAccessibleSceneMock.mockResolvedValueOnce(LOGS_READABLE_SCENE)
-        touchMock.mockRejectedValueOnce(new Error('insert failed'))
+        insertMock.mockRejectedValueOnce(new Error('insert failed'))
         next.mockResolvedValueOnce({ status: 200 })
       })
 
@@ -555,7 +555,7 @@ describe('Authorization Middleware', () => {
 
       it('should never call the collaborator backfill upsert', async () => {
         await expect(middleware(buildCtx(ADDRESSES.UNAUTHORIZED), next)).rejects.toThrow(NotAuthorizedError)
-        expect(touchMock).not.toHaveBeenCalled()
+        expect(insertMock).not.toHaveBeenCalled()
       })
     })
 

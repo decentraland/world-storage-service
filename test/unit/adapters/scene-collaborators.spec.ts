@@ -151,7 +151,7 @@ describe('SceneCollaboratorsComponent', () => {
     })
   })
 
-  describe('when touching a single scene/address row', () => {
+  describe('when inserting a single scene/address row', () => {
     let row: SceneCollaboratorsRow
 
     beforeEach(() => {
@@ -159,7 +159,7 @@ describe('SceneCollaboratorsComponent', () => {
     })
 
     it('should insert the lowercased address with ON CONFLICT DO NOTHING', async () => {
-      await sceneCollaborators.touch(row)
+      await sceneCollaborators.insert(row)
       const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
       expect(statement.text).toContain('ON CONFLICT (scene_id, address) DO NOTHING')
       expect(statement.values).toContain('0xabc')
@@ -167,7 +167,7 @@ describe('SceneCollaboratorsComponent', () => {
     })
 
     it('should lowercase the world name', async () => {
-      await sceneCollaborators.touch({ ...row, worldName: 'My-World.DCL.eth' })
+      await sceneCollaborators.insert({ ...row, worldName: 'My-World.DCL.eth' })
       const statement = pg.query.mock.calls[0][0] as unknown as { values: unknown[] }
       expect(statement.values).toContain('my-world.dcl.eth')
     })
@@ -190,7 +190,7 @@ describe('SceneCollaboratorsComponent', () => {
 
   describe('when removing a scene', () => {
     it('should delete every row for the scene', async () => {
-      await sceneCollaborators.removeScene(sceneId)
+      await sceneCollaborators.removeByScene(sceneId)
       const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
       expect(statement.text).toBe('DELETE FROM scene_collaborators WHERE scene_id = $1')
       expect(statement.values).toEqual([sceneId])

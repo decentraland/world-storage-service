@@ -17,8 +17,8 @@ describe('getCollaboratorHandler', () => {
   beforeEach(() => {
     sceneCollaborators = {
       upsertForScene: jest.fn(),
-      touch: jest.fn(),
-      removeScene: jest.fn(),
+      insert: jest.fn(),
+      removeByScene: jest.fn(),
       removeByWorld: jest.fn(),
       listByAddress: jest.fn()
     }

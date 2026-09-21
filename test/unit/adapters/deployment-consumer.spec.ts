@@ -73,8 +73,8 @@ describe('DeploymentConsumerComponent', () => {
     } as unknown as jest.Mocked<IQueueConsumerComponent>
     sceneCollaborators = {
       upsertForScene: jest.fn(),
-      touch: jest.fn(),
-      removeScene: jest.fn(),
+      insert: jest.fn(),
+      removeByScene: jest.fn(),
       removeByWorld: jest.fn(),
       listByAddress: jest.fn()
     }
@@ -216,9 +216,9 @@ describe('DeploymentConsumerComponent', () => {
         }
       })
 
-      expect(sceneCollaborators.removeScene).toHaveBeenCalledWith('scene-a')
-      expect(sceneCollaborators.removeScene).toHaveBeenCalledWith('scene-b')
-      expect(sceneCollaborators.removeScene).toHaveBeenCalledTimes(2)
+      expect(sceneCollaborators.removeByScene).toHaveBeenCalledWith('scene-a')
+      expect(sceneCollaborators.removeByScene).toHaveBeenCalledWith('scene-b')
+      expect(sceneCollaborators.removeByScene).toHaveBeenCalledTimes(2)
     })
 
     describe('and the event has a malformed scenes field', () => {
@@ -227,13 +227,13 @@ describe('DeploymentConsumerComponent', () => {
           scenesUndeploymentHandler()({ metadata: { worldName: WORLD_NAMES.DEFAULT } })
         ).resolves.toBeUndefined()
 
-        expect(sceneCollaborators.removeScene).not.toHaveBeenCalled()
+        expect(sceneCollaborators.removeByScene).not.toHaveBeenCalled()
       })
     })
 
     describe('and removing a scene fails transiently', () => {
       beforeEach(() => {
-        sceneCollaborators.removeScene.mockRejectedValueOnce(new Error('db unavailable'))
+        sceneCollaborators.removeByScene.mockRejectedValueOnce(new Error('db unavailable'))
       })
 
       it('should reject so the undeployment is not acknowledged as processed', async () => {

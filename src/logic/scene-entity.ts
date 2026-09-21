@@ -1,4 +1,3 @@
-import { extractLogsPermissions } from './logs-permissions'
 import type { WorldScene } from '../adapters/worlds-content-server/types'
 
 const MAX_TITLE_LENGTH = 255
@@ -13,6 +12,24 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export function pickString(...values: unknown[]): string | undefined {
   return values.find((value): value is string => typeof value === 'string' && value.length > 0)
+}
+
+/**
+ * @param value - Untrusted array-ish value.
+ * @returns Only the string entries of `value`, or [] when it is not an array.
+ */
+export function filterStringEntries(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
+}
+
+/**
+ * @param metadata - A scene/world entity's metadata.
+ * @returns The lowercased `logsPermissions` string entries, or [] when absent/malformed.
+ */
+export function extractLogsPermissions(metadata: unknown): string[] {
+  return filterStringEntries(isRecord(metadata) ? metadata.logsPermissions : undefined).map(entry =>
+    entry.toLowerCase()
+  )
 }
 
 function isControlCodePoint(codePoint: number): boolean {
