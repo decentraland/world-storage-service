@@ -3,6 +3,7 @@ import { wellKnownComponents } from '@dcl/crypto-middleware'
 import { errorHandler } from '@dcl/http-commons'
 import type { RoutedContext } from '@dcl/http-server'
 import { Router } from '@dcl/http-server'
+import { getCollaboratorHandler } from './handlers/collaborator/get-collaborator'
 import { clearEnvStorageHandler } from './handlers/env-storage/clear-env-storage'
 import { deleteEnvStorageHandler } from './handlers/env-storage/delete-env-storage'
 import { getEnvStorageHandler } from './handlers/env-storage/get-env-storage'
@@ -29,6 +30,7 @@ import { upsertWorldStorageHandler } from './handlers/world-storage/upsert-world
 import {
   authorizationMiddleware,
   authorizedAddressesOrScopedDelegationAuthorizationMiddleware,
+  logsAccessAuthorizationMiddleware,
   ownerAndDeployerOnlyAuthorizationMiddleware
 } from './middlewares/authorization-middleware'
 import { createBodySizeLimitMiddleware } from './middlewares/body-size-limit-middleware'
@@ -76,12 +78,12 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   const envBodySizeLimitMiddleware = createBodySizeLimitMiddleware(storageLimits.limits.env.maxValueSizeBytes)
 
   router.use(signedFetchMiddleware())
+  router.get('/collaborator', getCollaboratorHandler)
   router.use(sceneContextMiddleware)
 
   // All handlers below run after sceneContextMiddleware, so worldName, parcel, and placeId are guaranteed to be present.
   // The withSceneContext helper casts handlers to be compatible with the router's GlobalContext type.
 
-  // Usage endpoints
   router.get('/usage/world', withSceneContext(authorizationMiddleware), withSceneContext(getWorldUsageHandler))
   router.get(
     '/usage/players/:player_address',
@@ -95,18 +97,26 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
 
   // World storage endpoints
-  router.get('/values', withSceneContext(authorizationMiddleware), withSceneContext(listWorldStorageHandler))
-  router.get('/values/:key', withSceneContext(authorizationMiddleware), withSceneContext(getWorldStorageHandler))
+  router.get('/values', withSceneContext(logsAccessAuthorizationMiddleware), withSceneContext(listWorldStorageHandler))
+  router.get(
+    '/values/:key',
+    withSceneContext(logsAccessAuthorizationMiddleware),
+    withSceneContext(getWorldStorageHandler)
+  )
   // Authorization runs before schema validation so unauthorized callers cannot make the
   // server buffer and parse request bodies.
   router.put(
     '/values/:key',
     worldBodySizeLimitMiddleware,
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
     withSceneContext(upsertWorldStorageHandler)
   )
-  router.delete('/values/:key', withSceneContext(authorizationMiddleware), withSceneContext(deleteWorldStorageHandler))
+  router.delete(
+    '/values/:key',
+    withSceneContext(logsAccessAuthorizationMiddleware),
+    withSceneContext(deleteWorldStorageHandler)
+  )
   router.delete(
     '/values',
     withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
@@ -114,27 +124,27 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   )
 
   // Player storage endpoints
-  router.get('/players', withSceneContext(authorizationMiddleware), withSceneContext(listPlayersHandler))
+  router.get('/players', withSceneContext(logsAccessAuthorizationMiddleware), withSceneContext(listPlayersHandler))
   router.get(
     '/players/:player_address/values',
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     withSceneContext(listPlayerStorageHandler)
   )
   router.get(
     '/players/:player_address/values/:key',
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     withSceneContext(getPlayerStorageHandler)
   )
   router.put(
     '/players/:player_address/values/:key',
     playerBodySizeLimitMiddleware,
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     schemaValidator.withSchemaValidatorMiddleware(UpsertStorageRequestSchema),
     withSceneContext(upsertPlayerStorageHandler)
   )
   router.delete(
     '/players/:player_address/values/:key',
-    withSceneContext(authorizationMiddleware),
+    withSceneContext(logsAccessAuthorizationMiddleware),
     withSceneContext(deletePlayerStorageHandler)
   )
   router.delete(
