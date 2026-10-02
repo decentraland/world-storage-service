@@ -15,8 +15,8 @@ interface PlacesApiResponse {
  * Creates the Places API adapter that resolves place IDs from world name and parcel coordinates.
  *
  * Resolution logic:
- * - Genesis City (world_name = "main"): GET /api/places?positions=<parcel>
- * - Worlds: GET /api/places?names=<worldName>&positions=<parcel>
+ * - Genesis City (world_name = "main"): GET /api/places?positions=<parcel>&include_opted_out=true
+ * - Worlds: GET /api/places?names=<worldName>&positions=<parcel>&include_opted_out=true
  *
  * Results are cached using an in-memory LRU cache with a configurable TTL
  * from `PLACES_CACHE_TTL_SECONDS` (default: 300 seconds).
@@ -39,11 +39,12 @@ export async function createPlacesComponent(
     // by parcel position alone.
     const isWorld = isWorldName(worldName)
 
+    // Opted-out scenes are unlisted, not gone: they still need a place id.
     if (!isWorld) {
-      return `${baseUrl}?positions=${encodedParcel}`
+      return `${baseUrl}?positions=${encodedParcel}&include_opted_out=true`
     }
 
-    return `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${encodedParcel}`
+    return `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${encodedParcel}&include_opted_out=true`
   }
 
   // Validates the upstream payload shape (rather than trusting a bare cast) and returns the

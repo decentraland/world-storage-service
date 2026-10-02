@@ -54,7 +54,7 @@ describe('PlacesComponent', () => {
     it('should call the Places API with names and positions parameters', async () => {
       await places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')
       expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.DEFAULT)}&positions=${encodeURIComponent('0,0')}`,
+        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.DEFAULT)}&positions=${encodeURIComponent('0,0')}&include_opted_out=true`,
         { timeout: 5000, attempts: 3, retryDelay: 200 }
       )
     })
@@ -86,11 +86,14 @@ describe('PlacesComponent', () => {
 
     it('should call the Places API with positions only', async () => {
       await places.resolvePlaceId('main', '52,-10')
-      expect(fetcher.fetch).toHaveBeenCalledWith(`${placesUrl}/api/places?positions=${encodeURIComponent('52,-10')}`, {
-        timeout: 5000,
-        attempts: 3,
-        retryDelay: 200
-      })
+      expect(fetcher.fetch).toHaveBeenCalledWith(
+        `${placesUrl}/api/places?positions=${encodeURIComponent('52,-10')}&include_opted_out=true`,
+        {
+          timeout: 5000,
+          attempts: 3,
+          retryDelay: 200
+        }
+      )
     })
 
     it('should return the place ID from the response', async () => {
@@ -101,7 +104,7 @@ describe('PlacesComponent', () => {
     it('should treat non-`.dcl.eth` realm names as Genesis City (e.g. `artemis` on zone)', async () => {
       await places.resolvePlaceId('artemis', '-125,-96')
       expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?positions=${encodeURIComponent('-125,-96')}`,
+        `${placesUrl}/api/places?positions=${encodeURIComponent('-125,-96')}&include_opted_out=true`,
         { timeout: 5000, attempts: 3, retryDelay: 200 }
       )
     })
@@ -124,7 +127,7 @@ describe('PlacesComponent', () => {
     it('should query by world name rather than by position alone', async () => {
       await places.resolvePlaceId(WORLD_NAMES.ENS, '0,0')
       expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.ENS)}&positions=${encodeURIComponent('0,0')}`,
+        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.ENS)}&positions=${encodeURIComponent('0,0')}&include_opted_out=true`,
         { timeout: 5000, attempts: 3, retryDelay: 200 }
       )
     })
