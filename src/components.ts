@@ -68,6 +68,15 @@ export async function initComponents(): Promise<AppComponents> {
     }
   )
 
+  const placesPg = await createPgComponent(
+    { logs, config, metrics },
+    {
+      pool: {
+        connectionString: await getDbConnectionString({ config, prefix: 'PLACES_' })
+      }
+    }
+  )
+
   const encryption = await createEncryptionComponent({ config, logs })
 
   // Dedicated cache for storage reads. `max` bounds the number of cached entries
@@ -96,7 +105,7 @@ export async function initComponents(): Promise<AppComponents> {
   const cache = createInMemoryCacheComponent()
   const worldsContentServer = await createWorldsContentServerComponent({ fetcher, config, cache, logs })
   const worldPermission = await createWorldPermissionComponent({ worldsContentServer, fetcher, config, logs })
-  const places = await createPlacesComponent({ fetcher, config, cache, logs })
+  const places = await createPlacesComponent({ placesPg, config, cache, logs })
 
   return {
     fetcher,
@@ -106,6 +115,7 @@ export async function initComponents(): Promise<AppComponents> {
     statusChecks,
     metrics,
     pg,
+    placesPg,
     encryption,
     storageLimits,
     storageOperations,

@@ -3,15 +3,16 @@
  */
 export interface IPlacesComponent {
   /**
-   * Resolves a place ID from the Places API using the world name and parcel coordinates.
+   * Resolves a place ID from the Places `place_scene_resolution` view using the world name and
+   * parcel coordinates.
    *
    * For Genesis City (world_name = "main"): queries by position only.
-   * For worlds (*.eth): queries by world name and position.
+   * For worlds (*.eth): queries by lowercased world name and position.
    *
    * @param worldName - The world identifier ("main" for Genesis City, or a world name like "myworld.dcl.eth" / "myworld.eth")
    * @param parcel - The base parcel coordinate (e.g. "0,0")
    * @returns The place ID (UUID string)
-   * @throws {InvalidRequestError} If the scene is not found in the Places API
+   * @throws {InvalidRequestError} If the scene is not found in Places
    */
   resolvePlaceId(worldName: string, parcel: string): Promise<string>
 }

@@ -1,32 +1,37 @@
-import type { ICacheStorageComponent, IFetchComponent } from '@dcl/core-commons'
-import { createConfigMockedComponent, createFetchMockedComponent } from '@dcl/core-commons'
+import type { ICacheStorageComponent } from '@dcl/core-commons'
+import { createConfigMockedComponent } from '@dcl/core-commons'
 import { InvalidRequestError } from '@dcl/http-commons'
+import type { IPgComponent } from '@dcl/pg-component'
 import { createPlacesComponent } from '../../../src/adapters/places'
-import { PLACE_IDS, WORLD_NAMES } from '../../fixtures'
-import { createCacheMockedComponent, createLogsMockedComponent } from '../../mocks/components'
+import { PARCELS, PLACE_IDS, WORLD_NAMES } from '../../fixtures'
+import { createCacheMockedComponent, createLogsMockedComponent, createPgMockedComponent } from '../../mocks/components'
 import type { IPlacesComponent } from '../../../src/adapters/places/types'
+import type { SQLStatement } from 'sql-template-strings'
 
 describe('PlacesComponent', () => {
-  const placesUrl = 'https://places.decentraland.org'
   let config: ReturnType<typeof createConfigMockedComponent>
-  let fetcher: jest.Mocked<IFetchComponent>
+  let placesPg: jest.Mocked<IPgComponent>
   let cache: jest.Mocked<ICacheStorageComponent>
   let places: IPlacesComponent
 
-  function mockResponse(response: Partial<Response>): Response {
-    return response as Response
+  function mockRows(rows: Array<{ place_id: string }>): void {
+    placesPg.query.mockResolvedValue({ rows, rowCount: rows.length } as never)
+  }
+
+  function lastQuery(): SQLStatement {
+    return placesPg.query.mock.calls[placesPg.query.mock.calls.length - 1][0] as SQLStatement
   }
 
   beforeEach(async () => {
     config = createConfigMockedComponent({
-      getNumber: jest.fn().mockResolvedValue(undefined),
-      requireString: jest.fn().mockResolvedValue(placesUrl)
+      getNumber: jest.fn().mockResolvedValue(undefined)
     })
-    fetcher = createFetchMockedComponent() as jest.Mocked<IFetchComponent>
+    placesPg = createPgMockedComponent()
     cache = createCacheMockedComponent()
+    cache.get.mockResolvedValue(null)
 
     places = await createPlacesComponent({
-      fetcher,
+      placesPg,
       config,
       cache,
       logs: createLogsMockedComponent()
@@ -39,118 +44,54 @@ describe('PlacesComponent', () => {
 
   describe('when resolving a place ID for a world', () => {
     beforeEach(() => {
-      fetcher.fetch.mockResolvedValueOnce(
-        mockResponse({
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            ok: true,
-            total: 1,
-            data: [{ id: PLACE_IDS.DEFAULT }]
-          })
-        })
-      )
+      mockRows([{ place_id: PLACE_IDS.DEFAULT }])
     })
 
-    it('should call the Places API with names and positions parameters', async () => {
-      await places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')
-      expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.DEFAULT)}&positions=${encodeURIComponent('0,0')}`,
-        { timeout: 5000, attempts: 3, retryDelay: 200 }
-      )
+    it('should query the view by world flag, lowercased world name and position', async () => {
+      await places.resolvePlaceId(WORLD_NAMES.DEFAULT, PARCELS.SCENE_A)
+      const query = lastQuery()
+      expect(query.text).toContain('world IS TRUE')
+      expect(query.values).toEqual([WORLD_NAMES.DEFAULT.toLowerCase(), PARCELS.SCENE_A])
     })
 
-    it('should return the place ID from the response', async () => {
-      const result = await places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')
+    it('should lowercase a mixed-case world name before matching', async () => {
+      await places.resolvePlaceId('MixedCase.DCL.eth', PARCELS.DEFAULT)
+      expect(lastQuery().values).toEqual(['mixedcase.dcl.eth', PARCELS.DEFAULT])
+    })
+
+    it('should return the place ID from the view', async () => {
+      const result = await places.resolvePlaceId(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)
       expect(result).toBe(PLACE_IDS.DEFAULT)
     })
 
     it('should cache the result', async () => {
-      await places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')
-      expect(cache.set).toHaveBeenCalledWith(`places:${WORLD_NAMES.DEFAULT}:0,0`, PLACE_IDS.DEFAULT, 300)
+      await places.resolvePlaceId(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)
+      expect(cache.set).toHaveBeenCalledWith(`places:${WORLD_NAMES.DEFAULT}:${PARCELS.DEFAULT}`, PLACE_IDS.DEFAULT, 300)
     })
   })
 
   describe('when resolving a place ID for Genesis City', () => {
     beforeEach(() => {
-      fetcher.fetch.mockResolvedValueOnce(
-        mockResponse({
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            ok: true,
-            total: 1,
-            data: [{ id: PLACE_IDS.GENESIS_CITY }]
-          })
-        })
-      )
+      mockRows([{ place_id: PLACE_IDS.GENESIS_CITY }])
     })
 
-    it('should call the Places API with positions only', async () => {
-      await places.resolvePlaceId('main', '52,-10')
-      expect(fetcher.fetch).toHaveBeenCalledWith(`${placesUrl}/api/places?positions=${encodeURIComponent('52,-10')}`, {
-        timeout: 5000,
-        attempts: 3,
-        retryDelay: 200
-      })
+    it('should query the view by position only', async () => {
+      await places.resolvePlaceId('main', PARCELS.GENESIS_CITY)
+      const query = lastQuery()
+      expect(query.text).toContain('world IS FALSE')
+      expect(query.values).toEqual([PARCELS.GENESIS_CITY])
     })
 
-    it('should return the place ID from the response', async () => {
-      const result = await places.resolvePlaceId('main', '52,-10')
-      expect(result).toBe(PLACE_IDS.GENESIS_CITY)
-    })
-
-    it('should treat non-`.dcl.eth` realm names as Genesis City (e.g. `artemis` on zone)', async () => {
+    it('should treat non-`.eth` realm names as Genesis City (e.g. `artemis` on zone)', async () => {
       await places.resolvePlaceId('artemis', '-125,-96')
-      expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?positions=${encodeURIComponent('-125,-96')}`,
-        { timeout: 5000, attempts: 3, retryDelay: 200 }
-      )
-    })
-  })
-
-  describe('when resolving a place ID for an ENS world', () => {
-    beforeEach(() => {
-      fetcher.fetch.mockResolvedValueOnce(
-        mockResponse({
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            ok: true,
-            total: 1,
-            data: [{ id: PLACE_IDS.DEFAULT }]
-          })
-        })
-      )
+      const query = lastQuery()
+      expect(query.text).toContain('world IS FALSE')
+      expect(query.values).toEqual(['-125,-96'])
     })
 
-    it('should query by world name rather than by position alone', async () => {
-      await places.resolvePlaceId(WORLD_NAMES.ENS, '0,0')
-      expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.ENS)}&positions=${encodeURIComponent('0,0')}`,
-        { timeout: 5000, attempts: 3, retryDelay: 200 }
-      )
-    })
-
-    it('should cache the result under the ENS world name', async () => {
-      await places.resolvePlaceId(WORLD_NAMES.ENS, '0,0')
-      expect(cache.set).toHaveBeenCalledWith(`places:${WORLD_NAMES.ENS}:0,0`, PLACE_IDS.DEFAULT, 300)
-    })
-  })
-
-  describe('when an ENS world is not indexed by the Places API', () => {
-    beforeEach(() => {
-      fetcher.fetch.mockResolvedValue(
-        mockResponse({
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            ok: true,
-            total: 0,
-            data: []
-          })
-        })
-      )
-    })
-
-    it('should fail closed with an InvalidRequestError instead of resolving a Genesis City place', async () => {
-      await expect(places.resolvePlaceId(WORLD_NAMES.ENS, '0,0')).rejects.toThrow(InvalidRequestError)
+    it('should return the place ID from the view', async () => {
+      const result = await places.resolvePlaceId('main', PARCELS.GENESIS_CITY)
+      expect(result).toBe(PLACE_IDS.GENESIS_CITY)
     })
   })
 
@@ -159,96 +100,51 @@ describe('PlacesComponent', () => {
       cache.get.mockResolvedValueOnce(PLACE_IDS.DEFAULT)
     })
 
-    it('should return the cached value without calling the API', async () => {
-      const result = await places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')
+    it('should return the cached value without querying the view', async () => {
+      const result = await places.resolvePlaceId(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)
       expect(result).toBe(PLACE_IDS.DEFAULT)
-      expect(fetcher.fetch).not.toHaveBeenCalled()
+      expect(placesPg.query).not.toHaveBeenCalled()
     })
   })
 
-  describe('when the Places API returns no data', () => {
+  describe('when the view returns no rows', () => {
     beforeEach(() => {
-      fetcher.fetch.mockResolvedValue(
-        mockResponse({
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            ok: true,
-            total: 0,
-            data: []
-          })
-        })
-      )
+      mockRows([])
     })
 
     it('should throw an InvalidRequestError', async () => {
-      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')).rejects.toThrow(InvalidRequestError)
+      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)).rejects.toThrow(InvalidRequestError)
     })
 
     it('should include the world name and parcel in the error message', async () => {
-      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')).rejects.toThrow(/Scene not found in Places API/)
-    })
-  })
-
-  describe('when the Places API returns an entry without an id', () => {
-    beforeEach(() => {
-      fetcher.fetch.mockResolvedValue(
-        mockResponse({
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            ok: true,
-            total: 1,
-            data: [{ title: 'no id here' }]
-          })
-        })
+      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)).rejects.toThrow(
+        /Scene not found in Places/
       )
     })
 
-    it('should throw an error about the missing id rather than resolving to undefined', async () => {
-      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')).rejects.toThrow(/without an id/)
+    it('should not cache a miss', async () => {
+      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)).rejects.toThrow(InvalidRequestError)
+      expect(cache.set).not.toHaveBeenCalled()
     })
   })
 
-  describe('when the Places API returns a payload where data is not an array', () => {
+  describe('when the view returns a row without an id', () => {
     beforeEach(() => {
-      fetcher.fetch.mockResolvedValue(
-        mockResponse({
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            ok: true,
-            total: 1,
-            data: 'unexpected'
-          })
-        })
-      )
+      placesPg.query.mockResolvedValue({ rows: [{ other: 'value' }], rowCount: 1 } as never)
     })
 
-    it('should throw an error about the unexpected payload', async () => {
-      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')).rejects.toThrow(/unexpected payload/)
+    it('should throw an InvalidRequestError', async () => {
+      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)).rejects.toThrow(InvalidRequestError)
     })
   })
 
-  describe('when the Places API returns an HTTP error', () => {
+  describe('when the query fails', () => {
     beforeEach(() => {
-      fetcher.fetch.mockResolvedValueOnce(
-        mockResponse({
-          ok: false,
-          status: 500
-        })
-      )
-    })
-
-    it('should throw an error', async () => {
-      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')).rejects.toThrow('Places API returned HTTP 500')
-    })
-  })
-
-  describe('when the fetch fails with a network error', () => {
-    beforeEach(() => {
-      fetcher.fetch.mockRejectedValueOnce(new Error('Network error'))
+      placesPg.query.mockRejectedValueOnce(new Error('connection refused'))
     })
 
     it('should propagate the error', async () => {
-      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')).rejects.toThrow('Network error')
+      await expect(places.resolvePlaceId(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)).rejects.toThrow('connection refused')
     })
   })
 })

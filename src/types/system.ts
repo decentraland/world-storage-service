@@ -51,10 +51,10 @@ export interface BaseComponents {
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
 }
 
-// components used in runtime
 export type AppComponents = BaseComponents & {
   statusChecks: IBaseComponent
   pg: IPgComponent
+  placesPg: IPgComponent
 }
 
 // components used in tests
