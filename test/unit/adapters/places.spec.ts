@@ -54,7 +54,7 @@ describe('PlacesComponent', () => {
     it('should call the Places API with names and positions parameters', async () => {
       await places.resolvePlaceId(WORLD_NAMES.DEFAULT, '0,0')
       expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.DEFAULT)}&positions=${encodeURIComponent('0,0')}`,
+        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.DEFAULT)}&positions=${encodeURIComponent('0,0')}&include_opted_out=true`,
         { timeout: 5000, attempts: 3, retryDelay: 200 }
       )
     })
@@ -124,7 +124,7 @@ describe('PlacesComponent', () => {
     it('should query by world name rather than by position alone', async () => {
       await places.resolvePlaceId(WORLD_NAMES.ENS, '0,0')
       expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.ENS)}&positions=${encodeURIComponent('0,0')}`,
+        `${placesUrl}/api/places?names=${encodeURIComponent(WORLD_NAMES.ENS)}&positions=${encodeURIComponent('0,0')}&include_opted_out=true`,
         { timeout: 5000, attempts: 3, retryDelay: 200 }
       )
     })
