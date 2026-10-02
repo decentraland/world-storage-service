@@ -86,14 +86,11 @@ describe('PlacesComponent', () => {
 
     it('should call the Places API with positions only', async () => {
       await places.resolvePlaceId('main', '52,-10')
-      expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?positions=${encodeURIComponent('52,-10')}&include_opted_out=true`,
-        {
-          timeout: 5000,
-          attempts: 3,
-          retryDelay: 200
-        }
-      )
+      expect(fetcher.fetch).toHaveBeenCalledWith(`${placesUrl}/api/places?positions=${encodeURIComponent('52,-10')}`, {
+        timeout: 5000,
+        attempts: 3,
+        retryDelay: 200
+      })
     })
 
     it('should return the place ID from the response', async () => {
@@ -104,7 +101,7 @@ describe('PlacesComponent', () => {
     it('should treat non-`.dcl.eth` realm names as Genesis City (e.g. `artemis` on zone)', async () => {
       await places.resolvePlaceId('artemis', '-125,-96')
       expect(fetcher.fetch).toHaveBeenCalledWith(
-        `${placesUrl}/api/places?positions=${encodeURIComponent('-125,-96')}&include_opted_out=true`,
+        `${placesUrl}/api/places?positions=${encodeURIComponent('-125,-96')}`,
         { timeout: 5000, attempts: 3, retryDelay: 200 }
       )
     })
