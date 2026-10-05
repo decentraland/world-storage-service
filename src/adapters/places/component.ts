@@ -16,7 +16,7 @@ interface PlacesApiResponse {
  *
  * Resolution logic:
  * - Genesis City (world_name = "main"): GET /api/places?positions=<parcel>
- * - Worlds: GET /api/places?names=<worldName>&positions=<parcel>
+ * - Worlds: GET /api/places?names=<worldName>&positions=<parcel>&include_opted_out=true
  *
  * Results are cached using an in-memory LRU cache with a configurable TTL
  * from `PLACES_CACHE_TTL_SECONDS` (default: 300 seconds).
@@ -43,7 +43,8 @@ export async function createPlacesComponent(
       return `${baseUrl}?positions=${encodedParcel}`
     }
 
-    return `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${encodedParcel}`
+    // Opted-out world scenes are unlisted, not gone: they still need a place id.
+    return `${baseUrl}?names=${encodeURIComponent(worldName)}&positions=${encodedParcel}&include_opted_out=true`
   }
 
   // Validates the upstream payload shape (rather than trusting a bare cast) and returns the
