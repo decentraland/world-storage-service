@@ -6,6 +6,10 @@ import { PLACE_IDS, WORLD_NAMES } from '../../fixtures'
 import { createCacheMockedComponent, createLogsMockedComponent, createPgMockedComponent } from '../../mocks/components'
 import type { IWorldStorageComponent } from '../../../src/adapters/world-storage/types'
 
+async function* toAsyncGenerator<T>(items: T[]): AsyncGenerator<T> {
+  yield* items
+}
+
 describe('WorldStorageComponent', () => {
   let pg: jest.Mocked<IPgComponent>
   let storageCache: jest.Mocked<ICacheStorageComponent>
@@ -235,6 +239,46 @@ describe('WorldStorageComponent', () => {
         const result = await worldStorage.listValues(worldName, placeId, { limit: 100, offset: 0, prefix: undefined })
         expect(result).toBe('[]')
       })
+    })
+  })
+
+  describe('when streaming all world storage values of a scene', () => {
+    let rows: Array<{ key: string; value: string }>
+    let yielded: Array<{ key: string; value: string }>
+    let statement: { text: string; values: unknown[] }
+
+    beforeEach(async () => {
+      rows = [
+        { key: 'a', value: '"value-a"' },
+        { key: 'b', value: '{"n":1}' }
+      ]
+      pg.streamQuery.mockReturnValueOnce(toAsyncGenerator(rows))
+
+      yielded = []
+      for await (const row of worldStorage.streamSceneValues(worldName, placeId)) {
+        yielded.push(row)
+      }
+      statement = pg.streamQuery.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
+    })
+
+    it('should yield the stored rows unchanged', () => {
+      expect(yielded).toEqual(rows)
+    })
+
+    it('should filter on both the world name and the place id', () => {
+      expect(statement.text).toMatch(/world_name = \$1 AND place_id = \$2/)
+    })
+
+    it('should bind the world name and place id', () => {
+      expect(statement.values.slice(0, 2)).toEqual([worldName, placeId])
+    })
+
+    it('should order the rows by key', () => {
+      expect(statement.text).toContain('ORDER BY key')
+    })
+
+    it('should not read from the cache', () => {
+      expect(storageCache.get).not.toHaveBeenCalled()
     })
   })
 

@@ -6,6 +6,10 @@ import { ADDRESSES, PLACE_IDS, WORLD_NAMES } from '../../fixtures'
 import { createCacheMockedComponent, createLogsMockedComponent, createPgMockedComponent } from '../../mocks/components'
 import type { IPlayerStorageComponent } from '../../../src/adapters/player-storage/types'
 
+async function* toAsyncGenerator<T>(items: T[]): AsyncGenerator<T> {
+  yield* items
+}
+
 describe('PlayerStorageComponent', () => {
   let pg: jest.Mocked<IPgComponent>
   let storageCache: jest.Mocked<ICacheStorageComponent>
@@ -242,6 +246,46 @@ describe('PlayerStorageComponent', () => {
         prefix: undefined
       })
       expect(result).toBe(dataText)
+    })
+  })
+
+  describe('when streaming all player storage values of a scene', () => {
+    let rows: Array<{ player_address: string; key: string; value: string }>
+    let yielded: Array<{ player_address: string; key: string; value: string }>
+    let statement: { text: string; values: unknown[] }
+
+    beforeEach(async () => {
+      rows = [
+        { player_address: ADDRESSES.PLAYER, key: 'a', value: '"value-a"' },
+        { player_address: ADDRESSES.OWNER, key: 'b', value: '{"n":1}' }
+      ]
+      pg.streamQuery.mockReturnValueOnce(toAsyncGenerator(rows))
+
+      yielded = []
+      for await (const row of playerStorage.streamScenePlayerValues(worldName, placeId)) {
+        yielded.push(row)
+      }
+      statement = pg.streamQuery.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
+    })
+
+    it('should yield the stored rows unchanged', () => {
+      expect(yielded).toEqual(rows)
+    })
+
+    it('should filter on both the world name and the place id', () => {
+      expect(statement.text).toMatch(/world_name = \$1 AND place_id = \$2/)
+    })
+
+    it('should bind only the world name and place id', () => {
+      expect(statement.values).toEqual([worldName, placeId])
+    })
+
+    it('should order the rows by player address then key', () => {
+      expect(statement.text).toContain('ORDER BY player_address ASC, key ASC')
+    })
+
+    it('should not read from the cache', () => {
+      expect(storageCache.get).not.toHaveBeenCalled()
     })
   })
 
