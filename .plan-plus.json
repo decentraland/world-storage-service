@@ -1,0 +1,35 @@
+{
+  "specs": "external",
+  "automation": {
+    "enabled": true,
+    "base_branch": "main",
+    "required_checks": [
+      { "id": "install", "command": ["npx", "--yes", "yarn@1.22.22", "install", "--frozen-lockfile"], "timeout_seconds": 900, "mutates": true },
+      { "id": "build", "command": ["npx", "--yes", "yarn@1.22.22", "build"], "timeout_seconds": 600 },
+      { "id": "lint", "command": ["npx", "--yes", "yarn@1.22.22", "lint:check"], "timeout_seconds": 600, "parallel_safe": true },
+      { "id": "lint-package-json", "command": ["npx", "--yes", "yarn@1.22.22", "lint:package-json"], "timeout_seconds": 300, "parallel_safe": true },
+      { "id": "tests", "command": ["npx", "--yes", "yarn@1.22.22", "test"], "timeout_seconds": 1800 }
+    ],
+    "protected_paths": [
+      "package.json",
+      "yarn.lock",
+      ".npmpackagejsonlintrc.json",
+      "eslint.config.js",
+      "prettier.config.cjs",
+      "jest.config.js",
+      "tsconfig.json",
+      "tsconfig.eslint.json",
+      "test/tsconfig.json",
+      "docker-compose.yml",
+      "Dockerfile",
+      ".dockerignore",
+      ".env.default",
+      "src/migrations/**"
+    ],
+    "ci_checks": [
+      { "context": "build / test", "app_slug": "github-actions" },
+      { "context": "build / validations", "app_slug": "github-actions" },
+      { "context": "lint-pkg / lint-package-json", "app_slug": "github-actions" }
+    ]
+  }
+}
