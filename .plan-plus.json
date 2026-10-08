@@ -1,0 +1,29 @@
+{
+  "specs": "external",
+  "automation": {
+    "enabled": true,
+    "base_branch": "main",
+    "required_checks": [
+      { "id": "build", "command": ["yarn", "build"], "timeout_seconds": 600 },
+      { "id": "lint", "command": ["yarn", "lint:check"], "timeout_seconds": 600, "parallel_safe": true },
+      { "id": "tests", "command": ["yarn", "test"], "timeout_seconds": 1800, "fail_on_output": ["No tests found"] }
+    ],
+    "protected_paths": [
+      "package.json",
+      "yarn.lock",
+      "eslint.config.js",
+      "prettier.config.cjs",
+      "jest.config.js",
+      "tsconfig.json",
+      "tsconfig.eslint.json",
+      "test/tsconfig.json",
+      "docker-compose.yml",
+      "Dockerfile"
+    ],
+    "ci_checks": [
+      { "context": "build / test", "app_slug": "github-actions" },
+      { "context": "build / validations", "app_slug": "github-actions" },
+      { "context": "lint-pkg / lint-package-json", "app_slug": "github-actions" }
+    ]
+  }
+}
