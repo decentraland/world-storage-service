@@ -78,6 +78,18 @@ export interface IPlayerStorageComponent {
   listValues(worldName: string, placeId: string, playerAddress: string, options: PaginationOptions): Promise<string>
 
   /**
+   * Streams every player storage entry of a scene ordered by player address then key; `value` is the stored JSON text.
+   *
+   * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
+   * @returns An async generator of { player_address, key, value } rows
+   */
+  streamScenePlayerValues(
+    worldName: string,
+    placeId: string
+  ): AsyncGenerator<{ player_address: string; key: string; value: string }>
+
+  /**
    * Counts the total number of keys for a player
    *
    * @param worldName - The world identifier
