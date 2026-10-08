@@ -73,6 +73,7 @@ export type AppComponents = BaseComponents & {
 export type TestComponents = BaseComponents & {
   // A fetch component that only hits the test server
   localFetch: IFetchComponent
+  pg: IPgComponent
 }
 
 // this type simplifies the typings of http handlers
