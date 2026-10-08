@@ -6,6 +6,14 @@ import { PLACE_IDS, WORLD_NAMES } from '../../fixtures'
 import { createCacheMockedComponent, createLogsMockedComponent, createPgMockedComponent } from '../../mocks/components'
 import type { IWorldStorageComponent } from '../../../src/adapters/world-storage/types'
 
+async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
+  const items: T[] = []
+  for await (const item of iterable) {
+    items.push(item)
+  }
+  return items
+}
+
 describe('WorldStorageComponent', () => {
   let pg: jest.Mocked<IPgComponent>
   let storageCache: jest.Mocked<ICacheStorageComponent>
@@ -234,6 +242,70 @@ describe('WorldStorageComponent', () => {
       it('should return an empty JSON array text', async () => {
         const result = await worldStorage.listValues(worldName, placeId, { limit: 100, offset: 0, prefix: undefined })
         expect(result).toBe('[]')
+      })
+    })
+  })
+
+  describe('when streaming world storage values of a scene', () => {
+    let rows: Array<{ key: string; value: string }>
+    let keys: string[] | null
+
+    beforeEach(() => {
+      rows = [
+        { key: 'a', value: '"value-a"' },
+        { key: 'b', value: '42' }
+      ]
+      pg.streamQuery.mockImplementationOnce(async function* () {
+        yield* rows
+      })
+    })
+
+    describe('and no key filter is given', () => {
+      beforeEach(() => {
+        keys = null
+      })
+
+      it('should yield the rows unchanged', async () => {
+        const yielded = await collect(worldStorage.streamSceneValues(worldName, placeId, keys))
+        expect(yielded).toEqual(rows)
+      })
+
+      it('should scope the query to the world and place ordered by key without a key filter', async () => {
+        await collect(worldStorage.streamSceneValues(worldName, placeId, keys))
+        const [query] = pg.streamQuery.mock.calls[0]
+        expect(query.text).toEqual(expect.stringContaining('world_name ='))
+        expect(query.text).toEqual(expect.stringContaining('place_id ='))
+        expect(query.text).toEqual(expect.stringContaining('ORDER BY key ASC'))
+        expect(query.text).not.toContain('ANY(')
+      })
+
+      it('should bind only the world name, place id and the empty prefix', async () => {
+        await collect(worldStorage.streamSceneValues(worldName, placeId, keys))
+        const [query] = pg.streamQuery.mock.calls[0]
+        expect(query.values).toEqual([worldName, placeId, null, null])
+      })
+
+      it('should not read from the cache', async () => {
+        await collect(worldStorage.streamSceneValues(worldName, placeId, keys))
+        expect(storageCache.get).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and a key filter is given', () => {
+      beforeEach(() => {
+        keys = ['b', 'a']
+      })
+
+      it('should filter the keys with a bound array parameter', async () => {
+        await collect(worldStorage.streamSceneValues(worldName, placeId, keys))
+        const [query] = pg.streamQuery.mock.calls[0]
+        expect(query.text).toEqual(expect.stringContaining('key = ANY('))
+        expect(query.values[query.values.length - 1]).toEqual(['b', 'a'])
+      })
+
+      it('should not read from the cache', async () => {
+        await collect(worldStorage.streamSceneValues(worldName, placeId, keys))
+        expect(storageCache.get).not.toHaveBeenCalled()
       })
     })
   })

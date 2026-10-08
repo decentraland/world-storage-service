@@ -6,6 +6,14 @@ import { ADDRESSES, PLACE_IDS, WORLD_NAMES } from '../../fixtures'
 import { createCacheMockedComponent, createLogsMockedComponent, createPgMockedComponent } from '../../mocks/components'
 import type { IPlayerStorageComponent } from '../../../src/adapters/player-storage/types'
 
+async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
+  const items: T[] = []
+  for await (const item of iterable) {
+    items.push(item)
+  }
+  return items
+}
+
 describe('PlayerStorageComponent', () => {
   let pg: jest.Mocked<IPgComponent>
   let storageCache: jest.Mocked<ICacheStorageComponent>
@@ -242,6 +250,109 @@ describe('PlayerStorageComponent', () => {
         prefix: undefined
       })
       expect(result).toBe(dataText)
+    })
+  })
+
+  describe('when streaming player storage values of a scene', () => {
+    let rows: Array<{ player_address: string; key: string; value: string }>
+    let filter: { addresses: string[] | null; keys: string[] | null }
+
+    beforeEach(() => {
+      rows = [
+        { player_address: playerAddress, key: 'a', value: '"value-a"' },
+        { player_address: playerAddress, key: 'b', value: '42' }
+      ]
+      pg.streamQuery.mockImplementationOnce(async function* () {
+        yield* rows
+      })
+    })
+
+    describe('and neither addresses nor keys are given', () => {
+      beforeEach(() => {
+        filter = { addresses: null, keys: null }
+      })
+
+      it('should yield the rows unchanged', async () => {
+        const yielded = await collect(playerStorage.streamScenePlayerValues(worldName, placeId, filter))
+        expect(yielded).toEqual(rows)
+      })
+
+      it('should scope the query to the world and place ordered by player address then key without filters', async () => {
+        await collect(playerStorage.streamScenePlayerValues(worldName, placeId, filter))
+        const [query] = pg.streamQuery.mock.calls[0]
+        expect(query.text).toEqual(expect.stringContaining('world_name ='))
+        expect(query.text).toEqual(expect.stringContaining('place_id ='))
+        expect(query.text).toEqual(expect.stringContaining('ORDER BY player_address ASC, key ASC'))
+        expect(query.text).not.toContain('ANY(')
+      })
+
+      it('should bind only the world name and place id', async () => {
+        await collect(playerStorage.streamScenePlayerValues(worldName, placeId, filter))
+        const [query] = pg.streamQuery.mock.calls[0]
+        expect(query.values).toEqual([worldName, placeId])
+      })
+
+      it('should not read from the cache', async () => {
+        await collect(playerStorage.streamScenePlayerValues(worldName, placeId, filter))
+        expect(storageCache.get).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and only addresses are given', () => {
+      beforeEach(() => {
+        filter = { addresses: [playerAddress], keys: null }
+      })
+
+      it('should filter the player addresses with a bound array parameter and no key filter', async () => {
+        await collect(playerStorage.streamScenePlayerValues(worldName, placeId, filter))
+        const [query] = pg.streamQuery.mock.calls[0]
+        expect(query.text).toEqual(expect.stringContaining('player_address = ANY('))
+        expect(query.text).not.toContain('key = ANY(')
+        expect(query.values).toEqual([worldName, placeId, [playerAddress]])
+      })
+
+      it('should not read from the cache', async () => {
+        await collect(playerStorage.streamScenePlayerValues(worldName, placeId, filter))
+        expect(storageCache.get).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and only keys are given', () => {
+      beforeEach(() => {
+        filter = { addresses: null, keys: ['b', 'a'] }
+      })
+
+      it('should filter the keys with a bound array parameter and no address filter', async () => {
+        await collect(playerStorage.streamScenePlayerValues(worldName, placeId, filter))
+        const [query] = pg.streamQuery.mock.calls[0]
+        expect(query.text).toEqual(expect.stringContaining('key = ANY('))
+        expect(query.text).not.toContain('player_address = ANY(')
+        expect(query.values).toEqual([worldName, placeId, ['b', 'a']])
+      })
+
+      it('should not read from the cache', async () => {
+        await collect(playerStorage.streamScenePlayerValues(worldName, placeId, filter))
+        expect(storageCache.get).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and both addresses and keys are given', () => {
+      beforeEach(() => {
+        filter = { addresses: [playerAddress], keys: ['b', 'a'] }
+      })
+
+      it('should filter both with bound array parameters, addresses before keys', async () => {
+        await collect(playerStorage.streamScenePlayerValues(worldName, placeId, filter))
+        const [query] = pg.streamQuery.mock.calls[0]
+        expect(query.text).toEqual(expect.stringContaining('player_address = ANY('))
+        expect(query.text).toEqual(expect.stringContaining('key = ANY('))
+        expect(query.values).toEqual([worldName, placeId, [playerAddress], ['b', 'a']])
+      })
+
+      it('should not read from the cache', async () => {
+        await collect(playerStorage.streamScenePlayerValues(worldName, placeId, filter))
+        expect(storageCache.get).not.toHaveBeenCalled()
+      })
     })
   })
 
