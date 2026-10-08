@@ -13,12 +13,14 @@ import type { ICatalystContentComponent } from '../adapters/catalyst-content/typ
 import type { IDeploymentConsumerComponent } from '../adapters/deployment-consumer/types'
 import type { IEncryptionComponent } from '../adapters/encryption/types'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'
+import type { IExportJobsComponent } from '../adapters/export-jobs/types'
 import type { IPlacesComponent } from '../adapters/places/types'
 import type { IPlayerStorageComponent } from '../adapters/player-storage/types'
 import type { ISceneCollaboratorsComponent } from '../adapters/scene-collaborators/types'
 import type { IWorldStorageComponent } from '../adapters/world-storage/types'
 import type { IWorldsContentServerComponent } from '../adapters/worlds-content-server/types'
 import type { ISceneEntityComponent } from '../logic/scene-entity/types'
+import type { IStorageExportComponent } from '../logic/storage-export/types'
 import type { IStorageLimitsComponent } from '../logic/storage-limits/types'
 import type { IStorageOperationsComponent } from '../logic/storage-operations/types'
 import type { IWorldPermissionComponent } from '../logic/world-permission/types'
@@ -55,6 +57,8 @@ export interface BaseComponents {
   catalystContent: ICatalystContentComponent
   storageLimits: IStorageLimitsComponent
   storageOperations: IStorageOperationsComponent
+  exportJobs: IExportJobsComponent
+  storageExport: IStorageExportComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
   sceneCollaborators: ISceneCollaboratorsComponent
   sceneEntity: ISceneEntityComponent
