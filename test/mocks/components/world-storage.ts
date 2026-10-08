@@ -7,6 +7,7 @@ export function createWorldStorageMockedComponent(): jest.Mocked<IWorldStorageCo
     deleteValue: jest.fn(),
     deleteAll: jest.fn(),
     listValues: jest.fn(),
+    streamSceneValues: jest.fn(),
     countKeys: jest.fn(),
     getSizeInfo: jest.fn(),
     invalidateValue: jest.fn()

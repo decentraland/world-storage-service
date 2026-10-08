@@ -78,6 +78,20 @@ export interface IPlayerStorageComponent {
   listValues(worldName: string, placeId: string, playerAddress: string, options: PaginationOptions): Promise<string>
 
   /**
+   * Streams a scene's player storage entries ordered by player address then key, limited to `filter.addresses` and `filter.keys` when given; `value` is the stored JSON text.
+   *
+   * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
+   * @param filter - Player addresses and keys to include, each `null` for all
+   * @returns An async generator of { player_address, key, value } rows
+   */
+  streamScenePlayerValues(
+    worldName: string,
+    placeId: string,
+    filter: { addresses: string[] | null; keys: string[] | null }
+  ): AsyncGenerator<{ player_address: string; key: string; value: string }>
+
+  /**
    * Counts the total number of keys for a player
    *
    * @param worldName - The world identifier

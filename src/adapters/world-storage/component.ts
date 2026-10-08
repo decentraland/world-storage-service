@@ -202,6 +202,28 @@ export const createWorldStorageComponent = async ({
   }
 
   /**
+   * Streams a scene's world storage entries ordered by key, limited to `keys` when given.
+   *
+   * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
+   * @param keys - Keys to include, or `null` for all
+   * @returns An async generator of { key, value } rows where `value` is the stored JSON text
+   */
+  function streamSceneValues(
+    worldName: string,
+    placeId: string,
+    keys: string[] | null
+  ): AsyncGenerator<{ key: string; value: string }> {
+    const query = SQL`SELECT key, value::text AS value`.append(buildValuesBaseQuery(worldName, placeId))
+    if (keys !== null) {
+      query.append(SQL` AND key = ANY(${keys}::text[])`)
+    }
+    query.append(SQL` ORDER BY key ASC`)
+
+    return pg.streamQuery<{ key: string; value: string }>(query)
+  }
+
+  /**
    * Counts the total number of keys for a scene
    *
    * @param worldName - The world identifier
@@ -315,6 +337,7 @@ export const createWorldStorageComponent = async ({
     deleteValue,
     deleteAll,
     listValues,
+    streamSceneValues,
     countKeys,
     getSizeInfo,
     invalidateValue
