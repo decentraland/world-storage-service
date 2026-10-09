@@ -257,13 +257,14 @@ Stores asynchronous storage export jobs for a scene, one row per job, together w
 ### Business Rules
 
 - **Scene and signer isolation**: a job is visible only when its `world_name`, `place_id` and `requested_by` all match the request's scene and signer.
-- **Atomic create**: each create runs in a transaction holding `pg_advisory_xact_lock(hashtextextended('export-jobs:<world_name>:<place_id>:<requested_by>', 0))`, then in order:
+- **Atomic create**: each create runs in a transaction holding the scene lock `pg_advisory_xact_lock(hashtextextended('export-jobs:<world_name>:<place_id>', 0))`, then in order:
   1. Reuses the newest job with the same `format` and `selection` that is `pending`, `running`, or `done` and not yet expired.
-  2. Otherwise returns limit-reached when the signer already has `EXPORT_MAX_ACTIVE_JOBS_PER_SIGNER` (default 3) `pending` or `running` jobs for the scene. Finished jobs do not count toward the cap.
+  2. Otherwise returns limit-reached when the signer already has `EXPORT_MAX_ACTIVE_JOBS_PER_SIGNER` (default 3), or the scene across all signers has `EXPORT_MAX_ACTIVE_JOBS_PER_SCENE` (default 6), `pending` or `running` jobs. Finished jobs do not count toward either cap.
   3. Otherwise inserts a `pending` job.
 - **Canonical selection**: `selection` is `{ worldKeys, playerAddresses, playerKeys }`, where `null` means all and `[]` means none. Each list is deduplicated and sorted, and addresses are lowercased. When `playerAddresses` or `playerKeys` is `[]`, both are stored as `[]`. Equivalent requests therefore compare equal.
 - **Expiry**: a job gets `expires_at = completed_at + EXPORT_JOB_TTL_SECONDS` (1 hour) when it finishes, as `done` or `failed`. Expired jobs are never returned and are deleted by the expiry sweep.
 - **Guarded finalize**: a job only moves from `running` to `done` or `failed`, and never back to `pending`, so a job failed by the stale-job timeout is never overwritten by a late finisher.
+- **Scene storage budget**: storing a finished file takes the same scene lock and refuses it when the scene's unexpired `done` files plus the new one would exceed `EXPORT_MAX_SCENE_STORED_BYTES` (default 500 MB); the worker then fails the job with `Export storage limit reached`.
 
 ### Other
 

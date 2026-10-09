@@ -11,7 +11,7 @@ import type { WorldHandlerContextWithPath } from '../../../types'
  * Handler for requesting an export of the scene's world and player storage.
  *
  * @param context - Request context with the format query, the optional selection body and the signer
- * @returns 202 with the new or reused job, or 429 when the signer has too many exports in flight
+ * @returns 202 with the new or reused job, or 429 when the signer or scene has too many exports in flight
  */
 export async function createExportHandler(
   context: Pick<

@@ -95,8 +95,11 @@ export async function createStorageExportComponent({
     const logContext = { jobId: job.id, worldName: job.worldName, placeId: job.placeId }
     try {
       const content = await buildExport(job)
-      if (await exportJobs.markDone(job, content, jobTtlSeconds)) {
+      const stored = await exportJobs.markDone(job, content, jobTtlSeconds)
+      if (stored === 'done') {
         logger.info('Export job done', { ...logContext, sizeBytes: content.length })
+      } else if (stored === 'over-budget') {
+        await exportJobs.markFailed(job, 'Export storage limit reached', jobTtlSeconds)
       } else {
         logger.warn('Export job finished after it was failed', { jobId: job.id })
       }

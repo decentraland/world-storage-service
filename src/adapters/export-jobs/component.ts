@@ -7,7 +7,8 @@ import type {
   ExportJobScope,
   ExportJobStatus,
   ExportSelection,
-  IExportJobsComponent
+  IExportJobsComponent,
+  MarkDoneResult
 } from './types'
 import type { AppComponents } from '../../types'
 import type { SQLStatement } from 'sql-template-strings'
@@ -82,7 +83,16 @@ export const createExportJobsComponent = async ({
   logs
 }: Pick<AppComponents, 'pg' | 'config' | 'logs'>): Promise<IExportJobsComponent> => {
   const logger = logs.getLogger('export-jobs')
-  const maxActiveJobs = await config.requireNumber('EXPORT_MAX_ACTIVE_JOBS_PER_SIGNER')
+  const maxActiveJobsPerSigner = await config.requireNumber('EXPORT_MAX_ACTIVE_JOBS_PER_SIGNER')
+  const maxActiveJobsPerScene = await config.requireNumber('EXPORT_MAX_ACTIVE_JOBS_PER_SCENE')
+  const maxSceneStoredBytes = await config.requireNumber('EXPORT_MAX_SCENE_STORED_BYTES')
+
+  async function withSceneLock<T>(worldName: string, placeId: string, operation: () => Promise<T>): Promise<T> {
+    return pg.withAsyncContextTransaction(async (): Promise<T> => {
+      await pg.query(SQL`SELECT pg_advisory_xact_lock(hashtextextended(${`export-jobs:${worldName}:${placeId}`}, 0))`)
+      return operation()
+    })
+  }
 
   async function create(
     scope: ExportJobScope,
@@ -91,11 +101,8 @@ export const createExportJobsComponent = async ({
   ): Promise<CreateExportJobResult> {
     const { worldName, placeId, requestedBy } = scope
     const selectionJson = JSON.stringify(canonicalize(selection))
-    const lockKey = `export-jobs:${worldName}:${placeId}:${requestedBy}`
 
-    return pg.withAsyncContextTransaction(async (): Promise<CreateExportJobResult> => {
-      await pg.query(SQL`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`)
-
+    return withSceneLock(worldName, placeId, async (): Promise<CreateExportJobResult> => {
       const reusable = await pg.query<ExportJobRow>(
         selectJobs()
           .append(scopeFilter(scope))
@@ -108,13 +115,13 @@ export const createExportJobsComponent = async ({
         return { kind: 'job', job: toExportJob(reusable.rows[0]) }
       }
 
-      const active = await pg.query<{ active: number }>(
-        SQL`SELECT count(*)::int AS active FROM export_jobs WHERE `
-          .append(scopeFilter(scope))
-          .append(SQL` AND status IN ('pending','running')`)
+      const active = await pg.query<{ signer_active: number; scene_active: number }>(
+        SQL`SELECT count(*) FILTER (WHERE requested_by = ${requestedBy})::int AS signer_active, count(*)::int AS scene_active
+          FROM export_jobs WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND status IN ('pending','running')`
       )
-      if (active.rows[0].active >= maxActiveJobs) {
-        logger.info('Export job limit reached', { worldName, placeId, active: active.rows[0].active })
+      const { signer_active: signerActive, scene_active: sceneActive } = active.rows[0]
+      if (signerActive >= maxActiveJobsPerSigner || sceneActive >= maxActiveJobsPerScene) {
+        logger.info('Export job limit reached', { worldName, placeId, signerActive, sceneActive })
         return { kind: 'limit-reached' }
       }
 
@@ -176,13 +183,23 @@ export const createExportJobsComponent = async ({
     return job
   }
 
-  async function markDone(job: ExportJob, content: Buffer, ttlSeconds: number): Promise<boolean> {
-    const result = await pg.query(
-      SQL`UPDATE export_jobs SET status = 'done', content = ${content}, size_bytes = ${content.length},
-        completed_at = now(), expires_at = now() + make_interval(secs => ${ttlSeconds})
-        WHERE id = ${job.id}::uuid AND status = 'running'`
-    )
-    return result.rowCount === 1
+  async function markDone(job: ExportJob, content: Buffer, ttlSeconds: number): Promise<MarkDoneResult> {
+    return withSceneLock(job.worldName, job.placeId, async (): Promise<MarkDoneResult> => {
+      const stored = await pg.query<{ stored: number }>(
+        SQL`SELECT coalesce(sum(size_bytes), 0)::float8 AS stored FROM export_jobs
+          WHERE world_name = ${job.worldName} AND place_id = ${job.placeId}::uuid AND status = 'done' AND expires_at > now()`
+      )
+      if (stored.rows[0].stored + content.length > maxSceneStoredBytes) {
+        logger.warn('Export storage budget reached', { id: job.id, worldName: job.worldName, placeId: job.placeId })
+        return 'over-budget'
+      }
+      const result = await pg.query(
+        SQL`UPDATE export_jobs SET status = 'done', content = ${content}, size_bytes = ${content.length},
+          completed_at = now(), expires_at = now() + make_interval(secs => ${ttlSeconds})
+          WHERE id = ${job.id}::uuid AND status = 'running'`
+      )
+      return result.rowCount === 1 ? 'done' : 'stale'
+    })
   }
 
   async function markFailed(job: ExportJob, error: string, ttlSeconds: number): Promise<boolean> {
