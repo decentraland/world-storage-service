@@ -51,4 +51,16 @@ describe('validateStorageKey', () => {
       expect(() => validateStorageKey('')).toThrow(new InvalidRequestError('Key must be between 1 and 255 characters'))
     })
   })
+
+  describe('when the key contains a NUL character', () => {
+    let key: string
+
+    beforeEach(() => {
+      key = 'score\u0000'
+    })
+
+    it('should throw an InvalidRequestError naming the NUL character', () => {
+      expect(() => validateStorageKey(key)).toThrow(new InvalidRequestError('Key must not contain NUL characters'))
+    })
+  })
 })

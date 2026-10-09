@@ -81,7 +81,14 @@ describe('ExportJobsComponent', () => {
     }
 
     pg = createPgMockedComponent()
-    const config = createConfigMockedComponent({ requireNumber: jest.fn().mockResolvedValue(3) })
+    const limits: Record<string, number> = {
+      EXPORT_MAX_ACTIVE_JOBS_PER_SIGNER: 3,
+      EXPORT_MAX_ACTIVE_JOBS_PER_SCENE: 6,
+      EXPORT_MAX_SCENE_STORED_BYTES: 10
+    }
+    const config = createConfigMockedComponent({
+      requireNumber: jest.fn().mockImplementation(async (key: string) => limits[key])
+    })
     exportJobs = await createExportJobsComponent({ pg, config, logs: createLogsMockedComponent() })
   })
 
@@ -112,7 +119,24 @@ describe('ExportJobsComponent', () => {
       beforeEach(async () => {
         pg.query.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never)
         pg.query.mockResolvedValueOnce({ rows: [], rowCount: 0 } as never)
-        pg.query.mockResolvedValueOnce({ rows: [{ active: 3 }], rowCount: 1 } as never)
+        pg.query.mockResolvedValueOnce({ rows: [{ signer_active: 3, scene_active: 3 }], rowCount: 1 } as never)
+        result = await exportJobs.create(scope, 'json', selection)
+      })
+
+      it('should return limit-reached', () => {
+        expect(result).toEqual({ kind: 'limit-reached' })
+      })
+
+      it('should not insert a new job', () => {
+        expect(pg.query).toHaveBeenCalledTimes(3)
+      })
+    })
+
+    describe('and the scene already has the maximum number of active jobs across signers', () => {
+      beforeEach(async () => {
+        pg.query.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never)
+        pg.query.mockResolvedValueOnce({ rows: [], rowCount: 0 } as never)
+        pg.query.mockResolvedValueOnce({ rows: [{ signer_active: 0, scene_active: 6 }], rowCount: 1 } as never)
         result = await exportJobs.create(scope, 'json', selection)
       })
 
@@ -129,7 +153,7 @@ describe('ExportJobsComponent', () => {
       beforeEach(async () => {
         pg.query.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never)
         pg.query.mockResolvedValueOnce({ rows: [], rowCount: 0 } as never)
-        pg.query.mockResolvedValueOnce({ rows: [{ active: 2 }], rowCount: 1 } as never)
+        pg.query.mockResolvedValueOnce({ rows: [{ signer_active: 2, scene_active: 5 }], rowCount: 1 } as never)
         pg.query.mockResolvedValueOnce({ rows: [row], rowCount: 1 } as never)
         result = await exportJobs.create(scope, 'json', selection)
       })
@@ -153,11 +177,9 @@ describe('ExportJobsComponent', () => {
         expect(pg.withAsyncContextTransaction).toHaveBeenCalledTimes(1)
       })
 
-      it('should take the advisory lock for the signer scope first', () => {
+      it('should take the advisory lock for the scene first', () => {
         expect(statementAt(pg, 0).text).toContain('pg_advisory_xact_lock(hashtextextended(')
-        expect(statementAt(pg, 0).values).toEqual([
-          `export-jobs:${scope.worldName}:${scope.placeId}:${scope.requestedBy}`
-        ])
+        expect(statementAt(pg, 0).values).toEqual([`export-jobs:${scope.worldName}:${scope.placeId}`])
       })
     })
 
@@ -257,23 +279,50 @@ describe('ExportJobsComponent', () => {
       content = Buffer.from('file')
     })
 
-    describe('and the job is no longer running', () => {
-      beforeEach(() => {
-        pg.query.mockResolvedValueOnce({ rows: [], rowCount: 0 } as never)
+    describe('and storing the content would exceed the scene budget', () => {
+      let result: string
+
+      beforeEach(async () => {
+        pg.query.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never)
+        pg.query.mockResolvedValueOnce({ rows: [{ stored: 7 }], rowCount: 1 } as never)
+        result = await exportJobs.markDone(job, content, 3600)
       })
 
-      it('should return false', async () => {
-        expect(await exportJobs.markDone(job, content, 3600)).toBe(false)
+      it('should return over-budget', () => {
+        expect(result).toBe('over-budget')
+      })
+
+      it('should not store the content', () => {
+        expect(pg.query).toHaveBeenCalledTimes(2)
       })
     })
 
-    describe('and the job is still running', () => {
+    describe('and the job is no longer running', () => {
       beforeEach(() => {
+        pg.query.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never)
+        pg.query.mockResolvedValueOnce({ rows: [{ stored: 0 }], rowCount: 1 } as never)
+        pg.query.mockResolvedValueOnce({ rows: [], rowCount: 0 } as never)
+      })
+
+      it('should return stale', async () => {
+        expect(await exportJobs.markDone(job, content, 3600)).toBe('stale')
+      })
+    })
+
+    describe('and the job is still running within the scene budget', () => {
+      beforeEach(async () => {
+        pg.query.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never)
+        pg.query.mockResolvedValueOnce({ rows: [{ stored: 6 }], rowCount: 1 } as never)
         pg.query.mockResolvedValueOnce({ rows: [], rowCount: 1 } as never)
       })
 
-      it('should return true', async () => {
-        expect(await exportJobs.markDone(job, content, 3600)).toBe(true)
+      it('should return done', async () => {
+        expect(await exportJobs.markDone(job, content, 3600)).toBe('done')
+      })
+
+      it('should take the scene advisory lock inside a transaction first', async () => {
+        await exportJobs.markDone(job, content, 3600)
+        expect(statementAt(pg, 0).values).toEqual([`export-jobs:${job.worldName}:${job.placeId}`])
       })
     })
   })

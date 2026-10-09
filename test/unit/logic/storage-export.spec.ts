@@ -90,7 +90,7 @@ describe('Storage Export Component', () => {
     exportJobs.deleteExpired.mockResolvedValue(0)
     exportJobs.failStale.mockResolvedValue(0)
     exportJobs.claimNext.mockResolvedValue(null)
-    exportJobs.markDone.mockResolvedValue(true)
+    exportJobs.markDone.mockResolvedValue('done')
     exportJobs.markFailed.mockResolvedValue(true)
     worldStorage.streamSceneValues.mockImplementation(() => fromRows(worldRows))
     playerStorage.streamScenePlayerValues.mockImplementation(() => fromRows(playerRows))
@@ -339,7 +339,7 @@ describe('Storage Export Component', () => {
       beforeEach(async () => {
         job = buildJob()
         exportJobs.claimNext.mockResolvedValueOnce(job)
-        exportJobs.markDone.mockResolvedValueOnce(false)
+        exportJobs.markDone.mockResolvedValueOnce('stale')
         result = await storageExport.processNextJob()
       })
 
@@ -349,6 +349,25 @@ describe('Storage Export Component', () => {
 
       it('should not mark the job failed', () => {
         expect(exportJobs.markFailed).not.toHaveBeenCalled()
+      })
+
+      it('should resolve true', () => {
+        expect(result).toBe(true)
+      })
+    })
+
+    describe('and storing the file would exceed the scene storage budget', () => {
+      let job: ExportJob
+
+      beforeEach(async () => {
+        job = buildJob()
+        exportJobs.claimNext.mockResolvedValueOnce(job)
+        exportJobs.markDone.mockResolvedValueOnce('over-budget')
+        result = await storageExport.processNextJob()
+      })
+
+      it('should mark the job failed with the storage limit error', () => {
+        expect(exportJobs.markFailed).toHaveBeenCalledWith(job, 'Export storage limit reached', TTL_SECONDS)
       })
 
       it('should resolve true', () => {
@@ -389,7 +408,7 @@ describe('Storage Export Component', () => {
         const markDoneCalled = new Promise<void>(resolve => {
           exportJobs.markDone.mockImplementationOnce(async () => {
             resolve()
-            return true
+            return 'done' as const
           })
         })
         exportJobs.claimNext.mockResolvedValueOnce(buildJob())

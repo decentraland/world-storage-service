@@ -12,7 +12,8 @@ import type {
   ExportJob,
   ExportJobScope,
   ExportSelection,
-  IExportJobsComponent
+  IExportJobsComponent,
+  MarkDoneResult
 } from '../../../src/adapters/export-jobs'
 
 const ALL: ExportSelection = { worldKeys: null, playerAddresses: null, playerKeys: null }
@@ -226,6 +227,60 @@ test('when persisting export jobs', function ({ components }) {
     })
   })
 
+  describe('and three signers each have 2 pending jobs in the same scene', () => {
+    let fourthSigner: CreateExportJobResult
+
+    beforeEach(async () => {
+      for (const requestedBy of [ADDRESSES.OWNER, ADDRESSES.DEPLOYER, ADDRESSES.PLAYER]) {
+        for (const key of ['a', 'b']) {
+          jobOf(await exportJobs.create({ ...scope, requestedBy }, 'json', selectionWithKey(key)))
+        }
+      }
+      fourthSigner = await exportJobs.create(
+        { ...scope, requestedBy: '0x00000000000000000000000000000000000000aa' },
+        'json',
+        ALL
+      )
+    })
+
+    it('should limit a fourth signer at the scene cap', () => {
+      expect(fourthSigner).toEqual({ kind: 'limit-reached' })
+    })
+  })
+
+  describe('and the scene stored-bytes budget is reached across signers', () => {
+    let budgetedJobs: IExportJobsComponent
+    let first: MarkDoneResult
+    let second: MarkDoneResult
+    let otherScene: MarkDoneResult
+
+    beforeEach(async () => {
+      budgetedJobs = await createExportJobsComponent({
+        pg: components.pg,
+        config: {
+          ...components.config,
+          requireNumber: async (key: string) =>
+            key === 'EXPORT_MAX_SCENE_STORED_BYTES' ? 1500 : components.config.requireNumber(key)
+        },
+        logs: components.logs
+      })
+      jobOf(await budgetedJobs.create(scope, 'json', ALL))
+      jobOf(await budgetedJobs.create(otherSignerScope, 'json', ALL))
+      jobOf(await budgetedJobs.create(otherSceneScope, 'json', ALL))
+      first = await budgetedJobs.markDone((await budgetedJobs.claimNext()) as ExportJob, Buffer.alloc(1000), 3600)
+      second = await budgetedJobs.markDone((await budgetedJobs.claimNext()) as ExportJob, Buffer.alloc(1000), 3600)
+      otherScene = await budgetedJobs.markDone((await budgetedJobs.claimNext()) as ExportJob, Buffer.alloc(1000), 3600)
+    })
+
+    it('should store the first file and refuse the second one of the same scene', () => {
+      expect({ first, second }).toEqual({ first: 'done', second: 'over-budget' })
+    })
+
+    it('should still store a file of another scene', () => {
+      expect(otherScene).toBe('done')
+    })
+  })
+
   describe('and 5 identical creates run concurrently', () => {
     let ids: Set<string>
 
@@ -385,7 +440,7 @@ test('when persisting export jobs', function ({ components }) {
     let running: ExportJob
     let failedCount: number
     let stored: ExportJob | null
-    let lateDone: boolean
+    let lateDone: MarkDoneResult
 
     beforeEach(async () => {
       jobOf(await exportJobs.create(scope, 'json', ALL))
@@ -403,7 +458,7 @@ test('when persisting export jobs', function ({ components }) {
     })
 
     it('should reject a later markDone', () => {
-      expect(lateDone).toBe(false)
+      expect(lateDone).toBe('stale')
     })
   })
 
