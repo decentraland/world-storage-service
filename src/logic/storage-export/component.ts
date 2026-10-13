@@ -71,11 +71,8 @@ export async function createStorageExportComponent({
     }
   }
 
-  function logOutcome({ worldName, placeId }: ExportScene, error: NodeJS.ErrnoException | null): void {
+  function logFailure({ worldName, placeId }: ExportScene, error: NodeJS.ErrnoException): void {
     const logContext = { worldName, placeId }
-    if (!error) {
-      return
-    }
     if (error instanceof ExportTooLargeError) {
       logger.error('Export exceeded the maximum size', logContext)
     } else if (error instanceof ExportTimeoutError) {
@@ -109,7 +106,15 @@ export async function createStorageExportComponent({
       }
     })
     const gzip = createGzip()
-    pipeline(source, limiter, gzip, error => logOutcome(scene, error))
+    let failureLogged = false
+    const onFailure = (error: NodeJS.ErrnoException | null): void => {
+      if (error && !failureLogged) {
+        failureLogged = true
+        logFailure(scene, error)
+      }
+    }
+    pipeline(source, limiter, gzip, onFailure)
+    gzip.on('error', onFailure)
 
     const timer = setTimeout(() => gzip.destroy(new ExportTimeoutError()), timeoutSeconds * 1000)
     gzip.once('close', () => {
