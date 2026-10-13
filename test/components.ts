@@ -15,7 +15,6 @@ async function initComponents(): Promise<TestComponents> {
 
   return {
     ...components,
-    localFetch: await createLocalFetchComponent(config),
-    storageExport: { ...components.storageExport, start: async () => undefined }
+    localFetch: await createLocalFetchComponent(config)
   }
 }

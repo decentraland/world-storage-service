@@ -1,55 +1,60 @@
 import type { IHttpServerComponent } from '@dcl/core-commons'
-import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { InvalidRequestError } from '@dcl/http-commons'
-import { getExportJobScope } from './export-job-scope'
 import { errorMessageOrDefault } from '../../../utils/errors'
 import { parseExportFormat } from '../commons/parseExportFormat'
 import { parseExportSelection } from '../commons/parseExportSelection'
 import type { WorldHandlerContextWithPath } from '../../../types'
 
 /**
- * Handler for requesting an export of the scene's world and player storage.
+ * Handler for streaming an export of the scene's world and player storage.
  *
- * @param context - Request context with the format query, the optional selection body and the signer
- * @returns 202 with the new or reused job, or 429 when the signer or scene has too many exports in flight
+ * @param context - Request context with the format query and the optional selection body
+ * @returns 200 with the gzipped JSON or CSV stream, or 429 while another export of the scene is streaming
  */
 export async function createExportHandler(
   context: Pick<
-    WorldHandlerContextWithPath<'logs' | 'exportJobs', '/exports'>,
+    WorldHandlerContextWithPath<'logs' | 'storageExport', '/exports'>,
     'url' | 'components' | 'worldName' | 'placeId' | 'request'
-  > &
-    Pick<DecentralandSignatureContext, 'verification'>
+  >
 ): Promise<IHttpServerComponent.IResponse> {
   const {
     url,
     request,
     worldName,
     placeId,
-    components: { logs, exportJobs }
+    components: { logs, storageExport }
   } = context
 
   const logger = logs.getLogger('create-export-handler')
-  const scope = getExportJobScope(context)
 
   try {
     const format = parseExportFormat(url)
     const selection = parseExportSelection(await request.text())
-    const result = await exportJobs.create(scope, format, selection)
+    const result = storageExport.openExport({ worldName, placeId }, selection, format)
 
     if (result.kind === 'limit-reached') {
-      logger.info('Export rejected: too many in progress', { worldName, placeId })
+      logger.info('Export rejected: one already in progress', { worldName, placeId })
       return {
         status: 429,
         body: {
           error: 'Too Many Requests',
-          message: 'Too many exports in progress for this scene; wait for one to finish'
+          message: 'An export of this scene is already in progress; try again shortly'
         }
       }
     }
 
-    logger.info('Export requested', { worldName, placeId, jobId: result.job.id })
+    logger.info('Export started', { worldName, placeId, format })
 
-    return { status: 202, body: { id: result.job.id, status: result.job.status } }
+    return {
+      status: 200,
+      headers: {
+        'Content-Type': format === 'csv' ? 'text/csv; charset=utf-8' : 'application/json; charset=utf-8',
+        'Content-Encoding': 'gzip',
+        'Content-Disposition': `attachment; filename="storage-export.${format}"`,
+        'Cache-Control': 'no-store'
+      },
+      body: result.stream
+    }
   } catch (error) {
     if (error instanceof InvalidRequestError) {
       throw error

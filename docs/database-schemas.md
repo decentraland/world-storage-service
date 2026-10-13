@@ -46,23 +46,6 @@ erDiagram
     BIGINT deployed_at "Deployment timestamp (ms); latest-wins ordering"
     TIMESTAMP updated_at "Last update timestamp"
   }
-
-  export_jobs {
-    UUID id PK "Export job id"
-    VARCHAR(255) world_name "World identifier (from signed fetch metadata)"
-    UUID place_id "Scene place ID"
-    VARCHAR(255) requested_by "Requesting signer address (lowercased)"
-    VARCHAR(8) format "'json' or 'csv'"
-    JSONB selection "Canonical export selection"
-    VARCHAR(16) status "'pending', 'running', 'done' or 'failed'"
-    BYTEA content "Gzipped export file (nullable)"
-    INTEGER size_bytes "Size of content in bytes (nullable)"
-    TEXT error "Failure reason (nullable)"
-    TIMESTAMPTZ created_at "Creation timestamp"
-    TIMESTAMPTZ started_at "Claim timestamp (nullable)"
-    TIMESTAMPTZ completed_at "Completion timestamp (nullable)"
-    TIMESTAMPTZ expires_at "Expiry timestamp (nullable)"
-  }
 ```
 
 ## Tables Overview
@@ -75,7 +58,6 @@ The database contains the following tables:
 2. **`player_storage`** - Player-scoped key-value storage (JSON) isolated by `world_name`, `place_id`, and `player_address`
 3. **`env_variables`** - Encrypted environment variables isolated by `world_name` and `place_id`
 4. **`scene_collaborators`** - Reverse index of scene collaborators (wallets in a scene's `logsPermissions`), keyed by `(scene_id, address)`; powers `GET /collaborator` discovery
-5. **`export_jobs`** - Async storage export jobs and their gzipped output, scoped by `world_name`, `place_id`, and `requested_by`
 
 <!-- Description of each table in a section per table -->
 
@@ -216,56 +198,3 @@ Reverse index of a scene's collaborators, keyed by `(scene_id, address)`. A coll
   3. **Pre-existing scenes** — scenes deployed before the SQS subscription existed emit no event this service saw. There is no full bootstrap/reconciliation: Genesis City's scene space is effectively unbounded and cannot be enumerated.
   For (2) and (3), the self-heal is the write-through on first authorized access (a collaborator who uses a scene's storage backfills its row) or a later redeployment. A dormant scene whose collaborator never accesses storage may stay absent from discovery indefinitely — collaborators can always reach a scene directly by realm/parcel, so this is a UX gap, not an access one.
 - **Latest deployment wins**: a destructive replacement at a `(world_name, base_parcel)` location is skipped when an indexed row there has a higher `deployed_at`, so in-order and most out-of-order SQS delivery cannot resurrect a stale scene (see staleness source 1 for the residual empty-set/undeployment case).
-
----
-
-## Table: `export_jobs`
-
-Stores asynchronous storage export jobs for a scene, one row per job, together with the gzipped export file once the job is done. Each job belongs to the signer that requested it, for one scene.
-
-### Columns
-
-| Column         | Type         | Nullable | Description |
-|----------------|--------------|----------|-------------|
-| `id`           | UUID         | NOT NULL | **Primary Key**. Export job id. |
-| `world_name`   | VARCHAR(255) | NOT NULL | World identifier extracted from signed fetch metadata (never from request params/body). |
-| `place_id`     | UUID         | NOT NULL | Scene place ID; scopes the job to a specific scene/place within the world. |
-| `requested_by` | VARCHAR(255) | NOT NULL | Lowercased address of the signer that requested the export. |
-| `format`       | VARCHAR(8)   | NOT NULL | Output format: `json` or `csv`. |
-| `selection`    | JSONB        | NOT NULL | Canonical selection of what to export (see Business Rules). |
-| `status`       | VARCHAR(16)  | NOT NULL | `pending`, `running`, `done` or `failed`. |
-| `content`      | BYTEA        | NULL     | Gzipped export file, set when the job is `done`. |
-| `size_bytes`   | INTEGER      | NULL     | Size of `content` in bytes. |
-| `error`        | TEXT         | NULL     | Failure reason when the job is `failed`. |
-| `created_at`   | TIMESTAMPTZ  | NOT NULL | Creation timestamp. Defaults to `current_timestamp`. |
-| `started_at`   | TIMESTAMPTZ  | NULL     | When a worker claimed the job. |
-| `completed_at` | TIMESTAMPTZ  | NULL     | When the job finished, as `done` or `failed`. |
-| `expires_at`   | TIMESTAMPTZ  | NULL     | When the job stops being visible and becomes eligible for deletion. |
-
-### Indexes
-
-- **Primary Key**: `(id)`
-- **`export_jobs_scene_requester_idx`** on `(world_name, place_id, requested_by, created_at DESC)`: serves the per-signer, per-scene lookups, listing, dedupe and in-flight count.
-- **`export_jobs_pending_idx`** on `(created_at) WHERE status = 'pending'`: serves the oldest-first worker claim.
-
-### Constraints
-
-- **Primary Key**: `export_jobs_pkey` on `(id)`
-- **Check**: `format IN ('json','csv')`
-- **Check**: `status IN ('pending','running','done','failed')`
-
-### Business Rules
-
-- **Scene and signer isolation**: a job is visible only when its `world_name`, `place_id` and `requested_by` all match the request's scene and signer.
-- **Atomic create**: each create runs in a transaction holding the scene lock `pg_advisory_xact_lock(hashtextextended('export-jobs:<world_name>:<place_id>', 0))`, then in order:
-  1. Reuses the newest job with the same `format` and `selection` that is `pending`, `running`, or `done` and not yet expired.
-  2. Otherwise returns limit-reached when the signer already has `EXPORT_MAX_ACTIVE_JOBS_PER_SIGNER` (default 3), or the scene across all signers has `EXPORT_MAX_ACTIVE_JOBS_PER_SCENE` (default 6), `pending` or `running` jobs. Finished jobs do not count toward either cap.
-  3. Otherwise inserts a `pending` job.
-- **Canonical selection**: `selection` is `{ worldKeys, playerAddresses, playerKeys }`, where `null` means all and `[]` means none. Each list is deduplicated and sorted, and addresses are lowercased. When `playerAddresses` or `playerKeys` is `[]`, both are stored as `[]`. Equivalent requests therefore compare equal.
-- **Expiry**: a job gets `expires_at = completed_at + EXPORT_JOB_TTL_SECONDS` (1 hour) when it finishes, as `done` or `failed`. Expired jobs are never returned and are deleted by the expiry sweep.
-- **Guarded finalize**: a job only moves from `running` to `done` or `failed`, and never back to `pending`, so a job failed by the stale-job timeout is never overwritten by a late finisher.
-- **Scene storage budget**: storing a finished file takes the same scene lock and refuses it when the scene's unexpired `done` files plus the new one would exceed `EXPORT_MAX_SCENE_STORED_BYTES` (default 500 MB); the worker then fails the job with `Export storage limit reached`.
-
-### Other
-
-- **Gzipped output**: `content` holds the already gzipped JSON or CSV export file. The column uses `SET STORAGE EXTERNAL` (uncompressed TOAST), so downloads read it in 1 MiB `substring` chunks that fetch only the TOAST chunks they need.

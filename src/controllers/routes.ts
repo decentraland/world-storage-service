@@ -11,9 +11,6 @@ import { getEnvUsageHandler } from './handlers/env-storage/get-env-usage'
 import { listEnvKeysHandler } from './handlers/env-storage/list-env-keys'
 import { upsertEnvStorageHandler } from './handlers/env-storage/upsert-env-storage'
 import { createExportHandler } from './handlers/exports/create-export'
-import { downloadExportHandler } from './handlers/exports/download-export'
-import { getExportHandler } from './handlers/exports/get-export'
-import { listExportsHandler } from './handlers/exports/list-exports'
 import {
   clearAllPlayersStorageHandler,
   clearPlayerStorageHandler
@@ -197,13 +194,6 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
     exportBodySizeLimitMiddleware,
     withSceneContext(logsAccessAuthorizationMiddleware),
     withSceneContext(createExportHandler)
-  )
-  router.get('/exports', withSceneContext(logsAccessAuthorizationMiddleware), withSceneContext(listExportsHandler))
-  router.get('/exports/:id', withSceneContext(logsAccessAuthorizationMiddleware), withSceneContext(getExportHandler))
-  router.get(
-    '/exports/:id/download',
-    withSceneContext(logsAccessAuthorizationMiddleware),
-    withSceneContext(downloadExportHandler)
   )
 
   return router

@@ -37,7 +37,7 @@ tags:
   - name: Collaborator
     description: Discovery of the scenes a wallet collaborates on via `logsPermissions`
   - name: Exports
-    description: Asynchronous export of a scene's world and player storage
+    description: Streaming export of a scene's world and player storage
 
 security:
   - SignedFetch: []
@@ -1429,19 +1429,24 @@ paths:
       operationId: createExport
       tags:
         - Exports
-      summary: Request an export of the scene's storage
+      summary: Stream an export of the scene's storage
       description: |
-        Starts an asynchronous export of the calling scene's world and player storage as a gzipped
-        JSON or CSV file. The scene is resolved from the Signed Fetch metadata.
+        Streams the calling scene's world and player storage as a JSON or CSV download. The scene is
+        resolved from the Signed Fetch metadata.
 
         Access matches the storage read routes: authorized addresses, scoped delegations, world
-        owners and deployers, and `logsPermissions` collaborators. Jobs are visible only to the
-        signer who created them. Env variables are never included.
+        owners and deployers, and `logsPermissions` collaborators. Env variables are never included.
 
         The optional body selects what to export. A missing or empty body (sent with
-        `Content-Length: 0`), or `{}`, exports everything. Repeating a request with the same format
-        and selection returns the existing job while it is pending, running, or done and not
-        expired. A signer may have at most 3 pending or running jobs per scene.
+        `Content-Length: 0`), or `{}`, exports everything.
+
+        The body is gzipped in transit (`Content-Encoding: gzip`), so browsers and `fetch` decompress
+        it transparently. A JSON export is `{"world":[{"key","value"}],"players":[{"address","key","value"}]}`
+        and a CSV export has the header `scope,player_address,key,value` with `\r\n` row separators.
+
+        Each pod streams one export per scene at a time. A stream still running after 120 seconds, or
+        whose uncompressed output passes 500 MB (the defaults), is aborted mid-transfer, so the client
+        sees a failed download.
       parameters:
         - $ref: '#/components/parameters/ExportFormatParam'
       requestBody:
@@ -1459,12 +1464,31 @@ paths:
                     addresses: ['0x1234567890abcdef1234567890abcdef12345678']
                     keys: ['progress']
       responses:
-        '202':
-          description: The export job was created or an identical one was reused
+        '200':
+          description: The streamed export
+          headers:
+            Content-Encoding:
+              description: Always `gzip`
+              schema:
+                type: string
+                enum: [gzip]
+            Content-Disposition:
+              description: '`attachment; filename="storage-export.json"` or `attachment; filename="storage-export.csv"`'
+              schema:
+                type: string
+            Cache-Control:
+              description: Always `no-store`
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExportJobCreatedResponse'
+                type: string
+                format: binary
+            text/csv:
+              schema:
+                type: string
+                format: binary
         '400':
           description: Signed fetch is missing or invalid, the format is invalid, or the selection is invalid or empty
           content:
@@ -1487,167 +1511,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '429':
-          description: The signer already has 3 exports in progress for this scene
+          description: An export of this scene is already streaming on this pod
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
-                tooManyExports:
+                exportInProgress:
                   value:
                     error: Too Many Requests
-                    message: Too many exports in progress for this scene; wait for one to finish
-        '500':
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      operationId: listExports
-      tags:
-        - Exports
-      summary: List the signer's exports of the scene
-      description: |
-        Lists the signer's non-expired export jobs for the calling scene, newest first. The scene is
-        resolved from the Signed Fetch metadata.
-
-        Access matches the storage read routes: authorized addresses, scoped delegations, world
-        owners and deployers, and `logsPermissions` collaborators. Jobs are visible only to the
-        signer who created them. Env variables are never included in an export.
-      responses:
-        '200':
-          description: The signer's export jobs
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListExportJobsResponse'
-        '400':
-          description: Signed fetch is missing or invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: The signer cannot read this scene's storage
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /exports/{id}:
-    get:
-      operationId: getExport
-      tags:
-        - Exports
-      summary: Get the status of an export
-      description: |
-        Returns one of the signer's non-expired export jobs for the calling scene. The scene is
-        resolved from the Signed Fetch metadata.
-
-        Access matches the storage read routes: authorized addresses, scoped delegations, world
-        owners and deployers, and `logsPermissions` collaborators. Jobs are visible only to the
-        signer who created them. Env variables are never included in an export.
-      parameters:
-        - $ref: '#/components/parameters/ExportIdParam'
-      responses:
-        '200':
-          description: The export job
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExportJob'
-        '400':
-          description: Signed fetch is missing or invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: The signer cannot read this scene's storage
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: The job is unknown, expired, or belongs to another scene or signer
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /exports/{id}/download:
-    get:
-      operationId: downloadExport
-      tags:
-        - Exports
-      summary: Download a finished export
-      description: |
-        Streams the gzipped export file of one of the signer's finished jobs for the calling scene.
-        The scene is resolved from the Signed Fetch metadata.
-
-        Access matches the storage read routes: authorized addresses, scoped delegations, world
-        owners and deployers, and `logsPermissions` collaborators. Jobs are visible only to the
-        signer who created them. Env variables are never included.
-
-        Gunzipped, a JSON file is `{"world":[{"key","value"}],"players":[{"address","key","value"}]}`
-        and a CSV file has the header `scope,player_address,key,value` with `\r\n` row separators.
-      parameters:
-        - $ref: '#/components/parameters/ExportIdParam'
-      responses:
-        '200':
-          description: The gzipped export file
-          headers:
-            Content-Disposition:
-              description: '`attachment; filename="storage-export.json.gz"` or `attachment; filename="storage-export.csv.gz"`'
-              schema:
-                type: string
-          content:
-            application/gzip:
-              schema:
-                type: string
-                format: binary
-        '400':
-          description: Signed fetch is missing or invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: The signer cannot read this scene's storage
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: The job is unknown, expired, or belongs to another scene or signer
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: The export is not done yet
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                notReady:
-                  value:
-                    error: Conflict
-                    message: Export is not ready
+                    message: An export of this scene is already in progress; try again shortly
         '500':
           description: Unexpected error
           content:
@@ -1721,14 +1594,6 @@ components:
       schema:
         type: string
         enum: [json, csv]
-    ExportIdParam:
-      name: id
-      in: path
-      required: true
-      description: The export job id
-      schema:
-        type: string
-        format: uuid
   schemas:
     StorageValueResponse:
       type: object
@@ -1946,70 +1811,3 @@ components:
       description: |
         What to export, grouped by scope. A left-out field means all; an empty list `[]` means none.
         A selection that can match no world rows and no player rows is rejected.
-    ExportJobCreatedResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        status:
-          type: string
-          enum: [pending, running, done, failed]
-      required:
-        - id
-        - status
-      description: The created or reused export job.
-    ExportJob:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        status:
-          type: string
-          enum: [pending, running, done, failed]
-        format:
-          type: string
-          enum: [json, csv]
-        selection:
-          $ref: '#/components/schemas/ExportSelection'
-        createdAt:
-          type: string
-          format: date-time
-        completedAt:
-          type: string
-          format: date-time
-          nullable: true
-        expiresAt:
-          type: string
-          format: date-time
-          nullable: true
-        sizeBytes:
-          type: integer
-          nullable: true
-          description: Size of the gzipped file once done
-        error:
-          type: string
-          nullable: true
-          description: Failure reason when the job failed
-      required:
-        - id
-        - status
-        - format
-        - selection
-        - createdAt
-        - completedAt
-        - expiresAt
-        - sizeBytes
-        - error
-      description: An export job. `selection` echoes the normalized request; a full export is `{}`.
-    ListExportJobsResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/ExportJob'
-      required:
-        - data
-      description: The signer's non-expired export jobs for the scene, newest first.

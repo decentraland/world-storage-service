@@ -1,5 +1,5 @@
 import { InvalidRequestError } from '@dcl/http-commons'
-import type { ExportFormat } from '../../../adapters/export-jobs'
+import type { ExportFormat } from '../../../logic/storage-export/types'
 
 /** Reads the required `format` query parameter, allowlisted to `json` or `csv`. */
 export function parseExportFormat(url: URL): ExportFormat {

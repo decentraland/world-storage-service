@@ -21,7 +21,6 @@ import { createCatalystContentComponent } from './adapters/catalyst-content'
 import { createDeploymentConsumerComponent } from './adapters/deployment-consumer'
 import { createEncryptionComponent } from './adapters/encryption'
 import { createEnvStorageComponent } from './adapters/env-storage'
-import { createExportJobsComponent } from './adapters/export-jobs'
 import { createPlacesComponent } from './adapters/places'
 import { createPlayerStorageComponent } from './adapters/player-storage'
 import { createSceneCollaboratorsComponent } from './adapters/scene-collaborators'
@@ -188,8 +187,7 @@ export async function initComponents(): Promise<AppComponents> {
     config,
     logs
   })
-  const exportJobs = await createExportJobsComponent({ pg, config, logs })
-  const storageExport = await createStorageExportComponent({ exportJobs, worldStorage, playerStorage, config, logs })
+  const storageExport = await createStorageExportComponent({ worldStorage, playerStorage, config, logs })
 
   const queueUrl = await config.getString('AWS_SQS_QUEUE_URL')
   const sqs = queueUrl ? await createSqsComponent(config) : createLocalDevQueueComponent()
@@ -229,7 +227,6 @@ export async function initComponents(): Promise<AppComponents> {
     sqs,
     queueConsumer,
     deploymentConsumer,
-    exportJobs,
     storageExport
   }
 }

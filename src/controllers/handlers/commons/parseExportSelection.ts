@@ -2,7 +2,7 @@ import { InvalidRequestError } from '@dcl/http-commons'
 import { EthAddress } from '@dcl/schemas'
 import { validateStorageKey } from './validateStorageKey'
 import { isRecord } from '../../../utils/typeGuards'
-import type { ExportSelection } from '../../../adapters/export-jobs'
+import type { ExportSelection } from '../../../logic/storage-export/types'
 
 const MAX_LIST_ENTRIES = 100
 

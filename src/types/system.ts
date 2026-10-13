@@ -13,7 +13,6 @@ import type { ICatalystContentComponent } from '../adapters/catalyst-content/typ
 import type { IDeploymentConsumerComponent } from '../adapters/deployment-consumer/types'
 import type { IEncryptionComponent } from '../adapters/encryption/types'
 import type { IEnvStorageComponent } from '../adapters/env-storage/types'
-import type { IExportJobsComponent } from '../adapters/export-jobs/types'
 import type { IPlacesComponent } from '../adapters/places/types'
 import type { IPlayerStorageComponent } from '../adapters/player-storage/types'
 import type { ISceneCollaboratorsComponent } from '../adapters/scene-collaborators/types'
@@ -57,7 +56,6 @@ export interface BaseComponents {
   catalystContent: ICatalystContentComponent
   storageLimits: IStorageLimitsComponent
   storageOperations: IStorageOperationsComponent
-  exportJobs: IExportJobsComponent
   storageExport: IStorageExportComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
   sceneCollaborators: ISceneCollaboratorsComponent
@@ -77,7 +75,6 @@ export type AppComponents = BaseComponents & {
 export type TestComponents = BaseComponents & {
   // A fetch component that only hits the test server
   localFetch: IFetchComponent
-  pg: IPgComponent
 }
 
 // this type simplifies the typings of http handlers

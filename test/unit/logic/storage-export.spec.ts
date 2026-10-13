@@ -1,5 +1,4 @@
 import { randomBytes } from 'crypto'
-import type { Readable } from 'stream'
 import { gunzipSync } from 'zlib'
 import type { IConfigComponent } from '@well-known-components/interfaces'
 import { createConfigMockedComponent } from '@dcl/core-commons'
@@ -20,6 +19,7 @@ import type {
   OpenExportResult
 } from '../../../src/logic/storage-export'
 import type { PlayerExportRow, WorldExportRow } from '../../../src/utils/exportSerializers'
+import type { Readable } from 'stream'
 
 const ALL: ExportSelection = { worldKeys: null, playerAddresses: null, playerKeys: null }
 const TIMEOUT_SECONDS = 120
@@ -187,7 +187,9 @@ describe('Storage Export Component', () => {
   describe('when the selection names specific keys and addresses', () => {
     beforeEach(async () => {
       await gunzipStream(
-        streamOf(storageExport.openExport(SCENE, { worldKeys: ['a'], playerAddresses: ['0xa'], playerKeys: ['k'] }, 'json'))
+        streamOf(
+          storageExport.openExport(SCENE, { worldKeys: ['a'], playerAddresses: ['0xa'], playerKeys: ['k'] }, 'json')
+        )
       )
     })
 

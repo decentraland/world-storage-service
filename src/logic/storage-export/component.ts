@@ -1,10 +1,7 @@
-import { Readable, Writable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
+import { Readable, Transform, pipeline } from 'node:stream'
 import { createGzip } from 'node:zlib'
-import { errorMessageOrDefault } from '../../utils/errors'
 import { serializeCsvExport, serializeJsonExport } from '../../utils/exportSerializers'
-import type { IStorageExportComponent } from './types'
-import type { ExportJob } from '../../adapters/export-jobs/types'
+import type { ExportFormat, ExportScene, ExportSelection, IStorageExportComponent, OpenExportResult } from './types'
 import type { AppComponents } from '../../types'
 
 class ExportTooLargeError extends Error {
@@ -13,135 +10,115 @@ class ExportTooLargeError extends Error {
   }
 }
 
+class ExportTimeoutError extends Error {
+  constructor() {
+    super('Export timed out')
+  }
+}
+
 async function* noRows<T>(): AsyncGenerator<T> {
   yield* []
 }
 
 /**
- * Creates the export worker: a per-pod loop that claims pending export jobs one at a time and
- * stores each as a gzipped JSON or CSV file capped at `EXPORT_MAX_SIZE_BYTES`.
+ * Creates the storage export component, which streams a scene's world and player storage as a gzipped
+ * JSON or CSV file, at most `EXPORT_MAX_CONCURRENT_PER_SCENE` at a time per scene on this pod, aborting a
+ * stream that runs past `EXPORT_TIMEOUT_SECONDS` or whose raw output passes `EXPORT_MAX_SIZE_BYTES`.
  *
- * @param components - Export job store, storage adapters, config and logs
- * @returns The worker component, whose `start`/`stop` drive the claim loop
+ * @param components - Storage adapters, config and logs
+ * @returns The storage export component
  */
 export async function createStorageExportComponent({
-  exportJobs,
   worldStorage,
   playerStorage,
   config,
   logs
-}: Pick<
-  AppComponents,
-  'exportJobs' | 'worldStorage' | 'playerStorage' | 'config' | 'logs'
->): Promise<IStorageExportComponent> {
+}: Pick<AppComponents, 'worldStorage' | 'playerStorage' | 'config' | 'logs'>): Promise<IStorageExportComponent> {
   const logger = logs.getLogger('storage-export')
-  const jobTtlSeconds = await config.requireNumber('EXPORT_JOB_TTL_SECONDS')
+  const maxConcurrentPerScene = await config.requireNumber('EXPORT_MAX_CONCURRENT_PER_SCENE')
+  const timeoutSeconds = await config.requireNumber('EXPORT_TIMEOUT_SECONDS')
   const maxSizeBytes = await config.requireNumber('EXPORT_MAX_SIZE_BYTES')
-  const intervalMs = await config.requireNumber('EXPORT_WORKER_INTERVAL_MS')
-  const jobTimeoutSeconds = await config.requireNumber('EXPORT_JOB_TIMEOUT_SECONDS')
+  const openExportsByScene = new Map<string, number>()
 
-  let timer: NodeJS.Timeout | undefined
-  let stopped = false
-  let inFlight: Promise<void> | undefined
-
-  async function buildExport({ worldName, placeId, format, selection }: ExportJob): Promise<Buffer> {
+  function serializeSelection(
+    { worldName, placeId }: ExportScene,
+    selection: ExportSelection,
+    format: ExportFormat
+  ): AsyncGenerator<string> {
     const serialize = format === 'csv' ? serializeCsvExport : serializeJsonExport
     const world =
       selection.worldKeys !== null && selection.worldKeys.length === 0
         ? noRows<{ key: string; value: string }>()
         : worldStorage.streamSceneValues(worldName, placeId, selection.worldKeys)
     const skipPlayers = selection.playerAddresses?.length === 0 || selection.playerKeys?.length === 0
+    return serialize(
+      world,
+      skipPlayers
+        ? noRows()
+        : playerStorage.streamScenePlayerValues(worldName, placeId, {
+            addresses: selection.playerAddresses,
+            keys: selection.playerKeys
+          })
+    )
+  }
 
-    const chunks: Buffer[] = []
+  function release(sceneKey: string): void {
+    const remaining = (openExportsByScene.get(sceneKey) ?? 1) - 1
+    if (remaining > 0) {
+      openExportsByScene.set(sceneKey, remaining)
+    } else {
+      openExportsByScene.delete(sceneKey)
+    }
+  }
+
+  function logOutcome({ worldName, placeId }: ExportScene, error: NodeJS.ErrnoException | null): void {
+    const logContext = { worldName, placeId }
+    if (!error) {
+      return
+    }
+    if (error instanceof ExportTooLargeError) {
+      logger.error('Export exceeded the maximum size', logContext)
+    } else if (error instanceof ExportTimeoutError) {
+      logger.error('Export timed out', logContext)
+    } else if (error.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+      logger.info('Export cancelled by client', logContext)
+    } else {
+      logger.error('Export failed', logContext)
+    }
+  }
+
+  function openExport(scene: ExportScene, selection: ExportSelection, format: ExportFormat): OpenExportResult {
+    const sceneKey = `${scene.worldName}:${scene.placeId}`
+    const openExports = openExportsByScene.get(sceneKey) ?? 0
+    if (openExports >= maxConcurrentPerScene) {
+      return { kind: 'limit-reached' }
+    }
+
+    const source = Readable.from(serializeSelection(scene, selection, format))
+    openExportsByScene.set(sceneKey, openExports + 1)
+
     let sizeBytes = 0
-    const collector = new Writable({
-      write(chunk: Buffer, _encoding, callback) {
-        sizeBytes += chunk.length
+    const limiter = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        sizeBytes += Buffer.byteLength(chunk)
         if (sizeBytes > maxSizeBytes) {
           callback(new ExportTooLargeError())
           return
         }
-        chunks.push(chunk)
-        callback()
+        callback(null, chunk)
       }
     })
+    const gzip = createGzip()
+    pipeline(source, limiter, gzip, error => logOutcome(scene, error))
 
-    await pipeline(
-      Readable.from(
-        serialize(
-          world,
-          skipPlayers
-            ? noRows()
-            : playerStorage.streamScenePlayerValues(worldName, placeId, {
-                addresses: selection.playerAddresses,
-                keys: selection.playerKeys
-              })
-        )
-      ),
-      createGzip(),
-      collector
-    )
-    return Buffer.concat(chunks)
-  }
-
-  async function processNextJob(): Promise<boolean> {
-    await exportJobs.deleteExpired()
-    await exportJobs.failStale(jobTimeoutSeconds, jobTtlSeconds)
-    const job = await exportJobs.claimNext()
-    if (!job) {
-      return false
-    }
-
-    const logContext = { jobId: job.id, worldName: job.worldName, placeId: job.placeId }
-    try {
-      const content = await buildExport(job)
-      const stored = await exportJobs.markDone(job, content, jobTtlSeconds)
-      if (stored === 'done') {
-        logger.info('Export job done', { ...logContext, sizeBytes: content.length })
-      } else if (stored === 'over-budget') {
-        await exportJobs.markFailed(job, 'Export storage limit reached', jobTtlSeconds)
-      } else {
-        logger.warn('Export job finished after it was failed', { jobId: job.id })
-      }
-    } catch (error) {
-      logger.error('Export job failed', { ...logContext, error: errorMessageOrDefault(error) })
-      await exportJobs.markFailed(
-        job,
-        error instanceof ExportTooLargeError ? 'Export exceeds maximum size' : 'Export failed',
-        jobTtlSeconds
-      )
-    }
-    return true
-  }
-
-  function schedule(delayMs: number): void {
-    timer = setTimeout(tick, delayMs)
-  }
-
-  function tick(): void {
-    inFlight = (async () => {
-      let processed = false
-      try {
-        processed = await processNextJob()
-      } catch (error) {
-        logger.error('Export worker tick failed', { error: errorMessageOrDefault(error) })
-      }
-      if (!stopped) {
-        schedule(processed ? 0 : intervalMs)
-      }
-    })()
-  }
-
-  return {
-    processNextJob,
-    async start() {
-      stopped = false
-      schedule(intervalMs)
-    },
-    async stop() {
-      stopped = true
+    const timer = setTimeout(() => gzip.destroy(new ExportTimeoutError()), timeoutSeconds * 1000)
+    gzip.once('close', () => {
       clearTimeout(timer)
-      await inFlight
-    }
+      release(sceneKey)
+    })
+
+    return { kind: 'stream', stream: gzip }
   }
+
+  return { openExport }
 }
