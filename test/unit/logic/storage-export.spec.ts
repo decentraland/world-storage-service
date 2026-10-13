@@ -429,6 +429,33 @@ describe('Storage Export Component', () => {
     })
   })
 
+  describe('when the time limit passes after the export was produced but before the client read it', () => {
+    let stream: Readable
+    let slots: string[]
+
+    beforeEach(async () => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] })
+      worldRows = [{ key: 'a', value: '1' }]
+      stream = streamOf(storageExport.openExport(SCENE, ALL, 'json'))
+      await settle()
+      jest.advanceTimersByTime(TIMEOUT_SECONDS * 1000)
+      await waitForClose(stream)
+      await settle()
+      slots = await probeSlots(storageExport, SCENE)
+    })
+
+    it('should log the timeout at error with only the scene', () => {
+      expect(logError).toHaveBeenCalledWith('Export timed out', {
+        worldName: WORLD_NAMES.DEFAULT,
+        placeId: PLACE_IDS.DEFAULT
+      })
+    })
+
+    it('should release the scene slot exactly once', () => {
+      expect(slots).toEqual(['stream', 'limit-reached'])
+    })
+  })
+
   describe('when the raw output exceeds the maximum size', () => {
     let cappedExport: IStorageExportComponent
     let streamError: Error | undefined
