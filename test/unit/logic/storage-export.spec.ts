@@ -107,6 +107,7 @@ describe('Storage Export Component', () => {
     playerStorage = createPlayerStorageMockedComponent()
     config = buildConfig({
       EXPORT_MAX_CONCURRENT_PER_SCENE: 1,
+      EXPORT_MAX_CONCURRENT_PER_POD: 5,
       EXPORT_TIMEOUT_SECONDS: TIMEOUT_SECONDS,
       EXPORT_MAX_SIZE_BYTES: 104857600
     })
@@ -253,7 +254,7 @@ describe('Storage Export Component', () => {
     })
 
     it('should report the limit as reached for a second export of the same scene', () => {
-      expect(second).toEqual({ kind: 'limit-reached' })
+      expect(second).toEqual({ kind: 'limit-reached', scope: 'scene' })
     })
 
     describe('and an export of another scene is requested', () => {
@@ -330,7 +331,7 @@ describe('Storage Export Component', () => {
     })
 
     it('should log the failure at error with only the scene', () => {
-      expect(logError).toHaveBeenCalledWith(expect.any(String), {
+      expect(logError).toHaveBeenCalledWith('Export failed', {
         worldName: WORLD_NAMES.DEFAULT,
         placeId: PLACE_IDS.DEFAULT
       })
@@ -409,8 +410,8 @@ describe('Storage Export Component', () => {
       slots = await probeSlots(storageExport, SCENE)
     })
 
-    it('should destroy the stream with an error', () => {
-      expect(streamError).toBeInstanceOf(Error)
+    it('should destroy the stream with the timeout error', () => {
+      expect(streamError?.message).toBe('Export timed out')
     })
 
     it('should close the world source before it is exhausted', () => {
@@ -422,7 +423,7 @@ describe('Storage Export Component', () => {
     })
 
     it('should log the timeout at error with only the scene', () => {
-      expect(logError).toHaveBeenCalledWith(expect.any(String), {
+      expect(logError).toHaveBeenCalledWith('Export timed out', {
         worldName: WORLD_NAMES.DEFAULT,
         placeId: PLACE_IDS.DEFAULT
       })
@@ -477,6 +478,7 @@ describe('Storage Export Component', () => {
         playerStorage,
         config: buildConfig({
           EXPORT_MAX_CONCURRENT_PER_SCENE: 1,
+          EXPORT_MAX_CONCURRENT_PER_POD: 5,
           EXPORT_TIMEOUT_SECONDS: TIMEOUT_SECONDS,
           EXPORT_MAX_SIZE_BYTES: 20
         }),
@@ -505,7 +507,139 @@ describe('Storage Export Component', () => {
     })
 
     it('should log the size cap at error with only the scene', () => {
-      expect(logError).toHaveBeenCalledWith(expect.any(String), {
+      expect(logError).toHaveBeenCalledWith('Export exceeded the maximum size', {
+        worldName: WORLD_NAMES.DEFAULT,
+        placeId: PLACE_IDS.DEFAULT
+      })
+    })
+  })
+
+  describe.each<[string, () => void, (stream: Readable) => Promise<void>]>([
+    [
+      'is fully read',
+      () => undefined,
+      async stream => {
+        await gunzipStream(stream)
+      }
+    ],
+    [
+      'is destroyed by the consumer',
+      () => undefined,
+      async stream => {
+        stream.destroy()
+      }
+    ],
+    [
+      'fails reading the storage',
+      () => {
+        worldStorage.streamSceneValues.mockImplementationOnce(async function* () {
+          yield await Promise.resolve({ key: 'a', value: '1' })
+          throw new Error('connection lost')
+        })
+      },
+      async stream => {
+        stream.on('error', () => undefined)
+        stream.resume()
+      }
+    ]
+  ])('when two exports of the scene may run and one of two open exports %s', (_description, prepare, finish) => {
+    let slots: string[]
+
+    beforeEach(async () => {
+      const twoPerScene = await createStorageExportComponent({
+        worldStorage,
+        playerStorage,
+        config: buildConfig({
+          EXPORT_MAX_CONCURRENT_PER_SCENE: 2,
+          EXPORT_MAX_CONCURRENT_PER_POD: 5,
+          EXPORT_TIMEOUT_SECONDS: TIMEOUT_SECONDS,
+          EXPORT_MAX_SIZE_BYTES: 104857600
+        }),
+        logs
+      })
+      worldRows = [{ key: 'a', value: '1' }]
+      openStreams.push(streamOf(twoPerScene.openExport(SCENE, ALL, 'json')))
+      prepare()
+      const finishing = streamOf(twoPerScene.openExport(SCENE, ALL, 'json'))
+      await finish(finishing)
+      await waitForClose(finishing)
+      await settle()
+      const probes = [twoPerScene.openExport(SCENE, ALL, 'json'), twoPerScene.openExport(SCENE, ALL, 'json')]
+      for (const probe of probes) {
+        if (probe.kind === 'stream') {
+          openStreams.push(probe.stream)
+        }
+      }
+      slots = probes.map(probe => probe.kind)
+    })
+
+    it('should free exactly one slot of the scene', () => {
+      expect(slots).toEqual(['stream', 'limit-reached'])
+    })
+  })
+
+  describe('when the pod is streaming as many exports as it allows', () => {
+    let podLimited: IStorageExportComponent
+    let third: OpenExportResult
+
+    beforeEach(async () => {
+      podLimited = await createStorageExportComponent({
+        worldStorage,
+        playerStorage,
+        config: buildConfig({
+          EXPORT_MAX_CONCURRENT_PER_SCENE: 1,
+          EXPORT_MAX_CONCURRENT_PER_POD: 2,
+          EXPORT_TIMEOUT_SECONDS: TIMEOUT_SECONDS,
+          EXPORT_MAX_SIZE_BYTES: 104857600
+        }),
+        logs
+      })
+      openStreams.push(streamOf(podLimited.openExport(SCENE, ALL, 'json')))
+      openStreams.push(streamOf(podLimited.openExport(OTHER_SCENE, ALL, 'json')))
+      third = podLimited.openExport({ worldName: WORLD_NAMES.DEFAULT, placeId: 'third-place' }, ALL, 'json')
+    })
+
+    it('should report the pod limit as reached for an export of a third scene', () => {
+      expect(third).toEqual({ kind: 'limit-reached', scope: 'pod' })
+    })
+
+    it('should not open a storage read for the rejected export', () => {
+      expect(worldStorage.streamSceneValues).toHaveBeenCalledTimes(2)
+    })
+
+    describe('and one of the open exports closes', () => {
+      let next: OpenExportResult
+
+      beforeEach(async () => {
+        const closing = openStreams.shift()
+        closing?.destroy()
+        if (closing) {
+          await waitForClose(closing)
+        }
+        next = podLimited.openExport({ worldName: WORLD_NAMES.DEFAULT, placeId: 'third-place' }, ALL, 'json')
+        if (next.kind === 'stream') {
+          openStreams.push(next.stream)
+        }
+      })
+
+      it('should open the export of the third scene', () => {
+        expect(next.kind).toBe('stream')
+      })
+    })
+  })
+
+  describe('when the consumer destroys the stream after it was produced but before reading it', () => {
+    beforeEach(async () => {
+      worldRows = [{ key: 'a', value: '1' }]
+      const stream = streamOf(storageExport.openExport(SCENE, ALL, 'json'))
+      await settle()
+      stream.destroy()
+      await waitForClose(stream)
+      await settle()
+    })
+
+    it('should log the cancellation at info with only the scene', () => {
+      expect(logInfo).toHaveBeenCalledWith('Export cancelled by client', {
         worldName: WORLD_NAMES.DEFAULT,
         placeId: PLACE_IDS.DEFAULT
       })

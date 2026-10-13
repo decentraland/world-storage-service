@@ -1,6 +1,8 @@
-import { randomUUID } from 'crypto'
+import { randomBytes, randomUUID } from 'crypto'
+import { request as httpRequest } from 'http'
+import type { ClientRequest } from 'http'
 import type { AuthIdentity } from '@dcl/crypto'
-import type { signedFetchFactory } from 'decentraland-crypto-fetch'
+import { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { test } from '../../components'
 import { ADDRESSES, PLACE_IDS, WORLD_NAMES } from '../../fixtures'
 import { TEST_REALM_METADATA, createTestIdentityWithAddress } from '../utils/auth'
@@ -31,6 +33,42 @@ test('when exporting scene storage', function ({ components, stubComponents }) {
       headers: { 'Content-Type': 'application/json' },
       body
     })
+  }
+
+  async function openUnreadExport(): Promise<ClientRequest> {
+    let signedHeaders: Record<string, string> = {}
+    const captureSignedHeaders = signedFetchFactory({
+      fetch: async (input: RequestInfo | URL) => {
+        signedHeaders = Object.fromEntries(new Headers(input instanceof Request ? input.headers : {}).entries())
+        return new Response(null)
+      }
+    })
+    await captureSignedHeaders(`${baseUrl}/exports?format=json`, {
+      method: 'POST',
+      identity,
+      metadata: TEST_REALM_METADATA
+    })
+    return new Promise((resolve, reject) => {
+      const unread = httpRequest(`${baseUrl}/exports?format=json`, {
+        method: 'POST',
+        headers: { ...signedHeaders, 'Content-Length': '0' }
+      })
+      unread.once('response', () => resolve(unread))
+      unread.once('error', reject)
+      unread.end()
+    })
+  }
+
+  async function postExportOnceFree(): Promise<Awaited<ReturnType<typeof signedFetch>>> {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const attempted = await postExport('?format=json')
+      if (attempted.status !== 429) {
+        return attempted
+      }
+      await attempted.text()
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return postExport('?format=json')
   }
 
   async function exportJson(selection: object): Promise<ExportFile> {
@@ -307,13 +345,63 @@ test('when exporting scene storage', function ({ components, stubComponents }) {
     })
   })
 
+  describe('and an export of the scene is still streaming to a client that stopped reading', () => {
+    let firstClient: ClientRequest
+    let second: Awaited<ReturnType<typeof signedFetch>>
+
+    beforeEach(async () => {
+      for (let index = 0; index < 40; index++) {
+        await components.worldStorage.setValue(
+          WORLD_NAMES.DEFAULT,
+          PLACE_IDS.DEFAULT,
+          `large-${index}`,
+          JSON.stringify(randomBytes(375000).toString('base64'))
+        )
+      }
+      firstClient = await openUnreadExport()
+      second = await postExport('?format=json')
+    })
+
+    afterEach(() => {
+      firstClient.destroy()
+    })
+
+    it('should respond to another export of the scene with a 429 and an export in progress message', async () => {
+      expect({ status: second.status, body: await second.json() }).toEqual({
+        status: 429,
+        body: {
+          error: 'Too Many Requests',
+          message: 'An export of this scene is already in progress; try again shortly'
+        }
+      })
+    })
+
+    describe('and that client disconnects', () => {
+      let third: Awaited<ReturnType<typeof signedFetch>>
+
+      beforeEach(async () => {
+        await second.text()
+        firstClient.destroy()
+        third = await postExportOnceFree()
+        await third.arrayBuffer()
+      })
+
+      it('should free the scene for a new export', () => {
+        expect(third.status).toBe(200)
+      })
+    })
+  })
+
   describe('and the exports are listed', () => {
     beforeEach(async () => {
       response = await getAs('/exports')
     })
 
-    it('should respond with a 405', () => {
-      expect(response.status).toBe(405)
+    it('should respond with a 405 that allows only POST', () => {
+      expect({ status: response.status, allow: response.headers.get('allow') }).toEqual({
+        status: 405,
+        allow: expect.stringContaining('POST')
+      })
     })
   })
 
