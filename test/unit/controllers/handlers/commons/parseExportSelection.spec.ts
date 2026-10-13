@@ -1,6 +1,6 @@
 import { InvalidRequestError } from '@dcl/http-commons'
 import { parseExportSelection } from '../../../../../src/controllers/handlers/commons/parseExportSelection'
-import type { ExportSelection } from '../../../../../src/adapters/export-jobs'
+import type { ExportSelection } from '../../../../../src/logic/storage-export/types'
 
 const ALL: ExportSelection = { worldKeys: null, playerAddresses: null, playerKeys: null }
 const MIXED_CASE_ADDRESS = '0xABCDEF1234567890ABCDEF1234567890ABCDEF12'
