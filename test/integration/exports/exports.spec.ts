@@ -1,12 +1,12 @@
 import { randomBytes, randomUUID } from 'crypto'
 import { request as httpRequest } from 'http'
-import type { ClientRequest } from 'http'
 import type { AuthIdentity } from '@dcl/crypto'
 import { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { test } from '../../components'
 import { ADDRESSES, PLACE_IDS, WORLD_NAMES } from '../../fixtures'
 import { TEST_REALM_METADATA, createTestIdentityWithAddress } from '../utils/auth'
 import { createTestSetup } from '../utils/setup'
+import type { ClientRequest } from 'http'
 
 interface ExportFile {
   world: Array<{ key: string; value: unknown }>

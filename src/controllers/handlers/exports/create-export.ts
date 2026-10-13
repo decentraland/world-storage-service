@@ -5,11 +5,16 @@ import { parseExportFormat } from '../commons/parseExportFormat'
 import { parseExportSelection } from '../commons/parseExportSelection'
 import type { WorldHandlerContextWithPath } from '../../../types'
 
+const LIMIT_REACHED_MESSAGES = {
+  scene: 'An export of this scene is already in progress; try again shortly',
+  pod: 'Too many exports are in progress; try again shortly'
+}
+
 /**
  * Handler for streaming an export of the scene's world and player storage.
  *
  * @param context - Request context with the format query and the optional selection body
- * @returns 200 with the gzipped JSON or CSV stream, or 429 while another export of the scene is streaming
+ * @returns 200 with the gzipped JSON or CSV stream, or 429 while the scene's or the pod's export cap is reached
  */
 export async function createExportHandler(
   context: Pick<
@@ -33,13 +38,10 @@ export async function createExportHandler(
     const result = storageExport.openExport({ worldName, placeId }, selection, format)
 
     if (result.kind === 'limit-reached') {
-      logger.info('Export rejected: one already in progress', { worldName, placeId })
+      logger.info('Export rejected: concurrent export cap reached', { worldName, placeId, scope: result.scope })
       return {
         status: 429,
-        body: {
-          error: 'Too Many Requests',
-          message: 'An export of this scene is already in progress; try again shortly'
-        }
+        body: { error: 'Too Many Requests', message: LIMIT_REACHED_MESSAGES[result.scope] }
       }
     }
 

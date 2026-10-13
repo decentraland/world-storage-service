@@ -1444,7 +1444,7 @@ paths:
         it transparently. A JSON export is `{"world":[{"key","value"}],"players":[{"address","key","value"}]}`
         and a CSV export has the header `scope,player_address,key,value` with `\r\n` row separators.
 
-        Each pod streams one export per scene at a time. A stream still running after 120 seconds, or
+        Each pod streams one export per scene and at most five exports in total at a time. A stream still running after 120 seconds, or
         whose uncompressed output passes 500 MB (the defaults), is aborted mid-transfer, so the client
         sees a failed download.
       parameters:
@@ -1511,7 +1511,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '429':
-          description: An export of this scene is already streaming on this pod
+          description: An export of this scene, or the pod's maximum number of exports, is already streaming on this pod
           content:
             application/json:
               schema:
@@ -1521,6 +1521,10 @@ paths:
                   value:
                     error: Too Many Requests
                     message: An export of this scene is already in progress; try again shortly
+                podBusy:
+                  value:
+                    error: Too Many Requests
+                    message: Too many exports are in progress; try again shortly
         '500':
           description: Unexpected error
           content:

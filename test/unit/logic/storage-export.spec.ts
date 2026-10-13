@@ -616,6 +616,7 @@ describe('Storage Export Component', () => {
         if (closing) {
           await waitForClose(closing)
         }
+        await settle()
         next = podLimited.openExport({ worldName: WORLD_NAMES.DEFAULT, placeId: 'third-place' }, ALL, 'json')
         if (next.kind === 'stream') {
           openStreams.push(next.stream)
