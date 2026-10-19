@@ -255,6 +255,32 @@ export const createPlayerStorageComponent = async ({
   }
 
   /**
+   * Streams a scene's player storage entries ordered by player address then key,
+   * limited to `filter.addresses` and `filter.keys` when given.
+   *
+   * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
+   * @param filter - Player addresses and keys to include, each `null` for all
+   * @returns An async generator of { player_address, key, value } rows where `value` is the stored JSON text
+   */
+  function streamScenePlayerValues(
+    worldName: string,
+    placeId: string,
+    filter: { addresses: string[] | null; keys: string[] | null }
+  ): AsyncGenerator<{ player_address: string; key: string; value: string }> {
+    const query = SQL`SELECT player_address, key, value::text AS value FROM player_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid`
+    if (filter.addresses !== null) {
+      query.append(SQL` AND player_address = ANY(${filter.addresses}::text[])`)
+    }
+    if (filter.keys !== null) {
+      query.append(SQL` AND key = ANY(${filter.keys}::text[])`)
+    }
+    query.append(SQL` ORDER BY player_address ASC, key ASC`)
+
+    return pg.streamQuery<{ player_address: string; key: string; value: string }>(query)
+  }
+
+  /**
    * Counts the total number of keys for a player
    *
    * @param worldName - The world identifier
@@ -443,6 +469,7 @@ export const createPlayerStorageComponent = async ({
     deleteAllForPlayer,
     deleteAll,
     listValues,
+    streamScenePlayerValues,
     countKeys,
     listPlayers,
     countPlayers,

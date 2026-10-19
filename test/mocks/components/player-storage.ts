@@ -8,6 +8,7 @@ export function createPlayerStorageMockedComponent(): jest.Mocked<IPlayerStorage
     deleteAllForPlayer: jest.fn(),
     deleteAll: jest.fn(),
     listValues: jest.fn(),
+    streamScenePlayerValues: jest.fn(),
     countKeys: jest.fn(),
     listPlayers: jest.fn(),
     countPlayers: jest.fn(),

@@ -30,6 +30,12 @@ A `resolutions` override pins `@dcl/core-commons` tree-wide because `@dcl/http-c
   in-flight messages at all.
 - The suite needs postgres on `PG_COMPONENT_PSQL_HOST/PORT` (`.env.default` points at 5432). If that
   port is taken, run postgres anywhere and pass `PG_COMPONENT_PSQL_PORT=<port>` to the test command.
+- To run the suite in several checkouts at once (parallel worktrees), give each run its own
+  `HTTP_SERVER_PORT` and `PG_COMPONENT_PSQL_DATABASE` (create the database first with
+  `docker exec world_storage_db createdb -U postgres <name>`); both env vars override `.env.default`.
+  Never run `docker compose up` from a second checkout: the fixed `container_name`s collide.
+- Jest collects specs under nested `.worktrees/` too, so a checkout that contains other worktrees
+  runs their suites as well. Remove nested worktrees before trusting the test count.
 - `node-pg-migrate` does **not** read the `PG_COMPONENT_PSQL_*` vars — it wants `DATABASE_URL`.
   Without it the migration fails with `SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a
   string`, which reads like a credentials bug rather than a missing variable:

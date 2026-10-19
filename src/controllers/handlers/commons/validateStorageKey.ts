@@ -12,14 +12,13 @@ const MAX_KEY_LENGTH = 255
  * Unicode code points, matching how Postgres counts `varchar` length.
  *
  * @param key - The `:key` path parameter
- * @throws {InvalidRequestError} If the key is empty or longer than 255 characters
+ * @throws {InvalidRequestError} If the key is empty, longer than 255 characters, or contains a NUL character
  */
 export function validateStorageKey(key: string): void {
-  // A string's UTF-16 length is an upper bound on its code-point count, so a key within the
-  // limit by that measure is definitely within it. Only keys that look too long fall back to
-  // the exact (array-allocating) code-point count — keeping this hot path allocation-free for
-  // the common case. Postgres counts varchar length in code points.
   if (!key || (key.length > MAX_KEY_LENGTH && [...key].length > MAX_KEY_LENGTH)) {
     throw new InvalidRequestError(`Key must be between 1 and ${MAX_KEY_LENGTH} characters`)
+  }
+  if (key.includes('\u0000')) {
+    throw new InvalidRequestError('Key must not contain NUL characters')
   }
 }

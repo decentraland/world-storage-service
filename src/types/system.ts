@@ -19,6 +19,7 @@ import type { ISceneCollaboratorsComponent } from '../adapters/scene-collaborato
 import type { IWorldStorageComponent } from '../adapters/world-storage/types'
 import type { IWorldsContentServerComponent } from '../adapters/worlds-content-server/types'
 import type { ISceneEntityComponent } from '../logic/scene-entity/types'
+import type { IStorageExportComponent } from '../logic/storage-export/types'
 import type { IStorageLimitsComponent } from '../logic/storage-limits/types'
 import type { IStorageOperationsComponent } from '../logic/storage-operations/types'
 import type { IWorldPermissionComponent } from '../logic/world-permission/types'
@@ -55,6 +56,7 @@ export interface BaseComponents {
   catalystContent: ICatalystContentComponent
   storageLimits: IStorageLimitsComponent
   storageOperations: IStorageOperationsComponent
+  storageExport: IStorageExportComponent
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
   sceneCollaborators: ISceneCollaboratorsComponent
   sceneEntity: ISceneEntityComponent

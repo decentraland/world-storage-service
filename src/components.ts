@@ -27,6 +27,7 @@ import { createSceneCollaboratorsComponent } from './adapters/scene-collaborator
 import { createWorldStorageComponent } from './adapters/world-storage'
 import { createWorldsContentServerComponent } from './adapters/worlds-content-server'
 import { createSceneEntityComponent } from './logic/scene-entity'
+import { createStorageExportComponent } from './logic/storage-export'
 import { createStorageLimitsComponent } from './logic/storage-limits'
 import { createStorageOperationsComponent } from './logic/storage-operations'
 import { createWorldPermissionComponent } from './logic/world-permission'
@@ -112,6 +113,7 @@ export async function initComponents(): Promise<AppComponents> {
   const cors = {
     origin: corsOrigins.split(';').map(pattern => new RegExp(pattern)),
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+    exposedHeaders: ['ETag', 'Retry-After'],
     maxAge: 86400
   }
   const server = await createServerComponent<GlobalContext>({ config, logs }, { cors })
@@ -186,6 +188,7 @@ export async function initComponents(): Promise<AppComponents> {
     config,
     logs
   })
+  const storageExport = await createStorageExportComponent({ worldStorage, playerStorage, config, logs })
 
   const queueUrl = await config.getString('AWS_SQS_QUEUE_URL')
   const sqs = queueUrl ? await createSqsComponent(config) : createLocalDevQueueComponent()
@@ -224,6 +227,7 @@ export async function initComponents(): Promise<AppComponents> {
     sceneEntity,
     sqs,
     queueConsumer,
-    deploymentConsumer
+    deploymentConsumer,
+    storageExport
   }
 }

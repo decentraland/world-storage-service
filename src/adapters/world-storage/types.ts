@@ -59,6 +59,20 @@ export interface IWorldStorageComponent {
   listValues(worldName: string, placeId: string, options: PaginationOptions): Promise<string>
 
   /**
+   * Streams a scene's world storage entries ordered by key, limited to `keys` when given; `value` is the stored JSON text.
+   *
+   * @param worldName - The world identifier
+   * @param placeId - The place ID (UUID) of the scene
+   * @param keys - Keys to include, or `null` for all
+   * @returns An async generator of { key, value } rows
+   */
+  streamSceneValues(
+    worldName: string,
+    placeId: string,
+    keys: string[] | null
+  ): AsyncGenerator<{ key: string; value: string }>
+
+  /**
    * Counts the total number of keys for a scene
    *
    * @param worldName - The world identifier

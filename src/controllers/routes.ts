@@ -10,6 +10,7 @@ import { getEnvStorageHandler } from './handlers/env-storage/get-env-storage'
 import { getEnvUsageHandler } from './handlers/env-storage/get-env-usage'
 import { listEnvKeysHandler } from './handlers/env-storage/list-env-keys'
 import { upsertEnvStorageHandler } from './handlers/env-storage/upsert-env-storage'
+import { createExportHandler } from './handlers/exports/create-export'
 import {
   clearAllPlayersStorageHandler,
   clearPlayerStorageHandler
@@ -31,9 +32,11 @@ import {
   authorizationMiddleware,
   authorizedAddressesOrScopedDelegationAuthorizationMiddleware,
   logsAccessAuthorizationMiddleware,
-  ownerAndDeployerOnlyAuthorizationMiddleware
+  ownerAndDeployerOnlyAuthorizationMiddleware,
+  ownerDeployerAndCollaboratorAuthorizationMiddleware
 } from './middlewares/authorization-middleware'
 import { createBodySizeLimitMiddleware } from './middlewares/body-size-limit-middleware'
+import { rejectAuthoritativeServerMiddleware } from './middlewares/reject-authoritative-server-middleware'
 import { sceneContextMiddleware } from './middlewares/scene-context-middleware'
 import { signedFetchPolicy } from './signed-fetch-policy'
 import type { GlobalContext } from '../types'
@@ -76,6 +79,7 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   const worldBodySizeLimitMiddleware = createBodySizeLimitMiddleware(storageLimits.limits.world.maxValueSizeBytes)
   const playerBodySizeLimitMiddleware = createBodySizeLimitMiddleware(storageLimits.limits.player.maxValueSizeBytes)
   const envBodySizeLimitMiddleware = createBodySizeLimitMiddleware(storageLimits.limits.env.maxValueSizeBytes)
+  const exportBodySizeLimitMiddleware = createBodySizeLimitMiddleware(256 * 1024)
 
   router.use(signedFetchMiddleware())
   router.get('/collaborator', getCollaboratorHandler)
@@ -185,6 +189,14 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
     '/env',
     withSceneContext(ownerAndDeployerOnlyAuthorizationMiddleware),
     withSceneContext(clearEnvStorageHandler)
+  )
+
+  router.post(
+    '/exports',
+    exportBodySizeLimitMiddleware,
+    withSceneContext(rejectAuthoritativeServerMiddleware),
+    withSceneContext(ownerDeployerAndCollaboratorAuthorizationMiddleware),
+    withSceneContext(createExportHandler)
   )
 
   return router

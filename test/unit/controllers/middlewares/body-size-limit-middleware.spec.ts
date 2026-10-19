@@ -18,12 +18,10 @@ describe('bodySizeLimitMiddleware', () => {
     jest.resetAllMocks()
   })
 
-  function buildContext(contentLength: string | null, body: unknown = null): Parameters<typeof middleware>[0] {
+  function buildContext(headers: Record<string, string>, body: unknown = null): Parameters<typeof middleware>[0] {
     return {
       request: {
-        headers: {
-          get: jest.fn().mockReturnValue(contentLength)
-        },
+        headers: new Headers(headers),
         body
       }
     } as unknown as Parameters<typeof middleware>[0]
@@ -42,7 +40,7 @@ describe('bodySizeLimitMiddleware', () => {
 
   describe('when the content length is within the limit', () => {
     it('should call next and return its response', async () => {
-      const response = await middleware(buildContext('500'), next)
+      const response = await middleware(buildContext({ 'content-length': '500' }), next)
 
       expect(response).toBe(nextResponse)
       expect(next).toHaveBeenCalled()
@@ -51,7 +49,7 @@ describe('bodySizeLimitMiddleware', () => {
 
   describe('when the content length equals the limit plus the envelope slack', () => {
     it('should call next and return its response', async () => {
-      const response = await middleware(buildContext(String(MAX_VALUE_SIZE_BYTES + 1024)), next)
+      const response = await middleware(buildContext({ 'content-length': String(MAX_VALUE_SIZE_BYTES + 1024) }), next)
 
       expect(response).toBe(nextResponse)
     })
@@ -63,7 +61,10 @@ describe('bodySizeLimitMiddleware', () => {
 
     beforeEach(async () => {
       bodyStream = buildBodyStream()
-      response = await middleware(buildContext(String(MAX_VALUE_SIZE_BYTES + 1025), bodyStream.stream), next)
+      response = await middleware(
+        buildContext({ 'content-length': String(MAX_VALUE_SIZE_BYTES + 1025) }, bodyStream.stream),
+        next
+      )
     })
 
     it('should respond with a 413 and a payload too large message', () => {
@@ -91,7 +92,7 @@ describe('bodySizeLimitMiddleware', () => {
 
     beforeEach(async () => {
       bodyStream = buildBodyStream()
-      response = await middleware(buildContext(String(5 * 1024 * 1024), bodyStream.stream), next)
+      response = await middleware(buildContext({ 'content-length': String(5 * 1024 * 1024) }, bodyStream.stream), next)
     })
 
     it('should respond with a 413 that closes the connection without reading the body', () => {
@@ -100,11 +101,23 @@ describe('bodySizeLimitMiddleware', () => {
     })
   })
 
-  describe('when the content length header is missing', () => {
+  describe('when the request has neither a content length nor a transfer encoding', () => {
     let response: IHttpServerComponent.IResponse
 
     beforeEach(async () => {
-      response = await middleware(buildContext(null), next)
+      response = await middleware(buildContext({}), next)
+    })
+
+    it('should call next and return its response', () => {
+      expect(response).toBe(nextResponse)
+    })
+  })
+
+  describe('when the content length header is missing and the body is chunked', () => {
+    let response: IHttpServerComponent.IResponse
+
+    beforeEach(async () => {
+      response = await middleware(buildContext({ 'transfer-encoding': 'chunked' }), next)
     })
 
     it('should respond with a 411 that closes the connection', () => {
@@ -127,7 +140,7 @@ describe('bodySizeLimitMiddleware', () => {
     let response: IHttpServerComponent.IResponse
 
     beforeEach(async () => {
-      response = await middleware(buildContext('not-a-number'), next)
+      response = await middleware(buildContext({ 'content-length': 'not-a-number' }), next)
     })
 
     it('should respond with a 411 and a length required message', () => {

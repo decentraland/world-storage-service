@@ -36,6 +36,8 @@ tags:
     description: Storage usage and limits for each namespace
   - name: Collaborator
     description: Discovery of the scenes a wallet collaborates on via `logsPermissions`
+  - name: Exports
+    description: Streaming export of a scene's world and player storage
 
 security:
   - SignedFetch: []
@@ -1422,6 +1424,127 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /exports:
+    post:
+      operationId: createExport
+      tags:
+        - Exports
+      summary: Stream an export of the scene's storage
+      description: |
+        Streams the calling scene's world and player storage as a JSON or CSV download. The scene is
+        resolved from the Signed Fetch metadata.
+
+        Only world owners and deployers (LAND permissions for Genesis City) and `logsPermissions`
+        collaborators can export. Authorized addresses, scoped delegations and the authoritative server
+        are rejected, so scene code cannot reach this route. Env variables are never included.
+
+        The optional body selects what to export. A missing or empty body, or `{}`, exports
+        everything. A chunked body (no `Content-Length`) is rejected with 411.
+
+        The body is gzipped in transit (`Content-Encoding: gzip`), so browsers and `fetch` decompress
+        it transparently. A JSON export is `{"world":[{"key","value"}],"players":[{"address","key","value"}]}`
+        and a CSV export has the header `scope,player_address,key,value` with `\r\n` row separators.
+
+        Each pod streams one export per scene and at most five exports in total at a time, and starts
+        a scene's next export no sooner than 10 seconds after its last one started. A stream still running after 120 seconds, or
+        whose uncompressed output passes 500 MB (the defaults), is aborted mid-transfer, so the client
+        sees a failed download.
+      parameters:
+        - $ref: '#/components/parameters/ExportFormatParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportSelection'
+            examples:
+              selected:
+                value:
+                  world:
+                    keys: ['score']
+                  players:
+                    addresses: ['0x1234567890abcdef1234567890abcdef12345678']
+                    keys: ['progress']
+      responses:
+        '200':
+          description: The streamed export
+          headers:
+            Content-Encoding:
+              description: Always `gzip`
+              schema:
+                type: string
+                enum: [gzip]
+            Content-Disposition:
+              description: '`attachment; filename="storage-export.json"` or `attachment; filename="storage-export.csv"`'
+              schema:
+                type: string
+            Cache-Control:
+              description: Always `no-store`
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Signed fetch is missing or invalid, the format is invalid, or the selection is invalid or empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidFormat:
+                  value:
+                    error: Bad request
+                    message: 'format must be one of: json, csv'
+                emptySelection:
+                  value:
+                    error: Bad request
+                    message: 'The selection is empty: nothing to export'
+        '401':
+          description: The signer is not the world owner, a deployer or a collaborator of this scene, or is the authoritative server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: |
+            An export of this scene, or the pod's maximum number of exports, is already streaming on this pod,
+            or the scene's last export started less than the cooldown ago
+          headers:
+            Retry-After:
+              description: Seconds until the scene's cooldown ends; sent only for the cooldown
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                exportInProgress:
+                  value:
+                    error: Too Many Requests
+                    message: An export of this scene is already in progress; try again shortly
+                podBusy:
+                  value:
+                    error: Too Many Requests
+                    message: Too many exports are in progress; try again shortly
+                sceneCooldown:
+                  value:
+                    error: Too Many Requests
+                    message: This scene was exported moments ago; try again in 7 seconds
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     SignedFetch:
@@ -1480,6 +1603,14 @@ components:
       schema:
         type: string
       example: 'API_'
+    ExportFormatParam:
+      name: format
+      in: query
+      required: true
+      description: Output file format. Exactly one value is accepted.
+      schema:
+        type: string
+        enum: [json, csv]
   schemas:
     StorageValueResponse:
       type: object
@@ -1664,3 +1795,36 @@ components:
       required:
         - message
       description: Error response body.
+    ExportSelection:
+      type: object
+      additionalProperties: false
+      properties:
+        world:
+          type: object
+          additionalProperties: false
+          properties:
+            keys:
+              type: array
+              maxItems: 100
+              items:
+                type: string
+              description: World keys to export
+        players:
+          type: object
+          additionalProperties: false
+          properties:
+            addresses:
+              type: array
+              maxItems: 100
+              items:
+                type: string
+              description: Player addresses to export
+            keys:
+              type: array
+              maxItems: 100
+              items:
+                type: string
+              description: Player keys to export
+      description: |
+        What to export, grouped by scope. A left-out field means all; an empty list `[]` means none.
+        A selection that can match no world rows and no player rows is rejected.

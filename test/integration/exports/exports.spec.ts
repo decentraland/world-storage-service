@@ -1,0 +1,599 @@
+import { randomBytes, randomUUID } from 'crypto'
+import { request as httpRequest } from 'http'
+import { connect } from 'net'
+import { createUnsafeIdentity } from '@dcl/crypto/dist/crypto'
+import { Authenticator } from '@dcl/crypto'
+import type { AuthIdentity } from '@dcl/crypto'
+import { signedFetchFactory } from 'decentraland-crypto-fetch'
+import { test } from '../../components'
+import { ADDRESSES, PLACE_IDS, WORLD_NAMES } from '../../fixtures'
+import { TEST_REALM_METADATA, createTestIdentityWithAddress } from '../utils/auth'
+import { createTestSetup } from '../utils/setup'
+import type { ClientRequest } from 'http'
+
+process.env.EXPORT_SCENE_COOLDOWN_SECONDS = '0'
+
+interface ExportFile {
+  world: Array<{ key: string; value: unknown }>
+  players: Array<{ address: string; key: string; value: unknown }>
+}
+
+const AUTHORITATIVE_SERVER_BODY = {
+  error: 'Not Authorized',
+  message: 'Unauthorized: The authoritative server cannot export storage'
+}
+
+const UNAUTHORIZED_BODY = {
+  error: 'Not Authorized',
+  message: 'Unauthorized: Signer is not authorized to perform operations on this world'
+}
+
+test('when exporting scene storage', function ({ components, stubComponents }) {
+  let signedFetch: ReturnType<typeof signedFetchFactory>
+  let baseUrl: string
+  let identity: AuthIdentity
+  let resetStubs: () => void
+  let authoritative: ReturnType<typeof createUnsafeIdentity>
+  let authoritativeIdentity: AuthIdentity
+  let response: Awaited<ReturnType<typeof signedFetch>>
+
+  function postExport(query: string, body?: string, signer: AuthIdentity = identity) {
+    return signedFetch(`${baseUrl}/exports${query}`, {
+      method: 'POST',
+      identity: signer,
+      metadata: TEST_REALM_METADATA,
+      headers: { 'Content-Type': 'application/json' },
+      body
+    })
+  }
+
+  async function signedExportHeaders(): Promise<Record<string, string>> {
+    let signedHeaders: Record<string, string> = {}
+    const captureSignedHeaders = signedFetchFactory({
+      fetch: async (input: RequestInfo | URL) => {
+        signedHeaders = Object.fromEntries(new Headers(input instanceof Request ? input.headers : {}).entries())
+        return new Response(null)
+      }
+    })
+    await captureSignedHeaders(`${baseUrl}/exports?format=json`, {
+      method: 'POST',
+      identity,
+      metadata: TEST_REALM_METADATA
+    })
+    return signedHeaders
+  }
+
+  async function postExportWithoutBodyHeaders(): Promise<number> {
+    const signedHeaders = await signedExportHeaders()
+    const { hostname, port } = new URL(baseUrl)
+    return new Promise((resolve, reject) => {
+      const socket = connect(Number(port), hostname, () => {
+        const headerLines = Object.entries(signedHeaders).map(([name, value]) => `${name}: ${value}`)
+        socket.write(
+          [
+            'POST /exports?format=json HTTP/1.1',
+            `Host: ${hostname}:${port}`,
+            'Connection: close',
+            ...headerLines,
+            '',
+            ''
+          ].join('\r\n')
+        )
+      })
+      socket.once('data', chunk => {
+        resolve(Number(chunk.toString('latin1').split(' ')[1]))
+        socket.destroy()
+      })
+      socket.once('error', reject)
+    })
+  }
+
+  async function openUnreadExport(): Promise<ClientRequest> {
+    const signedHeaders = await signedExportHeaders()
+    return new Promise((resolve, reject) => {
+      const unread = httpRequest(`${baseUrl}/exports?format=json`, {
+        method: 'POST',
+        headers: { ...signedHeaders, 'Content-Length': '0' }
+      })
+      unread.once('response', () => resolve(unread))
+      unread.once('error', reject)
+      unread.end()
+    })
+  }
+
+  async function postExportOnceFree(): Promise<Awaited<ReturnType<typeof signedFetch>>> {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const attempted = await postExport('?format=json')
+      if (attempted.status !== 429) {
+        return attempted
+      }
+      await attempted.text()
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return postExport('?format=json')
+  }
+
+  async function exportJson(selection: object): Promise<ExportFile> {
+    const exported = await postExport('?format=json', JSON.stringify(selection))
+    if (exported.status !== 200) {
+      throw new Error(`Expected the export to stream, got ${exported.status}`)
+    }
+    return JSON.parse(await exported.text())
+  }
+
+  function getAs(path: string) {
+    return signedFetch(`${baseUrl}${path}`, { method: 'GET', identity, metadata: TEST_REALM_METADATA })
+  }
+
+  async function put(path: string, value: unknown): Promise<void> {
+    const stored = await signedFetch(`${baseUrl}${path}`, {
+      method: 'PUT',
+      identity,
+      metadata: TEST_REALM_METADATA,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value })
+    })
+    if (!stored.ok) {
+      throw new Error(`Seeding ${path} failed with ${stored.status}`)
+    }
+  }
+
+  beforeEach(async () => {
+    const setup = await createTestSetup(components, stubComponents)
+    signedFetch = setup.signedFetch
+    baseUrl = setup.baseUrl
+    identity = setup.identity
+    resetStubs = setup.resetStubs
+
+    authoritative = createUnsafeIdentity()
+    authoritativeIdentity = await Authenticator.initializeAuthChain(
+      authoritative.address,
+      createUnsafeIdentity(),
+      10,
+      async message => Authenticator.createSignature(authoritative, message)
+    )
+    const setupGetString = components.config.getString
+    components.config.getString = async (key: string) =>
+      key === 'AUTHORITATIVE_SERVER_ADDRESS' ? authoritative.address : setupGetString(key)
+
+    await put('/values/a', { n: 1 })
+    await put('/values/b', 'text, with "quotes"')
+    for (const player of [ADDRESSES.PLAYER, ADDRESSES.OWNER]) {
+      await put(`/players/${player}/values/k1`, { player, key: 'k1' })
+      await put(`/players/${player}/values/k2`, { player, key: 'k2' })
+    }
+    await put('/env/secret', 'shh')
+    await components.worldStorage.setValue(WORLD_NAMES.DEFAULT, PLACE_IDS.SCENE_A, 'other', '1')
+  })
+
+  afterEach(async () => {
+    resetStubs()
+    await components.worldStorage.deleteAll(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT)
+    await components.worldStorage.deleteAll(WORLD_NAMES.DEFAULT, PLACE_IDS.SCENE_A)
+    await components.playerStorage.deleteAll(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT)
+    await components.envStorage.deleteAll(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT)
+  })
+
+  describe('and the request does not include an identity', () => {
+    beforeEach(async () => {
+      response = await signedFetch(`${baseUrl}/exports?format=json`, { method: 'POST' })
+    })
+
+    it('should respond with a 400 and a signed fetch required message', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 400,
+        body: { error: 'Invalid Auth Chain', message: 'This endpoint requires a signed fetch request. See ADR-44.' }
+      })
+    })
+  })
+
+  describe.each([
+    ['not allowlisted', '?format=xml'],
+    ['missing', '']
+  ])('and the format is %s', (_label, query) => {
+    beforeEach(async () => {
+      response = await postExport(query)
+    })
+
+    it('should respond with a 400 and the allowed formats', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 400,
+        body: { error: 'Bad request', message: 'format must be one of: json, csv' }
+      })
+    })
+  })
+
+  describe('and the selection is empty', () => {
+    beforeEach(async () => {
+      response = await postExport('?format=json', '{"world":{"keys":[]},"players":{"addresses":[]}}')
+    })
+
+    it('should respond with a 400 and the empty selection message', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 400,
+        body: { error: 'Bad request', message: 'The selection is empty: nothing to export' }
+      })
+    })
+  })
+
+  describe('and the selection has an unknown property', () => {
+    beforeEach(async () => {
+      response = await postExport('?format=json', '{"extra":1}')
+    })
+
+    it('should respond with a 400 and the allowed properties message', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 400,
+        body: { error: 'Bad request', message: 'Request body may only contain world and players' }
+      })
+    })
+  })
+
+  describe('and the owner requests a json export without a body', () => {
+    let text: string
+
+    beforeEach(async () => {
+      response = await postExport('?format=json')
+      text = await response.text()
+    })
+
+    it('should respond with a 200 and a gzipped json attachment', () => {
+      expect({
+        status: response.status,
+        contentType: response.headers.get('content-type'),
+        contentEncoding: response.headers.get('content-encoding'),
+        contentDisposition: response.headers.get('content-disposition'),
+        cacheControl: response.headers.get('cache-control')
+      }).toEqual({
+        status: 200,
+        contentType: expect.stringMatching(/^application\/json/),
+        contentEncoding: 'gzip',
+        contentDisposition: 'attachment; filename="storage-export.json"',
+        cacheControl: 'no-store'
+      })
+    })
+
+    it('should contain only the scene world and player rows', () => {
+      expect(JSON.parse(text)).toEqual({
+        world: [
+          { key: 'a', value: { n: 1 } },
+          { key: 'b', value: 'text, with "quotes"' }
+        ],
+        players: [
+          { address: ADDRESSES.PLAYER, key: 'k1', value: { player: ADDRESSES.PLAYER, key: 'k1' } },
+          { address: ADDRESSES.PLAYER, key: 'k2', value: { player: ADDRESSES.PLAYER, key: 'k2' } },
+          { address: ADDRESSES.OWNER, key: 'k1', value: { player: ADDRESSES.OWNER, key: 'k1' } },
+          { address: ADDRESSES.OWNER, key: 'k2', value: { player: ADDRESSES.OWNER, key: 'k2' } }
+        ]
+      })
+    })
+  })
+
+  describe('and the request carries neither a content length nor a transfer encoding', () => {
+    let status: number
+
+    beforeEach(async () => {
+      status = await postExportWithoutBodyHeaders()
+    })
+
+    it('should treat it as an empty body and respond with a 200', () => {
+      expect(status).toBe(200)
+    })
+  })
+
+  describe('and the owner requests a csv export', () => {
+    let text: string
+
+    beforeEach(async () => {
+      response = await postExport('?format=csv')
+      text = await response.text()
+    })
+
+    it('should respond with a 200 and a gzipped csv attachment', () => {
+      expect({
+        status: response.status,
+        contentType: response.headers.get('content-type'),
+        contentEncoding: response.headers.get('content-encoding'),
+        contentDisposition: response.headers.get('content-disposition')
+      }).toEqual({
+        status: 200,
+        contentType: expect.stringMatching(/^text\/csv/),
+        contentEncoding: 'gzip',
+        contentDisposition: 'attachment; filename="storage-export.csv"'
+      })
+    })
+
+    it('should start with the csv header', () => {
+      expect(text.startsWith('scope,player_address,key,value\r\n')).toBe(true)
+    })
+
+    it('should quote the world value and double its quotes', () => {
+      expect(text).toContain('world,,b,"""text, with \\""quotes\\"""""')
+    })
+
+    it('should include the player rows', () => {
+      expect(text).toContain(`player,${ADDRESSES.PLAYER},k1,`)
+    })
+
+    it('should not include env variables', () => {
+      expect(text).not.toContain('secret')
+    })
+  })
+
+  describe('and the owner exports a single world key and no players', () => {
+    let file: ExportFile
+
+    beforeEach(async () => {
+      file = await exportJson({ world: { keys: ['b'] }, players: { addresses: [] } })
+    })
+
+    it('should export only that world key', () => {
+      expect(file).toEqual({ world: [{ key: 'b', value: 'text, with "quotes"' }], players: [] })
+    })
+  })
+
+  describe('and the owner exports a single player address and no world keys', () => {
+    let file: ExportFile
+
+    beforeEach(async () => {
+      file = await exportJson({ world: { keys: [] }, players: { addresses: [ADDRESSES.PLAYER] } })
+    })
+
+    it('should export only that player rows', () => {
+      expect({ world: file.world, players: file.players.map(row => [row.address, row.key]) }).toEqual({
+        world: [],
+        players: [
+          [ADDRESSES.PLAYER, 'k1'],
+          [ADDRESSES.PLAYER, 'k2']
+        ]
+      })
+    })
+  })
+
+  describe('and a deployer requests an export', () => {
+    beforeEach(async () => {
+      const deployer = await createTestIdentityWithAddress()
+      stubComponents.worldsContentServer.getPermissions.mockResolvedValue({
+        owner: ADDRESSES.OWNER,
+        permissions: { deployment: { type: 'allow-list', wallets: [deployer.address] } }
+      })
+      response = await postExport('?format=json', undefined, deployer.identity)
+      await response.text()
+    })
+
+    it('should respond with a 200', () => {
+      expect(response.status).toBe(200)
+    })
+  })
+
+  describe('and a logs-access collaborator requests an export', () => {
+    beforeEach(async () => {
+      const collaborator = await createTestIdentityWithAddress()
+      stubComponents.worldsContentServer.getPermissions.mockResolvedValue({
+        owner: ADDRESSES.OWNER,
+        permissions: { deployment: { type: 'allow-list', wallets: [] } }
+      })
+      stubComponents.worldsContentServer.getScenesAtParcel.mockResolvedValue([
+        {
+          sceneId: 'bafkreiexportcollaborator',
+          base: '0,0',
+          parcels: ['0,0'],
+          title: null,
+          deployedAt: 0,
+          logsPermissions: [collaborator.address.toLowerCase()]
+        }
+      ])
+      response = await postExport('?format=json', undefined, collaborator.identity)
+      await response.text()
+    })
+
+    it('should respond with a 200', () => {
+      expect(response.status).toBe(200)
+    })
+  })
+
+  describe('and a stranger requests an export', () => {
+    beforeEach(async () => {
+      const stranger = await createTestIdentityWithAddress()
+      stubComponents.worldsContentServer.getPermissions.mockResolvedValue({
+        owner: ADDRESSES.OWNER,
+        permissions: { deployment: { type: 'allow-list', wallets: [] } }
+      })
+      response = await postExport('?format=json', undefined, stranger.identity)
+    })
+
+    it('should respond with a 401 and an unauthorized message', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 401,
+        body: UNAUTHORIZED_BODY
+      })
+    })
+  })
+
+  describe('and the authoritative server requests an export', () => {
+    beforeEach(async () => {
+      stubComponents.worldsContentServer.getPermissions.mockResolvedValue({
+        owner: ADDRESSES.OWNER,
+        permissions: { deployment: { type: 'allow-list', wallets: [] } }
+      })
+      response = await postExport('?format=json', undefined, authoritativeIdentity)
+    })
+
+    it('should respond with a 401 and an authoritative server message', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 401,
+        body: AUTHORITATIVE_SERVER_BODY
+      })
+    })
+  })
+
+  describe('and the authoritative server is also the world owner', () => {
+    beforeEach(async () => {
+      stubComponents.worldsContentServer.getPermissions.mockResolvedValue({
+        owner: authoritative.address,
+        permissions: { deployment: { type: 'allow-list', wallets: [] } }
+      })
+      response = await postExport('?format=json', undefined, authoritativeIdentity)
+    })
+
+    it('should respond with a 401 and an authoritative server message', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 401,
+        body: AUTHORITATIVE_SERVER_BODY
+      })
+    })
+  })
+
+  describe('and a scene worker with a valid storage delegation requests an export', () => {
+    beforeEach(async () => {
+      const sceneId = 'bafkreiexportworker'
+      const ephemeral = createUnsafeIdentity()
+      const workerIdentity = await Authenticator.initializeAuthChain(
+        ephemeral.address,
+        createUnsafeIdentity(),
+        10,
+        async message => Authenticator.createSignature(ephemeral, message)
+      )
+      const payload = [
+        'Decentraland Authoritative Storage Delegation',
+        `Ephemeral: ${ephemeral.address.toLowerCase()}`,
+        `World: ${WORLD_NAMES.DEFAULT.toLowerCase()}`,
+        `SceneId: ${sceneId}`,
+        'Parcel: 0,0',
+        `Expiration: ${new Date(Date.now() + 3_600_000).toISOString()}`
+      ].join('\n')
+      const scopeHeader = Buffer.from(
+        JSON.stringify({ payload, signature: Authenticator.createSignature(authoritative, payload) }),
+        'utf8'
+      ).toString('base64')
+      stubComponents.worldsContentServer.getPermissions.mockResolvedValue({
+        owner: ADDRESSES.OWNER,
+        permissions: { deployment: { type: 'allow-list', wallets: [] } }
+      })
+      response = await signedFetch(`${baseUrl}/exports?format=json`, {
+        method: 'POST',
+        identity: workerIdentity,
+        metadata: {
+          realm: { serverName: WORLD_NAMES.DEFAULT },
+          parcel: '0,0',
+          sceneId,
+          signer: 'dcl:authoritative-server'
+        },
+        headers: { 'x-authoritative-scope': scopeHeader }
+      })
+    })
+
+    it('should respond with a 401 and an unauthorized message', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 401,
+        body: UNAUTHORIZED_BODY
+      })
+    })
+  })
+
+  describe('and an export of the scene is still streaming to a client that stopped reading', () => {
+    let firstClient: ClientRequest
+    let second: Awaited<ReturnType<typeof signedFetch>>
+
+    beforeEach(async () => {
+      for (let index = 0; index < 40; index++) {
+        await components.worldStorage.setValue(
+          WORLD_NAMES.DEFAULT,
+          PLACE_IDS.DEFAULT,
+          `large-${index}`,
+          JSON.stringify(randomBytes(375000).toString('base64'))
+        )
+      }
+      firstClient = await openUnreadExport()
+      second = await postExport('?format=json')
+    })
+
+    afterEach(() => {
+      firstClient.destroy()
+    })
+
+    it('should respond to another export of the scene with a 429 and an export in progress message', async () => {
+      expect({ status: second.status, body: await second.json() }).toEqual({
+        status: 429,
+        body: {
+          error: 'Too Many Requests',
+          message: 'An export of this scene is already in progress; try again shortly'
+        }
+      })
+    })
+
+    describe('and that client disconnects', () => {
+      let third: Awaited<ReturnType<typeof signedFetch>>
+
+      beforeEach(async () => {
+        await second.text()
+        firstClient.destroy()
+        third = await postExportOnceFree()
+        await third.arrayBuffer()
+      })
+
+      it('should free the scene for a new export', () => {
+        expect(third.status).toBe(200)
+      })
+    })
+  })
+
+  describe('and the scene was exported moments ago', () => {
+    beforeEach(async () => {
+      jest.spyOn(components.storageExport, 'openExport').mockReturnValueOnce({ kind: 'cooldown', retryAfterSeconds: 7 })
+      response = await signedFetch(`${baseUrl}/exports?format=json`, {
+        method: 'POST',
+        identity,
+        metadata: TEST_REALM_METADATA,
+        headers: { Origin: 'https://decentraland.org', 'Content-Length': '0' }
+      })
+    })
+
+    afterEach(() => {
+      jest.restoreAllMocks()
+    })
+
+    it('should respond with a 429, a readable retry after header and the seconds to wait', async () => {
+      expect({
+        status: response.status,
+        retryAfter: response.headers.get('retry-after'),
+        exposed: response.headers.get('access-control-expose-headers'),
+        body: await response.json()
+      }).toEqual({
+        status: 429,
+        retryAfter: '7',
+        exposed: expect.stringContaining('Retry-After'),
+        body: {
+          error: 'Too Many Requests',
+          message: 'This scene was exported moments ago; try again in 7 seconds'
+        }
+      })
+    })
+  })
+
+  describe('and the exports are listed', () => {
+    beforeEach(async () => {
+      response = await getAs('/exports')
+    })
+
+    it('should respond with a 405 that allows only POST', () => {
+      expect({ status: response.status, allow: response.headers.get('allow') }).toEqual({
+        status: 405,
+        allow: expect.stringContaining('POST')
+      })
+    })
+  })
+
+  describe.each([
+    ['an export', (): string => `/exports/${randomUUID()}`],
+    ['an export download', (): string => `/exports/${randomUUID()}/download`]
+  ])('and %s is fetched by id', (_label, path) => {
+    beforeEach(async () => {
+      response = await getAs(path())
+    })
+
+    it('should respond with a 404', () => {
+      expect(response.status).toBe(404)
+    })
+  })
+})
