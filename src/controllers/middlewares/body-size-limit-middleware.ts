@@ -22,8 +22,9 @@ const DRAIN_LIMIT_BYTES = 4 * 1024 * 1024
  * entire body before the storage-limits check runs, so any caller able to sign a request
  * could exhaust memory/CPU with a multi-hundred-MB body. The check runs on the declared
  * `Content-Length` — Node's HTTP parser enforces that the actual body does not exceed the
- * declared length, so the header can be trusted as an upper bound. Bodies without a
- * `Content-Length` (chunked) cannot be size-checked before buffering and are rejected.
+ * declared length, so the header can be trusted as an upper bound. A request with neither
+ * `Content-Length` nor `Transfer-Encoding` has no body (RFC 9112 §6.3) and passes; chunked
+ * bodies cannot be size-checked before buffering and are rejected.
  *
  * @param maxValueSizeBytes - The per-value size limit of the route's storage namespace
  * @returns A middleware that responds 411/413 for missing/oversized bodies
@@ -34,8 +35,8 @@ export function createBodySizeLimitMiddleware(
   const maxBodySizeBytes = maxValueSizeBytes + BODY_ENVELOPE_SLACK_BYTES
 
   return async (ctx, next) => {
-    const contentLengthHeader = ctx.request.headers.get('content-length')
-    // `Number(null)` would be 0, silently letting header-less (chunked) bodies through.
+    const contentLengthHeader =
+      ctx.request.headers.get('content-length') ?? (ctx.request.headers.has('transfer-encoding') ? null : '0')
     const contentLength = contentLengthHeader === null ? NaN : Number(contentLengthHeader)
 
     // Rejections that skip reading the request body leave the unread bytes on the socket;
