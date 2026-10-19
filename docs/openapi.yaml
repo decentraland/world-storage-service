@@ -1434,8 +1434,9 @@ paths:
         Streams the calling scene's world and player storage as a JSON or CSV download. The scene is
         resolved from the Signed Fetch metadata.
 
-        Access matches the storage read routes: authorized addresses, scoped delegations, world
-        owners and deployers, and `logsPermissions` collaborators. Env variables are never included.
+        Only world owners and deployers (LAND permissions for Genesis City) and `logsPermissions`
+        collaborators can export. Authorized addresses, scoped delegations and the authoritative server
+        are rejected, so scene code cannot reach this route. Env variables are never included.
 
         The optional body selects what to export. A missing or empty body, or `{}`, exports
         everything. A chunked body (no `Content-Length`) is rejected with 411.
@@ -1506,7 +1507,7 @@ paths:
                     error: Bad request
                     message: 'The selection is empty: nothing to export'
         '401':
-          description: The signer cannot read this scene's storage
+          description: The signer is not the world owner, a deployer or a collaborator of this scene, or is the authoritative server
           content:
             application/json:
               schema:

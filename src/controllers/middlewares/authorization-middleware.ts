@@ -262,6 +262,13 @@ export const authorizationMiddleware = createAuthorizationMiddleware({
   allowScopedDelegation: true
 })
 
+/** World owners/deployers and `logsPermissions` collaborators only, never authorized addresses or scoped delegations; for storage exports. */
+export const ownerDeployerAndCollaboratorAuthorizationMiddleware = createAuthorizationMiddleware({
+  allowAuthorizedAddresses: false,
+  allowOwnersAndDeployers: true,
+  allowLogsAccess: true
+})
+
 /** Default preset plus `allowLogsAccess`, for Scene/Player GET reads and per-key PUT/DELETE writes (not bulk clear-all or `/env`). */
 export const logsAccessAuthorizationMiddleware = createAuthorizationMiddleware({
   allowAuthorizedAddresses: true,

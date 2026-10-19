@@ -14,7 +14,7 @@ The World Storage Service is a standalone service that provides secure, isolated
 - **Environment Variables Management**: Serves encrypted environment variables (secrets, API keys, config) configured at deploy time (`/env/:key`). Values are encrypted at rest. GET value reads are restricted to authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES) OR an authoritative scene worker presenting a valid scene-scoped storage delegation for its own scene, while write/delete operations (PUT/DELETE) are restricted to world owners and deployers only. This lets a headless authoritative worker consume its own scene's secrets (confined to its `place_id`) while keeping management in the owners' hands.
 - **Bulk Delete Operations**: Supports clearing all values in a storage namespace. These operations require a confirmation header (`X-Confirm-Delete-All`) to prevent accidental data loss.
 - **Collaborator Access & Discovery**: Wallets in a scene's `logsPermissions` metadata are granted read/write/delete on that scene's Scene and Player storage, alongside the world owner and deployers. A deployment-fed index (`scene_collaborators`) records which wallets collaborate on which scenes so a signed-in wallet can discover the scenes it may access via the self-scoped `GET /collaborator` endpoint (returns scene identifiers only, never storage values). The index is eventually consistent and discovery-only; authorization is re-checked per request against scene metadata (cached up to a short TTL, default 30s), never read from the index. See `docs/database-schemas.md` for the index's staleness model.
-- **Scene Storage Export**: anyone with storage read access downloads the scene's storage in one streaming request (`POST /exports?format=json|csv`, optional body selecting world keys and player addresses/keys). The response is the JSON or CSV file itself, gzipped in transit (`Content-Encoding: gzip`). Each pod streams at most one export per scene and five in total at a time, and starts a scene's next export no sooner than 10 s after its last one started (429 otherwise, with `Retry-After` for the cooldown), and aborts a stream still running after 120 s or whose raw output passes 500 MB. Env variables are never exported.
+- **Scene Storage Export**: world owners, deployers and `logsPermissions` collaborators (never authorized addresses, the authoritative server or scene workers) download the scene's storage in one streaming request (`POST /exports?format=json|csv`, optional body selecting world keys and player addresses/keys). The response is the JSON or CSV file itself, gzipped in transit (`Content-Encoding: gzip`). Each pod streams at most one export per scene and five in total at a time, and starts a scene's next export no sooner than 10 s after its last one started (429 otherwise, with `Retry-After` for the cooldown), and aborts a stream still running after 120 s or whose raw output passes 500 MB. Env variables are never exported.
 
 **Communication Pattern:**
 
@@ -53,9 +53,9 @@ HTTP REST API using signed fetch authentication. The service exposes REST endpoi
 
 **Authorization Model:**
 
-The service uses four types of authorization middleware with different access levels:
+The service uses five types of authorization middleware with different access levels:
 
-1. **Collaborator Access** (`logsAccessAuthorizationMiddleware`): Used for read/write/delete of individual Scene and Player storage entries (GET/PUT/DELETE on `/values/:key`, GET `/values`, the `/players/:player_address/values*` equivalents, and `/exports*`). Allows:
+1. **Collaborator Access** (`logsAccessAuthorizationMiddleware`): Used for read/write/delete of individual Scene and Player storage entries (GET/PUT/DELETE on `/values/:key`, GET `/values`, and the `/players/:player_address/values*` equivalents). Allows:
    - Authorized addresses (AUTHORITATIVE_SERVER_ADDRESS or addresses in AUTHORIZED_ADDRESSES environment variable)
    - World owners and deployers (verified via Worlds Content Server)
    - Collaborators: wallets listed in the scene's `logsPermissions` metadata. `logsPermissions` is the only grant source at this time and confers full read/write/delete on that scene's Scene and Player storage. Membership is re-checked on every request against the deploying content server's scene metadata, looked up for the single parcel the request is scoped to — `POST /world/:name/scenes` with `{ coordinates: [parcel] }` for worlds, `POST /entities/active` with `{ pointers: [parcel] }` for Genesis City — and cached for up to `SCENE_METADATA_CACHE_TTL_SECONDS` (default 30s). Never list a world's scenes and filter client-side: that endpoint is paginated at 100 per page, so a scene past the first page would silently fail the check — so a revoked collaborator loses access within that window, not instantly. The `scene_collaborators` index is never trusted for authorization.
@@ -73,6 +73,11 @@ The service uses four types of authorization middleware with different access le
    - World owners and deployers
    - An authoritative scene worker presenting a valid world-scoped storage delegation
    - Collaborators are NOT granted here: usage reports world-wide totals (the per-world quota is not partitioned per scene), so a scene-scoped collaborator is excluded.
+
+5. **Owner, Deployer or Collaborator** (`ownerDeployerAndCollaboratorAuthorizationMiddleware`): Used exclusively for POST `/exports`, after `rejectAuthoritativeServerMiddleware`. Allows:
+   - World owners and deployers (LAND permissions on the parcel for Genesis City)
+   - Collaborators listed in the scene's `logsPermissions`
+   - Authorized addresses and scoped delegations are NOT granted, and AUTHORITATIVE_SERVER_ADDRESS is rejected even when it also holds world or scene permissions, so no scene code (explorer scenes are already refused by the signed-fetch policy, authoritative scenes by these two) can export storage.
 
 **Database notes:**
 

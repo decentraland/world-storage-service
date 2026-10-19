@@ -1,6 +1,8 @@
 import { randomBytes, randomUUID } from 'crypto'
 import { request as httpRequest } from 'http'
 import { connect } from 'net'
+import { createUnsafeIdentity } from '@dcl/crypto/dist/crypto'
+import { Authenticator } from '@dcl/crypto'
 import type { AuthIdentity } from '@dcl/crypto'
 import { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { test } from '../../components'
@@ -16,6 +18,11 @@ interface ExportFile {
   players: Array<{ address: string; key: string; value: unknown }>
 }
 
+const AUTHORITATIVE_SERVER_BODY = {
+  error: 'Not Authorized',
+  message: 'Unauthorized: The authoritative server cannot export storage'
+}
+
 const UNAUTHORIZED_BODY = {
   error: 'Not Authorized',
   message: 'Unauthorized: Signer is not authorized to perform operations on this world'
@@ -26,6 +33,8 @@ test('when exporting scene storage', function ({ components, stubComponents }) {
   let baseUrl: string
   let identity: AuthIdentity
   let resetStubs: () => void
+  let authoritative: ReturnType<typeof createUnsafeIdentity>
+  let authoritativeIdentity: AuthIdentity
   let response: Awaited<ReturnType<typeof signedFetch>>
 
   function postExport(query: string, body?: string, signer: AuthIdentity = identity) {
@@ -135,6 +144,17 @@ test('when exporting scene storage', function ({ components, stubComponents }) {
     baseUrl = setup.baseUrl
     identity = setup.identity
     resetStubs = setup.resetStubs
+
+    authoritative = createUnsafeIdentity()
+    authoritativeIdentity = await Authenticator.initializeAuthChain(
+      authoritative.address,
+      createUnsafeIdentity(),
+      10,
+      async message => Authenticator.createSignature(authoritative, message)
+    )
+    const setupGetString = components.config.getString
+    components.config.getString = async (key: string) =>
+      key === 'AUTHORITATIVE_SERVER_ADDRESS' ? authoritative.address : setupGetString(key)
 
     await put('/values/a', { n: 1 })
     await put('/values/b', 'text, with "quotes"')
@@ -380,6 +400,87 @@ test('when exporting scene storage', function ({ components, stubComponents }) {
         permissions: { deployment: { type: 'allow-list', wallets: [] } }
       })
       response = await postExport('?format=json', undefined, stranger.identity)
+    })
+
+    it('should respond with a 401 and an unauthorized message', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 401,
+        body: UNAUTHORIZED_BODY
+      })
+    })
+  })
+
+  describe('and the authoritative server requests an export', () => {
+    beforeEach(async () => {
+      stubComponents.worldsContentServer.getPermissions.mockResolvedValue({
+        owner: ADDRESSES.OWNER,
+        permissions: { deployment: { type: 'allow-list', wallets: [] } }
+      })
+      response = await postExport('?format=json', undefined, authoritativeIdentity)
+    })
+
+    it('should respond with a 401 and an authoritative server message', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 401,
+        body: AUTHORITATIVE_SERVER_BODY
+      })
+    })
+  })
+
+  describe('and the authoritative server is also the world owner', () => {
+    beforeEach(async () => {
+      stubComponents.worldsContentServer.getPermissions.mockResolvedValue({
+        owner: authoritative.address,
+        permissions: { deployment: { type: 'allow-list', wallets: [] } }
+      })
+      response = await postExport('?format=json', undefined, authoritativeIdentity)
+    })
+
+    it('should respond with a 401 and an authoritative server message', async () => {
+      expect({ status: response.status, body: await response.json() }).toEqual({
+        status: 401,
+        body: AUTHORITATIVE_SERVER_BODY
+      })
+    })
+  })
+
+  describe('and a scene worker with a valid storage delegation requests an export', () => {
+    beforeEach(async () => {
+      const sceneId = 'bafkreiexportworker'
+      const ephemeral = createUnsafeIdentity()
+      const workerIdentity = await Authenticator.initializeAuthChain(
+        ephemeral.address,
+        createUnsafeIdentity(),
+        10,
+        async message => Authenticator.createSignature(ephemeral, message)
+      )
+      const payload = [
+        'Decentraland Authoritative Storage Delegation',
+        `Ephemeral: ${ephemeral.address.toLowerCase()}`,
+        `World: ${WORLD_NAMES.DEFAULT.toLowerCase()}`,
+        `SceneId: ${sceneId}`,
+        'Parcel: 0,0',
+        `Expiration: ${new Date(Date.now() + 3_600_000).toISOString()}`
+      ].join('\n')
+      const scopeHeader = Buffer.from(
+        JSON.stringify({ payload, signature: Authenticator.createSignature(authoritative, payload) }),
+        'utf8'
+      ).toString('base64')
+      stubComponents.worldsContentServer.getPermissions.mockResolvedValue({
+        owner: ADDRESSES.OWNER,
+        permissions: { deployment: { type: 'allow-list', wallets: [] } }
+      })
+      response = await signedFetch(`${baseUrl}/exports?format=json`, {
+        method: 'POST',
+        identity: workerIdentity,
+        metadata: {
+          realm: { serverName: WORLD_NAMES.DEFAULT },
+          parcel: '0,0',
+          sceneId,
+          signer: 'dcl:authoritative-server'
+        },
+        headers: { 'x-authoritative-scope': scopeHeader }
+      })
     })
 
     it('should respond with a 401 and an unauthorized message', async () => {

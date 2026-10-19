@@ -32,9 +32,11 @@ import {
   authorizationMiddleware,
   authorizedAddressesOrScopedDelegationAuthorizationMiddleware,
   logsAccessAuthorizationMiddleware,
-  ownerAndDeployerOnlyAuthorizationMiddleware
+  ownerAndDeployerOnlyAuthorizationMiddleware,
+  ownerDeployerAndCollaboratorAuthorizationMiddleware
 } from './middlewares/authorization-middleware'
 import { createBodySizeLimitMiddleware } from './middlewares/body-size-limit-middleware'
+import { rejectAuthoritativeServerMiddleware } from './middlewares/reject-authoritative-server-middleware'
 import { sceneContextMiddleware } from './middlewares/scene-context-middleware'
 import { signedFetchPolicy } from './signed-fetch-policy'
 import type { GlobalContext } from '../types'
@@ -192,7 +194,8 @@ export async function setupRouter(context: GlobalContext): Promise<Router<Global
   router.post(
     '/exports',
     exportBodySizeLimitMiddleware,
-    withSceneContext(logsAccessAuthorizationMiddleware),
+    withSceneContext(rejectAuthoritativeServerMiddleware),
+    withSceneContext(ownerDeployerAndCollaboratorAuthorizationMiddleware),
     withSceneContext(createExportHandler)
   )
 
