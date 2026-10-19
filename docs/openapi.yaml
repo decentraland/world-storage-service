@@ -1437,14 +1437,15 @@ paths:
         Access matches the storage read routes: authorized addresses, scoped delegations, world
         owners and deployers, and `logsPermissions` collaborators. Env variables are never included.
 
-        The optional body selects what to export. A missing or empty body (sent with
-        `Content-Length: 0`), or `{}`, exports everything.
+        The optional body selects what to export. A missing or empty body, or `{}`, exports
+        everything. A chunked body (no `Content-Length`) is rejected with 411.
 
         The body is gzipped in transit (`Content-Encoding: gzip`), so browsers and `fetch` decompress
         it transparently. A JSON export is `{"world":[{"key","value"}],"players":[{"address","key","value"}]}`
         and a CSV export has the header `scope,player_address,key,value` with `\r\n` row separators.
 
-        Each pod streams one export per scene and at most five exports in total at a time. A stream still running after 120 seconds, or
+        Each pod streams one export per scene and at most five exports in total at a time, and starts
+        a scene's next export no sooner than 10 seconds after its last one started. A stream still running after 120 seconds, or
         whose uncompressed output passes 500 MB (the defaults), is aborted mid-transfer, so the client
         sees a failed download.
       parameters:
@@ -1511,7 +1512,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '429':
-          description: An export of this scene, or the pod's maximum number of exports, is already streaming on this pod
+          description: |
+            An export of this scene, or the pod's maximum number of exports, is already streaming on this pod,
+            or the scene's last export started less than the cooldown ago
+          headers:
+            Retry-After:
+              description: Seconds until the scene's cooldown ends; sent only for the cooldown
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -1525,6 +1533,10 @@ paths:
                   value:
                     error: Too Many Requests
                     message: Too many exports are in progress; try again shortly
+                sceneCooldown:
+                  value:
+                    error: Too Many Requests
+                    message: This scene was exported moments ago; try again in 7 seconds
         '500':
           description: Unexpected error
           content:

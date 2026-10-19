@@ -16,14 +16,22 @@ class ExportTimeoutError extends Error {
   }
 }
 
+interface ExportLogContext extends Record<string, string | number> {
+  worldName: string
+  placeId: string
+  format: ExportFormat
+  rawBytes: number
+  durationMs: number
+}
+
 async function* noRows<T>(): AsyncGenerator<T> {
   yield* []
 }
 
 /**
  * Creates the storage export component, which streams a scene's world and player storage as a gzipped
- * JSON or CSV file, at most `EXPORT_MAX_CONCURRENT_PER_SCENE` at a time per scene and
- * `EXPORT_MAX_CONCURRENT_PER_POD` in total on this pod, aborting a stream that runs past `EXPORT_TIMEOUT_SECONDS` or whose raw output passes `EXPORT_MAX_SIZE_BYTES`.
+ * JSON or CSV file, at most `EXPORT_MAX_CONCURRENT_PER_SCENE` at a time per scene,
+ * one start per scene every `EXPORT_SCENE_COOLDOWN_SECONDS`, and `EXPORT_MAX_CONCURRENT_PER_POD` in total on this pod, aborting a stream that runs past `EXPORT_TIMEOUT_SECONDS` or whose raw output passes `EXPORT_MAX_SIZE_BYTES`.
  *
  * @param components - Storage adapters, config and logs
  * @returns The storage export component
@@ -37,9 +45,11 @@ export async function createStorageExportComponent({
   const logger = logs.getLogger('storage-export')
   const maxConcurrentPerScene = await config.requireNumber('EXPORT_MAX_CONCURRENT_PER_SCENE')
   const maxConcurrentPerPod = await config.requireNumber('EXPORT_MAX_CONCURRENT_PER_POD')
+  const sceneCooldownMs = (await config.requireNumber('EXPORT_SCENE_COOLDOWN_SECONDS')) * 1000
   const timeoutSeconds = await config.requireNumber('EXPORT_TIMEOUT_SECONDS')
   const maxSizeBytes = await config.requireNumber('EXPORT_MAX_SIZE_BYTES')
   const openExportsByScene = new Map<string, number>()
+  const lastStartByScene = new Map<string, number>()
   let openExportsOnPod = 0
 
   function serializeSelection(
@@ -74,14 +84,17 @@ export async function createStorageExportComponent({
     }
   }
 
-  function logFailure({ worldName, placeId }: ExportScene, error: NodeJS.ErrnoException): void {
-    const logContext = { worldName, placeId }
+  function logFailure(logContext: ExportLogContext, error: NodeJS.ErrnoException): void {
     if (error instanceof ExportTooLargeError) {
       logger.error('Export exceeded the maximum size', logContext)
     } else if (error instanceof ExportTimeoutError) {
       logger.error('Export timed out', logContext)
     } else {
-      logger.error('Export failed', logContext)
+      logger.error('Export failed', {
+        ...logContext,
+        error: error.message,
+        ...(error.code ? { code: error.code } : {})
+      })
     }
   }
 
@@ -91,9 +104,21 @@ export async function createStorageExportComponent({
     if (openExports >= maxConcurrentPerScene) {
       return { kind: 'limit-reached', scope: 'scene' }
     }
+    const cooldownLeftMs = (lastStartByScene.get(sceneKey) ?? 0) + sceneCooldownMs - Date.now()
+    if (cooldownLeftMs > 0) {
+      return { kind: 'cooldown', retryAfterSeconds: Math.ceil(cooldownLeftMs / 1000) }
+    }
     if (openExportsOnPod >= maxConcurrentPerPod) {
       return { kind: 'limit-reached', scope: 'pod' }
     }
+
+    const startedAt = Date.now()
+    lastStartByScene.set(sceneKey, startedAt)
+    setTimeout(() => {
+      if (lastStartByScene.get(sceneKey) === startedAt) {
+        lastStartByScene.delete(sceneKey)
+      }
+    }, sceneCooldownMs).unref()
 
     const source = Readable.from(serializeSelection(scene, selection, format))
     openExportsByScene.set(sceneKey, openExports + 1)
@@ -111,11 +136,18 @@ export async function createStorageExportComponent({
       }
     })
     const gzip = createGzip()
-    let failureLogged = false
+    const logContext = (): ExportLogContext => ({
+      worldName: scene.worldName,
+      placeId: scene.placeId,
+      format,
+      rawBytes: sizeBytes,
+      durationMs: Date.now() - startedAt
+    })
+    let outcomeLogged = false
     const onFailure = (error: NodeJS.ErrnoException | null): void => {
-      if (error && !failureLogged) {
-        failureLogged = true
-        logFailure(scene, error)
+      if (error && !outcomeLogged) {
+        outcomeLogged = true
+        logFailure(logContext(), error)
       }
     }
     pipeline(source, limiter, gzip, onFailure)
@@ -125,9 +157,9 @@ export async function createStorageExportComponent({
     gzip.once('close', () => {
       clearTimeout(timer)
       release(sceneKey)
-      if (!failureLogged && !gzip.readableEnded) {
-        failureLogged = true
-        logger.info('Export cancelled by client', { worldName: scene.worldName, placeId: scene.placeId })
+      if (!outcomeLogged) {
+        outcomeLogged = true
+        logger.info(gzip.readableEnded ? 'Export finished' : 'Export cancelled by client', logContext())
       }
     })
 

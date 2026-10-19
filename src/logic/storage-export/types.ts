@@ -16,10 +16,13 @@ export interface ExportScene {
   placeId: string
 }
 
-/** Result of opening an export: the gzipped stream, or which concurrent export cap was reached. */
-export type OpenExportResult = { kind: 'stream'; stream: Readable } | { kind: 'limit-reached'; scope: 'scene' | 'pod' }
+/** Result of opening an export: the gzipped stream, which concurrent export cap was reached, or how long the scene's cooldown still runs. */
+export type OpenExportResult =
+  | { kind: 'stream'; stream: Readable }
+  | { kind: 'limit-reached'; scope: 'scene' | 'pod' }
+  | { kind: 'cooldown'; retryAfterSeconds: number }
 
 export interface IStorageExportComponent {
-  /** Opens a gzipped JSON or CSV stream of the scene's selected storage, or `limit-reached` at the scene's or pod's cap. */
+  /** Opens a gzipped JSON or CSV stream of the scene's selected storage, `limit-reached` at the scene's or pod's cap, or `cooldown` while the scene's last export started too recently. */
   openExport(scene: ExportScene, selection: ExportSelection, format: ExportFormat): OpenExportResult
 }

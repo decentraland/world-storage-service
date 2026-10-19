@@ -14,7 +14,7 @@ const LIMIT_REACHED_MESSAGES = {
  * Handler for streaming an export of the scene's world and player storage.
  *
  * @param context - Request context with the format query and the optional selection body
- * @returns 200 with the gzipped JSON or CSV stream, or 429 while the scene's or the pod's export cap is reached
+ * @returns 200 with the gzipped JSON or CSV stream, or 429 while the scene's or the pod's export cap is reached or the scene's cooldown runs
  */
 export async function createExportHandler(
   context: Pick<
@@ -36,6 +36,22 @@ export async function createExportHandler(
     const format = parseExportFormat(url)
     const selection = parseExportSelection(await request.text())
     const result = storageExport.openExport({ worldName, placeId }, selection, format)
+
+    if (result.kind === 'cooldown') {
+      logger.info('Export rejected: scene export cooldown', {
+        worldName,
+        placeId,
+        retryAfterSeconds: result.retryAfterSeconds
+      })
+      return {
+        status: 429,
+        headers: { 'Retry-After': String(result.retryAfterSeconds) },
+        body: {
+          error: 'Too Many Requests',
+          message: `This scene was exported moments ago; try again in ${result.retryAfterSeconds} seconds`
+        }
+      }
+    }
 
     if (result.kind === 'limit-reached') {
       logger.info('Export rejected: concurrent export cap reached', { worldName, placeId, scope: result.scope })

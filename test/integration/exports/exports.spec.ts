@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'crypto'
 import { request as httpRequest } from 'http'
+import { connect } from 'net'
 import type { AuthIdentity } from '@dcl/crypto'
 import { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { test } from '../../components'
@@ -7,6 +8,8 @@ import { ADDRESSES, PLACE_IDS, WORLD_NAMES } from '../../fixtures'
 import { TEST_REALM_METADATA, createTestIdentityWithAddress } from '../utils/auth'
 import { createTestSetup } from '../utils/setup'
 import type { ClientRequest } from 'http'
+
+process.env.EXPORT_SCENE_COOLDOWN_SECONDS = '0'
 
 interface ExportFile {
   world: Array<{ key: string; value: unknown }>
@@ -35,7 +38,7 @@ test('when exporting scene storage', function ({ components, stubComponents }) {
     })
   }
 
-  async function openUnreadExport(): Promise<ClientRequest> {
+  async function signedExportHeaders(): Promise<Record<string, string>> {
     let signedHeaders: Record<string, string> = {}
     const captureSignedHeaders = signedFetchFactory({
       fetch: async (input: RequestInfo | URL) => {
@@ -48,6 +51,36 @@ test('when exporting scene storage', function ({ components, stubComponents }) {
       identity,
       metadata: TEST_REALM_METADATA
     })
+    return signedHeaders
+  }
+
+  async function postExportWithoutBodyHeaders(): Promise<number> {
+    const signedHeaders = await signedExportHeaders()
+    const { hostname, port } = new URL(baseUrl)
+    return new Promise((resolve, reject) => {
+      const socket = connect(Number(port), hostname, () => {
+        const headerLines = Object.entries(signedHeaders).map(([name, value]) => `${name}: ${value}`)
+        socket.write(
+          [
+            'POST /exports?format=json HTTP/1.1',
+            `Host: ${hostname}:${port}`,
+            'Connection: close',
+            ...headerLines,
+            '',
+            ''
+          ].join('\r\n')
+        )
+      })
+      socket.once('data', chunk => {
+        resolve(Number(chunk.toString('latin1').split(' ')[1]))
+        socket.destroy()
+      })
+      socket.once('error', reject)
+    })
+  }
+
+  async function openUnreadExport(): Promise<ClientRequest> {
+    const signedHeaders = await signedExportHeaders()
     return new Promise((resolve, reject) => {
       const unread = httpRequest(`${baseUrl}/exports?format=json`, {
         method: 'POST',
@@ -213,6 +246,18 @@ test('when exporting scene storage', function ({ components, stubComponents }) {
           { address: ADDRESSES.OWNER, key: 'k2', value: { player: ADDRESSES.OWNER, key: 'k2' } }
         ]
       })
+    })
+  })
+
+  describe('and the request carries neither a content length nor a transfer encoding', () => {
+    let status: number
+
+    beforeEach(async () => {
+      status = await postExportWithoutBodyHeaders()
+    })
+
+    it('should treat it as an empty body and respond with a 200', () => {
+      expect(status).toBe(200)
     })
   })
 
@@ -388,6 +433,39 @@ test('when exporting scene storage', function ({ components, stubComponents }) {
 
       it('should free the scene for a new export', () => {
         expect(third.status).toBe(200)
+      })
+    })
+  })
+
+  describe('and the scene was exported moments ago', () => {
+    beforeEach(async () => {
+      jest.spyOn(components.storageExport, 'openExport').mockReturnValueOnce({ kind: 'cooldown', retryAfterSeconds: 7 })
+      response = await signedFetch(`${baseUrl}/exports?format=json`, {
+        method: 'POST',
+        identity,
+        metadata: TEST_REALM_METADATA,
+        headers: { Origin: 'https://decentraland.org', 'Content-Length': '0' }
+      })
+    })
+
+    afterEach(() => {
+      jest.restoreAllMocks()
+    })
+
+    it('should respond with a 429, a readable retry after header and the seconds to wait', async () => {
+      expect({
+        status: response.status,
+        retryAfter: response.headers.get('retry-after'),
+        exposed: response.headers.get('access-control-expose-headers'),
+        body: await response.json()
+      }).toEqual({
+        status: 429,
+        retryAfter: '7',
+        exposed: expect.stringContaining('Retry-After'),
+        body: {
+          error: 'Too Many Requests',
+          message: 'This scene was exported moments ago; try again in 7 seconds'
+        }
       })
     })
   })

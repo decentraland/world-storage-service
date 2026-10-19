@@ -83,7 +83,24 @@ async function probeSlots(component: IStorageExportComponent, scene: ExportScene
   return results.map(result => result.kind)
 }
 
-function buildConfig(values: Record<string, number>): jest.Mocked<IConfigComponent> {
+const BASE_CONFIG: Record<string, number> = {
+  EXPORT_MAX_CONCURRENT_PER_SCENE: 1,
+  EXPORT_MAX_CONCURRENT_PER_POD: 5,
+  EXPORT_SCENE_COOLDOWN_SECONDS: 0,
+  EXPORT_TIMEOUT_SECONDS: TIMEOUT_SECONDS,
+  EXPORT_MAX_SIZE_BYTES: 104857600
+}
+
+const TRANSFER_LOG = {
+  worldName: WORLD_NAMES.DEFAULT,
+  placeId: PLACE_IDS.DEFAULT,
+  format: 'json',
+  rawBytes: expect.any(Number),
+  durationMs: expect.any(Number)
+}
+
+function buildConfig(overrides: Record<string, number> = {}): jest.Mocked<IConfigComponent> {
+  const values = { ...BASE_CONFIG, ...overrides }
   const config = createConfigMockedComponent() as jest.Mocked<IConfigComponent>
   config.requireNumber.mockImplementation(async (key: string) => values[key])
   return config
@@ -105,12 +122,7 @@ describe('Storage Export Component', () => {
   beforeEach(async () => {
     worldStorage = createWorldStorageMockedComponent()
     playerStorage = createPlayerStorageMockedComponent()
-    config = buildConfig({
-      EXPORT_MAX_CONCURRENT_PER_SCENE: 1,
-      EXPORT_MAX_CONCURRENT_PER_POD: 5,
-      EXPORT_TIMEOUT_SECONDS: TIMEOUT_SECONDS,
-      EXPORT_MAX_SIZE_BYTES: 104857600
-    })
+    config = buildConfig()
     logError = jest.fn()
     logInfo = jest.fn()
     logs = createLogsMockedComponent({ error: logError, info: logInfo })
@@ -275,9 +287,11 @@ describe('Storage Export Component', () => {
 
   describe('when an open export is fully read', () => {
     let slots: string[]
+    let rawBytes: number
 
     beforeEach(async () => {
       worldRows = [{ key: 'a', value: '1' }]
+      rawBytes = Buffer.byteLength(await join(serializeJsonExport(fromRows(worldRows), fromRows([]))))
       const stream = streamOf(storageExport.openExport(SCENE, ALL, 'json'))
       await gunzipStream(stream)
       await waitForClose(stream)
@@ -292,6 +306,10 @@ describe('Storage Export Component', () => {
     it('should close the world source', () => {
       expect(worldClosed).toBe(true)
     })
+
+    it('should log the finished export at info with its raw size and duration', () => {
+      expect(logInfo).toHaveBeenCalledWith('Export finished', { ...TRANSFER_LOG, rawBytes })
+    })
   })
 
   describe('when reading the storage fails mid-export', () => {
@@ -303,7 +321,7 @@ describe('Storage Export Component', () => {
       worldStorage.streamSceneValues.mockImplementation(async function* () {
         try {
           yield await Promise.resolve({ key: 'a', value: '1' })
-          throw new Error('connection lost')
+          throw Object.assign(new Error('connection lost'), { code: 'ECONNRESET' })
         } finally {
           worldClosed = true
         }
@@ -330,10 +348,11 @@ describe('Storage Export Component', () => {
       expect(worldClosed).toBe(true)
     })
 
-    it('should log the failure at error with only the scene', () => {
+    it('should log the failure at error with the transfer and the error message and code', () => {
       expect(logError).toHaveBeenCalledWith('Export failed', {
-        worldName: WORLD_NAMES.DEFAULT,
-        placeId: PLACE_IDS.DEFAULT
+        ...TRANSFER_LOG,
+        error: 'connection lost',
+        code: 'ECONNRESET'
       })
     })
   })
@@ -371,11 +390,8 @@ describe('Storage Export Component', () => {
       expect(worldClosed).toBe(true)
     })
 
-    it('should log the cancellation at info with only the scene', () => {
-      expect(logInfoCalls).toContainEqual([
-        'Export cancelled by client',
-        { worldName: WORLD_NAMES.DEFAULT, placeId: PLACE_IDS.DEFAULT }
-      ])
+    it('should log the cancellation at info with the transfer', () => {
+      expect(logInfoCalls).toContainEqual(['Export cancelled by client', TRANSFER_LOG])
     })
 
     it('should not log an error', () => {
@@ -422,11 +438,8 @@ describe('Storage Export Component', () => {
       expect(slots).toEqual(['stream', 'limit-reached'])
     })
 
-    it('should log the timeout at error with only the scene', () => {
-      expect(logError).toHaveBeenCalledWith('Export timed out', {
-        worldName: WORLD_NAMES.DEFAULT,
-        placeId: PLACE_IDS.DEFAULT
-      })
+    it('should log the timeout at error with the transfer', () => {
+      expect(logError).toHaveBeenCalledWith('Export timed out', TRANSFER_LOG)
     })
   })
 
@@ -445,11 +458,8 @@ describe('Storage Export Component', () => {
       slots = await probeSlots(storageExport, SCENE)
     })
 
-    it('should log the timeout at error with only the scene', () => {
-      expect(logError).toHaveBeenCalledWith('Export timed out', {
-        worldName: WORLD_NAMES.DEFAULT,
-        placeId: PLACE_IDS.DEFAULT
-      })
+    it('should log the timeout at error with the transfer', () => {
+      expect(logError).toHaveBeenCalledWith('Export timed out', TRANSFER_LOG)
     })
 
     it('should release the scene slot exactly once', () => {
@@ -476,12 +486,7 @@ describe('Storage Export Component', () => {
       cappedExport = await createStorageExportComponent({
         worldStorage,
         playerStorage,
-        config: buildConfig({
-          EXPORT_MAX_CONCURRENT_PER_SCENE: 1,
-          EXPORT_MAX_CONCURRENT_PER_POD: 5,
-          EXPORT_TIMEOUT_SECONDS: TIMEOUT_SECONDS,
-          EXPORT_MAX_SIZE_BYTES: 20
-        }),
+        config: buildConfig({ EXPORT_MAX_SIZE_BYTES: 20 }),
         logs
       })
       const stream = streamOf(cappedExport.openExport(SCENE, ALL, 'json'))
@@ -506,11 +511,8 @@ describe('Storage Export Component', () => {
       expect(slots).toEqual(['stream', 'limit-reached'])
     })
 
-    it('should log the size cap at error with only the scene', () => {
-      expect(logError).toHaveBeenCalledWith('Export exceeded the maximum size', {
-        worldName: WORLD_NAMES.DEFAULT,
-        placeId: PLACE_IDS.DEFAULT
-      })
+    it('should log the size cap at error with the transfer', () => {
+      expect(logError).toHaveBeenCalledWith('Export exceeded the maximum size', TRANSFER_LOG)
     })
   })
 
@@ -549,12 +551,7 @@ describe('Storage Export Component', () => {
       const twoPerScene = await createStorageExportComponent({
         worldStorage,
         playerStorage,
-        config: buildConfig({
-          EXPORT_MAX_CONCURRENT_PER_SCENE: 2,
-          EXPORT_MAX_CONCURRENT_PER_POD: 5,
-          EXPORT_TIMEOUT_SECONDS: TIMEOUT_SECONDS,
-          EXPORT_MAX_SIZE_BYTES: 104857600
-        }),
+        config: buildConfig({ EXPORT_MAX_CONCURRENT_PER_SCENE: 2 }),
         logs
       })
       worldRows = [{ key: 'a', value: '1' }]
@@ -578,6 +575,63 @@ describe('Storage Export Component', () => {
     })
   })
 
+  describe('when the scene was exported less than the cooldown ago', () => {
+    let coolingDown: IStorageExportComponent
+    let retried: OpenExportResult
+
+    beforeEach(async () => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] })
+      coolingDown = await createStorageExportComponent({
+        worldStorage,
+        playerStorage,
+        config: buildConfig({ EXPORT_SCENE_COOLDOWN_SECONDS: 10 }),
+        logs
+      })
+      worldRows = [{ key: 'a', value: '1' }]
+      const first = streamOf(coolingDown.openExport(SCENE, ALL, 'json'))
+      await gunzipStream(first)
+      await waitForClose(first)
+      await settle()
+      jest.advanceTimersByTime(4000)
+      retried = coolingDown.openExport(SCENE, ALL, 'json')
+    })
+
+    it('should report the cooldown with the seconds left until the scene can be exported again', () => {
+      expect(retried).toEqual({ kind: 'cooldown', retryAfterSeconds: 6 })
+    })
+
+    describe('and another scene is exported', () => {
+      let other: OpenExportResult
+
+      beforeEach(() => {
+        other = coolingDown.openExport(OTHER_SCENE, ALL, 'json')
+        if (other.kind === 'stream') {
+          openStreams.push(other.stream)
+        }
+      })
+
+      it('should open a stream for the other scene', () => {
+        expect(other.kind).toBe('stream')
+      })
+    })
+
+    describe('and the cooldown has passed', () => {
+      let next: OpenExportResult
+
+      beforeEach(() => {
+        jest.advanceTimersByTime(6000)
+        next = coolingDown.openExport(SCENE, ALL, 'json')
+        if (next.kind === 'stream') {
+          openStreams.push(next.stream)
+        }
+      })
+
+      it('should open a stream for the scene', () => {
+        expect(next.kind).toBe('stream')
+      })
+    })
+  })
+
   describe('when the pod is streaming as many exports as it allows', () => {
     let podLimited: IStorageExportComponent
     let third: OpenExportResult
@@ -586,12 +640,7 @@ describe('Storage Export Component', () => {
       podLimited = await createStorageExportComponent({
         worldStorage,
         playerStorage,
-        config: buildConfig({
-          EXPORT_MAX_CONCURRENT_PER_SCENE: 1,
-          EXPORT_MAX_CONCURRENT_PER_POD: 2,
-          EXPORT_TIMEOUT_SECONDS: TIMEOUT_SECONDS,
-          EXPORT_MAX_SIZE_BYTES: 104857600
-        }),
+        config: buildConfig({ EXPORT_MAX_CONCURRENT_PER_POD: 2 }),
         logs
       })
       openStreams.push(streamOf(podLimited.openExport(SCENE, ALL, 'json')))
@@ -639,11 +688,8 @@ describe('Storage Export Component', () => {
       await settle()
     })
 
-    it('should log the cancellation at info with only the scene', () => {
-      expect(logInfo).toHaveBeenCalledWith('Export cancelled by client', {
-        worldName: WORLD_NAMES.DEFAULT,
-        placeId: PLACE_IDS.DEFAULT
-      })
+    it('should log the cancellation at info with the transfer', () => {
+      expect(logInfo).toHaveBeenCalledWith('Export cancelled by client', TRANSFER_LOG)
     })
   })
 })
