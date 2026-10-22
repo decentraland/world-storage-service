@@ -26,7 +26,7 @@ import type { VerifyAuthChainHeadersOptions } from '@dcl/crypto-middleware'
  *
  * Remove once the explorer clients sign the 6.x payload.
  */
-export const CANONICAL_METADATA_KEYS = ['signer', 'realmName', 'realm.serverName', 'parcel', 'sceneId']
+export const CANONICAL_METADATA_KEYS = ['signer', 'realmName', 'realm.serverName', 'parcel', 'sceneId'] as const
 
 /**
  * The verification half of the signed-fetch middleware, kept apart from the route wiring so tests
@@ -39,5 +39,9 @@ export const CANONICAL_METADATA_KEYS = ['signer', 'realmName', 'realm.serverName
  */
 export const signedFetchPolicy: Pick<VerifyAuthChainHeadersOptions, 'metadataValidator' | 'canonicalMetadataKeys'> = {
   metadataValidator: rejectIfSigner('decentraland-kernel-scene'),
-  canonicalMetadataKeys: CANONICAL_METADATA_KEYS
+  // A copy, not the array itself. `canonicalMetadataKeys` is typed `string[]`, so handing over the
+  // policy array would give the library -- and anything else holding this object -- a mutable
+  // reference to the list that decides which metadata keys are bound. `as const` above stops this
+  // module's own callers reassigning it; spreading stops a holder editing it in place.
+  canonicalMetadataKeys: [...CANONICAL_METADATA_KEYS]
 }
