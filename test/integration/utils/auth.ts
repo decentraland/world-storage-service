@@ -17,7 +17,8 @@ export const TEST_REALM_METADATA = {
   realm: {
     serverName: WORLD_NAMES.DEFAULT
   },
-  parcel: '0,0'
+  parcel: '0,0',
+  sceneId: 'bafkrei-active-test-scene'
 }
 
 export async function createTestIdentity(): Promise<AuthIdentity> {

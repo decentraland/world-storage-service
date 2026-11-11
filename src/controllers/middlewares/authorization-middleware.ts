@@ -3,7 +3,7 @@ import type { DecentralandSignatureContext } from '@dcl/crypto-middleware'
 import { NotAuthorizedError } from '@dcl/http-commons'
 import { isErrorWithMessage } from '../../utils/errors'
 import { verifyStorageDelegation } from '../../utils/storage-delegation'
-import { isSharedRealmName } from '../../utils/worldName'
+import { isSharedRealmName, isWorldName } from '../../utils/worldName'
 import type { WorldScene } from '../../adapters/worlds-content-server/types'
 import type { WorldStorageContext } from '../../types'
 
@@ -80,6 +80,32 @@ export function createAuthorizationMiddleware(
     // worldName and parcel are guaranteed to be present by sceneContextMiddleware (enforced by WorldStorageContext type)
     const { worldName, parcel } = ctx
 
+    // Existing delegations outlive redeployments. For authoritative mutations,
+    // verify current entity ownership independently of credential TTL and comms.
+    // Admin/owner access and Genesis behavior retain their existing policies.
+    async function requireActiveDeployment(sceneId: unknown): Promise<void> {
+      if (!isWorldName(worldName) || ['GET', 'HEAD', 'OPTIONS'].includes(ctx.request.method)) return
+      if (typeof sceneId !== 'string' || !sceneId) {
+        throw new NotAuthorizedError('Unauthorized: Authoritative writes require a scene entity ID')
+      }
+      let scenes: WorldScene[]
+      try {
+        scenes = await ctx.components.worldsContentServer.getScenesAtParcel(worldName, parcel, { fresh: true })
+      } catch (error) {
+        logger.warn('Cannot verify authoritative write deployment', {
+          worldName,
+          parcel,
+          sceneId,
+          error: isErrorWithMessage(error) ? error.message : String(error)
+        })
+        throw new NotAuthorizedError('Unauthorized: Unable to verify active deployment')
+      }
+      if (!scenes.some(scene => scene.sceneId === sceneId && scene.parcels.includes(parcel))) {
+        logger.warn('Rejected write from inactive authoritative deployment', { worldName, parcel, sceneId })
+        throw new NotAuthorizedError('Unauthorized: Scene deployment is no longer active')
+      }
+    }
+
     // Fetch authoritative server address early for safe logging
     const authoritativeServerAddress = await config.getString('AUTHORITATIVE_SERVER_ADDRESS')
 
@@ -99,6 +125,9 @@ export function createAuthorizationMiddleware(
         .filter((addr): addr is string => !!addr && addr.length > 0)
 
       if (allowedAddresses.includes(signerAddress)) {
+        if (signerAddress === authoritativeServerAddress?.trim().toLowerCase()) {
+          await requireActiveDeployment(ctx.verification?.authMetadata?.sceneId)
+        }
         logger.debug('Authorization granted via authorized addresses list', {
           signerAddress: safeAddress(signerAddress, authoritativeServerAddress),
           worldName
@@ -139,6 +168,7 @@ export function createAuthorizationMiddleware(
           trustedSigners: trustedScopeSigners
         })
         if (result.ok) {
+          await requireActiveDeployment(targetSceneId)
           logger.debug('Authorization granted via world-scoped storage delegation', { worldName })
           return await next()
         }

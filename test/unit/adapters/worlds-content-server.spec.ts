@@ -51,6 +51,22 @@ describe('Worlds Content Server Component', () => {
     } as unknown as AppComponents)
   }
 
+  describe('when checking fresh deployment metadata for an authoritative write', () => {
+    let component: IWorldsContentServerComponent
+    beforeEach(async () => {
+      cache.get.mockResolvedValue([{ sceneId: 'old' }])
+      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ scenes: [] }) })
+      component = await createComponent()
+    })
+    it('should bypass cached active entities and use the new upstream result', async () => {
+      await expect(component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT, { fresh: true })).resolves.toEqual(
+        []
+      )
+      expect(cache.get).not.toHaveBeenCalled()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('when getting world permissions', () => {
     describe('and the fetch is successful', () => {
       let component: IWorldsContentServerComponent
