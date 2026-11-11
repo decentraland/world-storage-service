@@ -31,5 +31,6 @@ export interface WorldScene {
 
 export interface IWorldsContentServerComponent {
   getPermissions(worldName: string): Promise<WorldPermissions>
-  getScenesAtParcel(worldName: string, parcel: string): Promise<WorldScene[]>
+  /** Set fresh for authorization checks that must not reuse a previous deployment. */
+  getScenesAtParcel(worldName: string, parcel: string, options?: { fresh?: boolean }): Promise<WorldScene[]>
 }

@@ -171,6 +171,7 @@ describe('Authorization Middleware', () => {
       })
 
       describe('and the request carries a world-scoped storage delegation', () => {
+        let getScenesAtParcel: jest.Mock
         // Real keypairs: the authoritative server that signs the scope claim, and
         // the throwaway ephemeral the worker signs its storage request with.
         const authoritative = createUnsafeIdentity()
@@ -205,7 +206,7 @@ describe('Authorization Middleware', () => {
           return Buffer.from(JSON.stringify({ payload, signature }), 'utf8').toString('base64')
         }
 
-        function buildScopedCtx(auth: string, scopeHeader?: string): TestContext {
+        function buildScopedCtx(auth: string, scopeHeader?: string, method = 'GET'): TestContext {
           return buildTestContext({
             worldName: WORLD_NAMES.DEFAULT,
             parcel: PARCELS.DEFAULT,
@@ -213,11 +214,13 @@ describe('Authorization Middleware', () => {
             // the middleware reads it back to match against the claim.
             verification: { auth, authMetadata: { sceneId: SCENE_ID } },
             request: new Request('http://localhost/values/key', {
+              method,
               headers: scopeHeader ? { 'x-authoritative-scope': scopeHeader } : {}
             }),
             components: {
               config: { getString: configGetString },
               logs: createLogsMockedComponent(),
+              worldsContentServer: { getScenesAtParcel },
               worldPermission: {
                 hasWorldPermission: hasWorldPermissionMock,
                 getLogsAccessibleScene: getLogsAccessibleSceneMock
@@ -227,6 +230,7 @@ describe('Authorization Middleware', () => {
         }
 
         beforeEach(() => {
+          getScenesAtParcel = jest.fn().mockResolvedValue([{ sceneId: SCENE_ID, parcels: [PARCELS.DEFAULT] }])
           // Scoped delegation is only accepted on the /values preset (flag on).
           middleware = createAuthorizationMiddleware({
             allowAuthorizedAddresses: true,
@@ -270,6 +274,43 @@ describe('Authorization Middleware', () => {
             expect(hasWorldPermissionMock).not.toHaveBeenCalled()
             expect(next).toHaveBeenCalled()
             expect(result).toEqual({ status: 200 })
+          })
+        })
+
+        describe('and a valid delegation writes to the active deployment', () => {
+          it('should verify uncached deployment metadata before accepting the write', async () => {
+            await middleware(buildScopedCtx(ephemeral.address, buildScopeHeader(), 'PUT'), next)
+            expect(getScenesAtParcel).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT, { fresh: true })
+            expect(next).toHaveBeenCalled()
+          })
+
+          describe('and the entity has been superseded', () => {
+            beforeEach(() => getScenesAtParcel.mockResolvedValueOnce([{ sceneId: 'new', parcels: [PARCELS.DEFAULT] }]))
+            it('should reject an unexpired old credential without falling back to other permissions', async () => {
+              await expect(
+                middleware(buildScopedCtx(ephemeral.address, buildScopeHeader(), 'PUT'), next)
+              ).rejects.toThrow('no longer active')
+              expect(next).not.toHaveBeenCalled()
+              expect(hasWorldPermissionMock).not.toHaveBeenCalled()
+            })
+          })
+          describe('and deployment verification is unavailable', () => {
+            beforeEach(() => getScenesAtParcel.mockRejectedValueOnce(new Error('timeout')))
+            it('should reject the write rather than trust a still-valid credential', async () => {
+              await expect(
+                middleware(buildScopedCtx(ephemeral.address, buildScopeHeader(), 'DELETE'), next)
+              ).rejects.toThrow('Unable to verify active deployment')
+              expect(next).not.toHaveBeenCalled()
+            })
+          })
+          describe('and the root authoritative key signs the request directly', () => {
+            beforeEach(() => getScenesAtParcel.mockResolvedValueOnce([]))
+            it('should reject a stale root-signed mutation too', async () => {
+              await expect(middleware(buildScopedCtx(authoritative.address, undefined, 'PUT'), next)).rejects.toThrow(
+                'no longer active'
+              )
+              expect(next).not.toHaveBeenCalled()
+            })
           })
         })
 
