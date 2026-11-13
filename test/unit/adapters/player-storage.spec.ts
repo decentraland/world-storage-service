@@ -445,3 +445,98 @@ describe('PlayerStorageComponent', () => {
     })
   })
 })
+
+describe('when player migration capture is explicitly enabled', () => {
+  let pg: jest.Mocked<IPgComponent>
+  let storageCache: jest.Mocked<ICacheStorageComponent>
+  let playerStorage: IPlayerStorageComponent
+  let sceneId: string
+  let value: string
+
+  beforeEach(async () => {
+    pg = createPgMockedComponent()
+    storageCache = createCacheMockedComponent()
+    storageCache.keys.mockResolvedValue([])
+    sceneId = 'scene-one'
+    value = '{"score": 1}'
+    playerStorage = await createPlayerStorageComponent({
+      pg,
+      storageCache,
+      logs: createLogsMockedComponent(),
+      config: createConfigMockedComponent({
+        getString: jest
+          .fn()
+          .mockImplementation(async (name: string) =>
+            name === 'MIGRATION_PLAYER_CAPTURE_ENABLED' ? 'true' : undefined
+          ),
+        getNumber: jest.fn().mockResolvedValue(undefined)
+      })
+    })
+  })
+
+  afterEach(() => {
+    jest.resetAllMocks()
+  })
+
+  describe('and an accepted player value is written', () => {
+    beforeEach(async () => {
+      await playerStorage.setValue(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, ADDRESSES.PLAYER, 'score', value, sceneId)
+    })
+
+    it('should send the exact serialized value and authenticated scene to the atomic capture function', () => {
+      expect(pg.query).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining('migration_player_capture.apply_command'),
+          values: ['set', WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, sceneId, ADDRESSES.PLAYER, 'score', value]
+        })
+      )
+    })
+
+    it('should invalidate the cached value after successful persistence', () => {
+      expect(storageCache.remove).toHaveBeenCalledWith(
+        `player-storage:value:${WORLD_NAMES.DEFAULT}:${PLACE_IDS.DEFAULT}:${ADDRESSES.PLAYER}:score`
+      )
+    })
+  })
+
+  describe('and a delete has no scene metadata', () => {
+    beforeEach(async () => {
+      await playerStorage.deleteValue(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, ADDRESSES.PLAYER, 'score')
+    })
+
+    it('should pass missing identity explicitly for unclassified source evidence', () => {
+      expect(pg.query).toHaveBeenCalledWith(
+        expect.objectContaining({
+          values: ['delete', WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, null, ADDRESSES.PLAYER, 'score', null]
+        })
+      )
+    })
+  })
+
+  describe('and a scene-wide clear is accepted', () => {
+    beforeEach(async () => {
+      await playerStorage.deleteAll(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, sceneId)
+    })
+
+    it('should capture the clear even when it has no affected rows', () => {
+      expect(pg.query).toHaveBeenCalledWith(
+        expect.objectContaining({
+          values: ['clear_scene', WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, sceneId, null, null, null]
+        })
+      )
+    })
+  })
+
+  describe('and capture persistence fails', () => {
+    beforeEach(() => {
+      pg.query.mockRejectedValueOnce(new Error('database unavailable'))
+    })
+
+    it('should propagate the failure without reporting accepted storage', async () => {
+      await expect(
+        playerStorage.deleteAllForPlayer(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, ADDRESSES.PLAYER, sceneId)
+      ).rejects.toThrow('database unavailable')
+      expect(storageCache.remove).not.toHaveBeenCalled()
+    })
+  })
+})

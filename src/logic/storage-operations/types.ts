@@ -37,7 +37,8 @@ export interface IStorageOperationsComponent {
     placeId: string,
     playerAddress: string,
     key: string,
-    value: unknown
+    value: unknown,
+    sceneId?: string
   ): Promise<string>
 
   /**

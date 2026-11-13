@@ -11,7 +11,7 @@ import type { UpsertStorageBody } from '../schemas'
 export async function upsertPlayerStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'storageOperations', '/players/:player_address/values/:key'>,
-    'url' | 'components' | 'params' | 'request' | 'worldName' | 'placeId'
+    'url' | 'components' | 'params' | 'request' | 'worldName' | 'placeId' | 'storageSceneId'
   >
 ): Promise<RawJSONResponse> {
   const {
@@ -19,6 +19,7 @@ export async function upsertPlayerStorageHandler(
     params,
     worldName,
     placeId,
+    storageSceneId,
     components: { logs, storageOperations }
   } = context
 
@@ -43,7 +44,14 @@ export async function upsertPlayerStorageHandler(
   try {
     // Validation and write run atomically inside the storage-operations transaction; the returned
     // JSON text is reused for the response so the value is never serialized more than once.
-    const serializedValue = await storageOperations.upsertPlayerValue(worldName, placeId, playerAddress, key, value)
+    const serializedValue = await storageOperations.upsertPlayerValue(
+      worldName,
+      placeId,
+      playerAddress,
+      key,
+      value,
+      ...(storageSceneId ? [storageSceneId] : [])
+    )
 
     logger.info('Player storage value upserted successfully', {
       worldName,

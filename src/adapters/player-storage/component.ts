@@ -27,6 +27,24 @@ export const createPlayerStorageComponent = async ({
   logs
 }: Pick<AppComponents, 'pg' | 'config' | 'storageCache' | 'logs'>): Promise<IPlayerStorageComponent> => {
   const logger = logs.getLogger('player-storage')
+  const captureEnabled = (await config.getString('MIGRATION_PLAYER_CAPTURE_ENABLED')) === 'true'
+
+  async function lockCapture(): Promise<void> {
+    if (captureEnabled) await pg.query(SQL`SELECT migration_player_capture.lock_capture()`)
+  }
+
+  async function captureCommand(
+    op: 'set' | 'delete' | 'clear_player' | 'clear_scene',
+    worldName: string,
+    placeId: string,
+    sceneId?: string,
+    playerAddress?: string,
+    key?: string,
+    value?: string
+  ): Promise<void> {
+    await pg.query(SQL`SELECT migration_player_capture.apply_command(${op}, ${worldName}, ${placeId}::uuid,
+      ${sceneId ?? null}, ${playerAddress ?? null}, ${key ?? null}, ${value ?? null})`)
+  }
 
   const cacheEnabled = (await config.getString('STORAGE_CACHE_ENABLED')) !== 'false'
   const maxCachedValueSizeInBytes = (await config.getNumber('STORAGE_CACHE_MAX_VALUE_BYTES')) ?? 32_768
@@ -127,7 +145,8 @@ export const createPlayerStorageComponent = async ({
     placeId: string,
     playerAddress: string,
     key: string,
-    serializedValue: string
+    serializedValue: string,
+    sceneId?: string
   ): Promise<void> {
     logger.debug('Setting player storage value', { worldName, placeId, playerAddress, key })
 
@@ -142,7 +161,8 @@ export const createPlayerStorageComponent = async ({
       ON CONFLICT (world_name, place_id, player_address, key) DO
       UPDATE
       SET value = ${serializedValue}::jsonb, value_size = ${valueSize}, updated_at = ${now}`
-    await pg.query(query)
+    if (captureEnabled) await captureCommand('set', worldName, placeId, sceneId, playerAddress, key, serializedValue)
+    else await pg.query(query)
 
     await invalidateKey(worldName, placeId, playerAddress, key)
 
@@ -157,11 +177,18 @@ export const createPlayerStorageComponent = async ({
    * @param playerAddress - The player's wallet address
    * @param key - The storage key to delete
    */
-  async function deleteValue(worldName: string, placeId: string, playerAddress: string, key: string): Promise<void> {
+  async function deleteValue(
+    worldName: string,
+    placeId: string,
+    playerAddress: string,
+    key: string,
+    sceneId?: string
+  ): Promise<void> {
     logger.debug('Deleting player storage value', { worldName, placeId, playerAddress, key })
 
     const query = SQL`DELETE FROM player_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND player_address = ${playerAddress} AND key = ${key}`
-    await pg.query(query)
+    if (captureEnabled) await captureCommand('delete', worldName, placeId, sceneId, playerAddress, key)
+    else await pg.query(query)
 
     await invalidateKey(worldName, placeId, playerAddress, key)
 
@@ -175,11 +202,17 @@ export const createPlayerStorageComponent = async ({
    * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    */
-  async function deleteAllForPlayer(worldName: string, placeId: string, playerAddress: string): Promise<void> {
+  async function deleteAllForPlayer(
+    worldName: string,
+    placeId: string,
+    playerAddress: string,
+    sceneId?: string
+  ): Promise<void> {
     logger.debug('Deleting all player storage values for player', { worldName, placeId, playerAddress })
 
     const query = SQL`DELETE FROM player_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid AND player_address = ${playerAddress}`
-    await pg.query(query)
+    if (captureEnabled) await captureCommand('clear_player', worldName, placeId, sceneId, playerAddress)
+    else await pg.query(query)
 
     await invalidatePlayer(worldName, placeId, playerAddress)
 
@@ -192,11 +225,12 @@ export const createPlayerStorageComponent = async ({
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    */
-  async function deleteAll(worldName: string, placeId: string): Promise<void> {
+  async function deleteAll(worldName: string, placeId: string, sceneId?: string): Promise<void> {
     logger.debug('Deleting all player storage values', { worldName, placeId })
 
     const query = SQL`DELETE FROM player_storage WHERE world_name = ${worldName} AND place_id = ${placeId}::uuid`
-    await pg.query(query)
+    if (captureEnabled) await captureCommand('clear_scene', worldName, placeId, sceneId)
+    else await pg.query(query)
 
     await invalidateScene(worldName, placeId)
 
@@ -463,6 +497,7 @@ export const createPlayerStorageComponent = async ({
   }
 
   return {
+    lockCapture,
     getValue,
     setValue,
     deleteValue,

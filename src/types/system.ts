@@ -96,7 +96,7 @@ export type WorldHandlerContextWithPath<
 > = IHttpServerComponent.PathAwareContext<
   IHttpServerComponent.DefaultContext<{
     components: Pick<AppComponents, ComponentNames>
-  }> & { worldName: string; parcel: string; placeId: string },
+  }> & { worldName: string; parcel: string; placeId: string; storageSceneId?: string },
   Path
 >
 

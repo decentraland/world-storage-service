@@ -4,6 +4,8 @@ import type { PaginationOptions } from '../../types/http'
  * Player storage component interface for managing player-level key-value storage within worlds
  */
 export interface IPlayerStorageComponent {
+  /** Acquire capture ordering before the quota lock; a no-op unless explicitly enabled. */
+  lockCapture(): Promise<void>
   /**
    * Retrieves a single value from player storage as raw JSON text.
    *
@@ -32,7 +34,8 @@ export interface IPlayerStorageComponent {
     placeId: string,
     playerAddress: string,
     key: string,
-    serializedValue: string
+    serializedValue: string,
+    sceneId?: string
   ): Promise<void>
 
   /**
@@ -43,7 +46,7 @@ export interface IPlayerStorageComponent {
    * @param playerAddress - The player's wallet address
    * @param key - The storage key to delete
    */
-  deleteValue(worldName: string, placeId: string, playerAddress: string, key: string): Promise<void>
+  deleteValue(worldName: string, placeId: string, playerAddress: string, key: string, sceneId?: string): Promise<void>
 
   /**
    * Deletes all values for a specific player within a scene
@@ -52,7 +55,7 @@ export interface IPlayerStorageComponent {
    * @param placeId - The place ID (UUID) of the scene
    * @param playerAddress - The player's wallet address
    */
-  deleteAllForPlayer(worldName: string, placeId: string, playerAddress: string): Promise<void>
+  deleteAllForPlayer(worldName: string, placeId: string, playerAddress: string, sceneId?: string): Promise<void>
 
   /**
    * Deletes all player values for a scene (all players)
@@ -60,7 +63,7 @@ export interface IPlayerStorageComponent {
    * @param worldName - The world identifier
    * @param placeId - The place ID (UUID) of the scene
    */
-  deleteAll(worldName: string, placeId: string): Promise<void>
+  deleteAll(worldName: string, placeId: string, sceneId?: string): Promise<void>
 
   /**
    * Lists storage items (key-value pairs) for a player with pagination.
@@ -170,5 +173,11 @@ export interface IPlayerStorageComponent {
    * @param playerAddress - The player's wallet address
    * @param key - The storage key
    */
-  invalidateValue(worldName: string, placeId: string, playerAddress: string, key: string): Promise<void>
+  invalidateValue(
+    worldName: string,
+    placeId: string,
+    playerAddress: string,
+    key: string,
+    sceneId?: string
+  ): Promise<void>
 }

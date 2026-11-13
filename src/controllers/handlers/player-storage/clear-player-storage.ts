@@ -8,7 +8,7 @@ import type { HTTPResponse } from '../../../types/http'
 export async function clearPlayerStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players/:player_address/values'>,
-    'url' | 'components' | 'worldName' | 'placeId' | 'params' | 'request'
+    'url' | 'components' | 'worldName' | 'placeId' | 'storageSceneId' | 'params' | 'request'
   >
 ): Promise<HTTPResponse> {
   const {
@@ -16,6 +16,7 @@ export async function clearPlayerStorageHandler(
     params,
     worldName,
     placeId,
+    storageSceneId,
     components: { logs, playerStorage }
   } = context
 
@@ -32,7 +33,12 @@ export async function clearPlayerStorageHandler(
   logger.debug('Processing clear all player storage request', { worldName, playerAddress })
 
   try {
-    await playerStorage.deleteAllForPlayer(worldName, placeId, playerAddress)
+    await playerStorage.deleteAllForPlayer(
+      worldName,
+      placeId,
+      playerAddress,
+      ...(storageSceneId ? [storageSceneId] : [])
+    )
 
     logger.info('All player storage values deleted successfully', { worldName, playerAddress })
 
@@ -53,13 +59,14 @@ export async function clearPlayerStorageHandler(
 export async function clearAllPlayersStorageHandler(
   context: Pick<
     WorldHandlerContextWithPath<'logs' | 'playerStorage', '/players'>,
-    'url' | 'components' | 'worldName' | 'placeId' | 'request'
+    'url' | 'components' | 'worldName' | 'placeId' | 'storageSceneId' | 'request'
   >
 ): Promise<HTTPResponse> {
   const {
     request,
     worldName,
     placeId,
+    storageSceneId,
     components: { logs, playerStorage }
   } = context
 
@@ -70,7 +77,7 @@ export async function clearAllPlayersStorageHandler(
   logger.debug('Processing clear all players storage request', { worldName })
 
   try {
-    await playerStorage.deleteAll(worldName, placeId)
+    await playerStorage.deleteAll(worldName, placeId, ...(storageSceneId ? [storageSceneId] : []))
 
     logger.info('All players storage values deleted successfully', { worldName })
 
