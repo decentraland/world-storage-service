@@ -205,4 +205,14 @@ describe('Storage Operations Component', () => {
       })
     })
   })
+  describe('when acquiring locks for a player upsert', () => {
+    beforeEach(async () => {
+      storageLimits.validatePlayerStorageUpsert.mockResolvedValueOnce('1')
+      await storageOperations.upsertPlayerValue(WORLD_NAMES.DEFAULT, PLACE_IDS.DEFAULT, ADDRESSES.PLAYER, KEY, 1)
+    })
+
+    it('should take capture ordering before the quota lock', () => {
+      expect(playerStorage.lockCapture.mock.invocationCallOrder[0]).toBeLessThan(pg.query.mock.invocationCallOrder[0])
+    })
+  })
 })

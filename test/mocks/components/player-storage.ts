@@ -2,6 +2,7 @@ import type { IPlayerStorageComponent } from '../../../src/adapters/player-stora
 
 export function createPlayerStorageMockedComponent(): jest.Mocked<IPlayerStorageComponent> {
   return {
+    lockCapture: jest.fn(),
     getValue: jest.fn(),
     setValue: jest.fn(),
     deleteValue: jest.fn(),

@@ -58,8 +58,9 @@ export async function createStorageOperationsComponent(
    * and this is currently the only advisory-lock user; any future caller must draw keys from
    * a disjoint space (or use a different mechanism) so it cannot collide with a quota lock.
    */
-  async function withQuotaLock<T>(lockKey: string, operation: () => Promise<T>): Promise<T> {
+  async function withQuotaLock<T>(lockKey: string, operation: () => Promise<T>, capturePlayer = false): Promise<T> {
     return pg.withAsyncContextTransaction(async () => {
+      if (capturePlayer) await playerStorage.lockCapture()
       await pg.query(SQL`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`)
       return operation()
     })
@@ -85,7 +86,8 @@ export async function createStorageOperationsComponent(
       placeId: string,
       playerAddress: string,
       key: string,
-      value: unknown
+      value: unknown,
+      sceneId?: string
     ): Promise<string> {
       const serializedValue = await withQuotaLock(
         quotaLockKey('player-storage', worldName, placeId, playerAddress),
@@ -97,9 +99,17 @@ export async function createStorageOperationsComponent(
             key,
             value
           )
-          await playerStorage.setValue(worldName, placeId, playerAddress, key, serialized)
+          await playerStorage.setValue(
+            worldName,
+            placeId,
+            playerAddress,
+            key,
+            serialized,
+            ...(sceneId ? [sceneId] : [])
+          )
           return serialized
-        }
+        },
+        true
       )
 
       // Invalidate after commit so a reader that repopulated the cache from the pre-write

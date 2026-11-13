@@ -8,6 +8,7 @@ export interface SceneAuthMetadata extends Record<string, unknown> {
   realm?: { serverName?: string | null }
   realmName?: string | null
   parcel?: string | null
+  sceneId?: unknown
 }
 
 /** Fallback realm name used to identify Genesis City when the caller does not
@@ -38,7 +39,7 @@ const PARCEL_PATTERN = /^-?\d{1,10},-?\d{1,10}$/
  */
 export const sceneContextMiddleware: IHttpServerComponent.IRequestHandler<
   IHttpServerComponent.PathAwareContext<
-    GlobalContext & { worldName?: string; parcel?: string; placeId?: string },
+    GlobalContext & { worldName?: string; parcel?: string; placeId?: string; storageSceneId?: string },
     string
   > &
     DecentralandSignatureContext<SceneAuthMetadata>
@@ -50,6 +51,7 @@ export const sceneContextMiddleware: IHttpServerComponent.IRequestHandler<
   const logger = logs.getLogger('scene-context-middleware')
 
   const metadata = ctx.verification?.authMetadata
+  ctx.storageSceneId = typeof metadata?.sceneId === 'string' ? metadata.sceneId : undefined
   // Normalize empty strings to undefined so a blank `realmName` behaves the same
   // as a missing one — avoids hitting Places with `names=&positions=...`. The realm is
   // lowercased: it is client-supplied and used verbatim as `world_name` in every query,
