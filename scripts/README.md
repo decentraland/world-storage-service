@@ -10,7 +10,7 @@ Use a disposable rehearsal source first. The installer needs DDL ownership; the 
 
 1. Pause **all** player writers. Deploy this code to every writer and keep traffic paused while installing the adapter and enabling the flag. A rolling mix of flag-off/old and opted-in writers is unsupported: capture ordering must be acquired before the existing quota lock, and old writers acquire those locks in the opposite order.
 2. In one transaction, execute [hybrid-player-capture.sql](hybrid-player-capture.sql), insert the reviewed immutable `(world_name, place_id, scene_id)` scope, and call `migration_player_capture.seal_scope()`. Use canonical lowercase world names, nonnil place UUIDs and the accepted scene entity identity. Empty or more than 1,000 scopes are refused. Genesis namespaces and namespace remapping are not supported by this bounded contract.
-3. Grant the application role `USAGE` on `migration_player_capture` and `EXECUTE` on **only** `lock_capture()` and `apply_command(text,text,uuid,text,text,text,text)`. Grant the capture reader `USAGE` and `SELECT` on `control`, `scope` and `transactions`; it needs no mutation or function privileges. The script revokes public permissions. The dcl-one installer performs equivalent installation; do not run both installers on one source.
+3. Grant the application role `USAGE` on `migration_player_capture` and `EXECUTE` on **only** `lock_capture()` and `apply_command(text,text,uuid,text,text,text,text)`. Grant the capture reader `USAGE` and `SELECT` on `control`, `scope` and `transactions`; it needs no mutation or function privileges. Bootstrap additionally reads `public.player_storage`: use a separate baseline role with `USAGE` on `public` and `SELECT` on that table, or temporarily grant those reads and revoke them after bootstrap. A polling-only role cannot verify the initial baseline. The script revokes public permissions. The dcl-one installer performs equivalent installation; do not run both installers on one source.
 4. Establish and verify the follower baseline at the source capture boundary using the dcl-one migration worker. Scope and generation cannot be changed in place once capture begins. Keep the target isolated from normal jobs, providers and public writes.
 5. Set `MIGRATION_PLAYER_CAPTURE_ENABLED=true` on every source application instance, then resume writers. Measure capture-lock contention, outbox growth and lag before any broader use.
 
@@ -27,11 +27,11 @@ There is no startup installation, automatic privilege grant, target URL or targe
 
 ## Validation
 
-The ordinary unit suite checks opt-in/default behavior, command forwarding and capture-before-quota lock order. The PostgreSQL regression suite creates and drops isolated databases on an explicitly supplied disposable server (requires `psql` and `CREATEDB` permission):
+The ordinary unit suite checks opt-in/default behavior, command forwarding and capture-before-quota lock order. The PostgreSQL regression suite creates and drops isolated databases on an explicitly supplied disposable server (requires `psql`, `CREATEDB` and `CREATEROLE` permissions):
 
 ```sh
 MIGRATION_PLAYER_TEST_DATABASE_URL='<DISPOSABLE_POSTGRES_URL>' \
   node_modules/.bin/jest --runInBand test/integration/migration/player-capture.spec.ts
 ```
 
-Without that variable these database tests are skipped. They cover atomic rollback, no-op commands, clear evidence, direct SQL writers, missing scene identity, scope immutability and malformed operations. They do not establish deployed ingress, production contention, source failover or end-to-end target conformance.
+Without that variable these database tests are skipped. They cover atomic rollback, no-op commands, clear evidence, direct SQL writers, missing scene identity, scope immutability, malformed operations, restricted application/reader roles and capture-lock release on rollback. They do not establish deployed ingress, production contention, source failover or end-to-end target conformance.

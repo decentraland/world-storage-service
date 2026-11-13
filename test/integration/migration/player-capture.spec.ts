@@ -1,7 +1,8 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 
 // Explicit disposable PostgreSQL server with CREATEDB permission; never use an application DB.
 const serverUrl = process.env.MIGRATION_PLAYER_TEST_DATABASE_URL
@@ -174,6 +175,107 @@ describeDatabase('when player command capture is installed in a disposable datab
   describe('and a writer truncates player data', () => {
     it('should reject the uncapturable operation', () => {
       expect(() => sql('TRUNCATE player_storage')).toThrow()
+    })
+  })
+
+  describe('and application and polling roles have only documented capture grants', () => {
+    let appRole: string
+    let readerRole: string
+
+    beforeEach(() => {
+      appRole = `capture_app_${randomUUID().replace(/-/g, '')}`
+      readerRole = `capture_reader_${randomUUID().replace(/-/g, '')}`
+      sql(`CREATE ROLE ${appRole}; CREATE ROLE ${readerRole};
+        GRANT USAGE ON SCHEMA public TO ${appRole};
+        GRANT SELECT, INSERT, UPDATE, DELETE ON public.player_storage TO ${appRole};
+        GRANT USAGE ON SCHEMA migration_player_capture TO ${appRole}, ${readerRole};
+        GRANT EXECUTE ON FUNCTION migration_player_capture.lock_capture(),
+          migration_player_capture.apply_command(text,text,uuid,text,text,text,text) TO ${appRole};
+        GRANT SELECT ON migration_player_capture.control, migration_player_capture.scope,
+          migration_player_capture.transactions TO ${readerRole};`)
+    })
+
+    afterEach(() => {
+      sql(`DROP OWNED BY ${appRole}, ${readerRole}; DROP ROLE ${appRole}; DROP ROLE ${readerRole};`)
+    })
+
+    it('should allow the application to commit accepted commands through the definer function', () => {
+      expect(() =>
+        sql(`SET ROLE ${appRole}; BEGIN; SELECT migration_player_capture.lock_capture(); ${command} COMMIT;`)
+      ).not.toThrow()
+      expect(sql('SELECT count(*) FROM migration_player_capture.transactions WHERE NOT unclassified')).toBe('1')
+    })
+
+    it('should prevent the application from editing acceptance evidence or scope', () => {
+      expect(() =>
+        sql(`SET ROLE ${appRole}; UPDATE migration_player_capture.transactions SET unclassified=false`)
+      ).toThrow()
+      expect(() =>
+        sql(`SET ROLE ${appRole}; UPDATE migration_player_capture.scope SET scene_id='replacement'`)
+      ).toThrow()
+      expect(() => sql(`SET ROLE ${appRole}; UPDATE migration_player_capture.control SET sealed=false`)).toThrow()
+    })
+
+    it('should allow polling reads without permitting mutation or accepted-command execution', () => {
+      expect(() =>
+        sql(`SET ROLE ${readerRole}; SELECT * FROM migration_player_capture.control;
+        SELECT * FROM migration_player_capture.scope; SELECT * FROM migration_player_capture.transactions;`)
+      ).not.toThrow()
+      expect(() => sql(`SET ROLE ${readerRole}; ${command}`)).toThrow()
+      expect(() =>
+        sql(`SET ROLE ${readerRole}; UPDATE migration_player_capture.transactions SET unclassified=false`)
+      ).toThrow()
+    })
+
+    it('should require a separate baseline grant to read source player data', () => {
+      expect(() => sql(`SET ROLE ${readerRole}; SELECT * FROM public.player_storage`)).toThrow()
+      sql(`GRANT USAGE ON SCHEMA public TO ${readerRole}; GRANT SELECT ON public.player_storage TO ${readerRole};`)
+      expect(() => sql(`SET ROLE ${readerRole}; SELECT * FROM public.player_storage`)).not.toThrow()
+    })
+  })
+
+  describe('and a source transaction holds capture ordering until rollback', () => {
+    let holder: ChildProcessWithoutNullStreams
+    let holderDone: Promise<number | null>
+    let availableBefore: string
+    let availableAfter: string
+    let output: string
+
+    beforeEach(async () => {
+      output = ''
+      holder = spawn('psql', ['-X', '-A', '-t', '-v', 'ON_ERROR_STOP=1', '--dbname', url])
+      holderDone = new Promise((resolve, reject) => {
+        holder.once('error', reject)
+        holder.once('exit', resolve)
+      })
+      await new Promise<void>((resolve, reject) => {
+        holder.once('error', reject)
+        holder.once('exit', () => reject(new Error('lock holder exited before taking capture lock')))
+        holder.stdout.on('data', (chunk: Buffer) => {
+          output += chunk.toString()
+          if (output.includes('CAPTURE_LOCKED')) resolve()
+        })
+        holder.stdin.write(`BEGIN; ${command}
+\\echo CAPTURE_LOCKED
+`)
+      })
+      availableBefore = sql('SELECT pg_try_advisory_xact_lock(179323,1)')
+      holder.stdin.end('ROLLBACK;\n')
+      await holderDone
+      availableAfter = sql('SELECT pg_try_advisory_xact_lock(179323,1)')
+    })
+
+    afterEach(async () => {
+      if (holder.exitCode === null) {
+        holder.kill()
+        await holderDone
+      }
+    })
+
+    it('should serialize competing capture and release its lock without retaining rolled-back evidence', () => {
+      expect(availableBefore).toBe('f')
+      expect(availableAfter).toBe('t')
+      expect(sql('SELECT count(*) FROM migration_player_capture.transactions')).toBe('0')
     })
   })
 })
