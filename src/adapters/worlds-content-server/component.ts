@@ -108,9 +108,13 @@ export async function createWorldsContentServerComponent(
       return body
     },
 
-    getScenesAtParcel: async (worldName: string, parcel: string): Promise<WorldScene[]> => {
+    getScenesAtParcel: async (
+      worldName: string,
+      parcel: string,
+      options?: { fresh?: boolean }
+    ): Promise<WorldScene[]> => {
       const cacheKey = `world-scenes:${worldName}:${parcel}`
-      const cached = await cache.get<WorldScene[]>(cacheKey)
+      const cached = options?.fresh ? undefined : await cache.get<WorldScene[]>(cacheKey)
       if (cached) {
         return cached
       }

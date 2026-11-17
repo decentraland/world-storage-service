@@ -1,7 +1,7 @@
 import type { AuthIdentity } from '@dcl/crypto'
 import type { MockedComponent } from '@dcl/test-helpers'
 import { signedFetchFactory } from 'decentraland-crypto-fetch'
-import { createTestIdentityWithAddress } from './auth'
+import { TEST_REALM_METADATA, createTestIdentityWithAddress } from './auth'
 import { createLocalFetchWrapper } from './fetch'
 import { PLACE_IDS } from '../../fixtures'
 import type { IPlacesComponent } from '../../../src/adapters/places/types'
@@ -18,7 +18,7 @@ export interface TestSetup {
 
 interface StubComponents {
   places: Pick<MockedComponent<IPlacesComponent>, 'resolvePlaceId'>
-  worldsContentServer: Pick<MockedComponent<IWorldsContentServerComponent>, 'getPermissions'>
+  worldsContentServer: Pick<MockedComponent<IWorldsContentServerComponent>, 'getPermissions' | 'getScenesAtParcel'>
 }
 
 export async function createTestSetup(components: TestComponents, stubComponents: StubComponents): Promise<TestSetup> {
@@ -34,6 +34,16 @@ export async function createTestSetup(components: TestComponents, stubComponents
       deployment: { type: 'allow-list', wallets: [] }
     }
   })
+  stubComponents.worldsContentServer.getScenesAtParcel.mockResolvedValue([
+    {
+      sceneId: TEST_REALM_METADATA.sceneId,
+      base: TEST_REALM_METADATA.parcel,
+      parcels: [TEST_REALM_METADATA.parcel],
+      title: null,
+      deployedAt: 0,
+      logsPermissions: []
+    }
+  ])
   stubComponents.places.resolvePlaceId.mockResolvedValue(PLACE_IDS.DEFAULT)
 
   // Mock config.getString to return the test identity's address as AUTHORITATIVE_SERVER_ADDRESS
@@ -51,6 +61,7 @@ export async function createTestSetup(components: TestComponents, stubComponents
   const resetStubs = () => {
     stubComponents.places.resolvePlaceId.mockReset()
     stubComponents.worldsContentServer.getPermissions.mockReset()
+    stubComponents.worldsContentServer.getScenesAtParcel.mockReset()
     // Restore original getString method
     components.config.getString = originalGetString
   }

@@ -13,6 +13,13 @@ info:
     All requests must be signed using Decentraland's Signed Fetch (ADR-44); the calling world
     is derived from the signed fetch metadata.
 
+    Authoritative world mutations (root-signed or scoped-delegation requests) require
+    a signed sceneId matching the current deployment at the signed parcel. The check
+    bypasses the scene metadata cache; inactive entities and unavailable verification
+    are denied before storage handlers run. GET/HEAD reads and owner/admin permissions
+    retain their existing policies. This is a request-time check, not an atomic
+    transaction with the content server: a deployment may change after verification.
+
   contact:
     name: Decentraland Foundation
   license:

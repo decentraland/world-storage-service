@@ -45,6 +45,28 @@ test('when upserting a world storage value', function ({ components, stubCompone
     })
   })
 
+  describe('and the authoritative entity has been removed from the active deployment', () => {
+    beforeEach(async () => {
+      stubComponents.worldsContentServer.getScenesAtParcel.mockResolvedValueOnce([])
+      response = await signedFetch(`${baseUrl}/values/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: 'stale progress' }),
+        identity,
+        metadata: TEST_REALM_METADATA
+      })
+    })
+    it('should reject the signed write before reaching storage', async () => {
+      expect(response.status).toBe(401)
+      expect(await response.json()).toMatchObject({ message: 'Unauthorized: Scene deployment is no longer active' })
+      expect(stubComponents.worldsContentServer.getScenesAtParcel).toHaveBeenCalledWith(
+        TEST_REALM_METADATA.realm.serverName,
+        TEST_REALM_METADATA.parcel,
+        { fresh: true }
+      )
+    })
+  })
+
   describe('and the request body is not valid JSON', () => {
     let invalidBody: string
 
