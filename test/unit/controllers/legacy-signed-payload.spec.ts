@@ -31,6 +31,15 @@ const EXPLORER_METADATA = {
 }
 
 /** The policy the router wires, imported rather than restated so this cannot pass against a copy. */
+/**
+ * A comfortably future expiration for the ephemeral chain.
+ *
+ * `new Date()` is *now*, which these cases only survive because the current verifier does not check
+ * ephemeral expiry on this path. That makes them quietly dependent on it staying that way -- the day
+ * it tightens, every case here fails for a reason that has nothing to do with payload formats.
+ */
+const EPHEMERAL_EXPIRATION = () => new Date(Date.now() + 10 * 60 * 1000)
+
 const VERIFY_OPTIONS: VerifyAuthChainHeadersOptions = signedFetchPolicy
 
 describe('when an explorer signs the pre-6.0.0 folded payload', () => {
@@ -67,7 +76,7 @@ describe('when an explorer signs the pre-6.0.0 folded payload', () => {
     const signedRaw = JSON.stringify(metadata)
     const payload = [METHOD, PATH, String(timestamp), signedRaw].join(':').toLowerCase()
     const chain = Authenticator.signPayload(
-      { ephemeralIdentity, expiration: new Date(), authChain: authChain.authChain },
+      { ephemeralIdentity, expiration: EPHEMERAL_EXPIRATION(), authChain: authChain.authChain },
       payload
     )
 
