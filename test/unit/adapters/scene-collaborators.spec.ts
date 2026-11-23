@@ -2,7 +2,7 @@ import type { IPgComponent } from '@dcl/pg-component'
 import { createSceneCollaboratorsComponent } from '../../../src/adapters/scene-collaborators'
 import { createLogsMockedComponent, createPgMockedComponent } from '../../mocks/components'
 import type {
-  CollaboratorScene,
+  CollaboratorSceneDeployment,
   ISceneCollaboratorsComponent,
   SceneCollaboratorsRow
 } from '../../../src/adapters/scene-collaborators/types'
@@ -34,7 +34,7 @@ describe('SceneCollaboratorsComponent', () => {
   })
 
   describe('when upserting the address set for a scene', () => {
-    let scene: CollaboratorScene & { addresses: string[]; deployedAt: number }
+    let scene: CollaboratorSceneDeployment
 
     describe('and there are addresses in the new set', () => {
       beforeEach(() => {
@@ -71,6 +71,27 @@ describe('SceneCollaboratorsComponent', () => {
         expect(statement.values).toContain(sceneId)
         expect(statement.values).toContain(100)
         expect(statement.values).toEqual(expect.arrayContaining([['0xabc', '0xdef']]))
+      })
+    })
+
+    describe('and the scene comes from a non-default source server', () => {
+      beforeEach(() => {
+        scene = {
+          sceneId,
+          worldName,
+          baseParcel,
+          title,
+          realmKind,
+          deployedAt: 100,
+          addresses: ['0xAbC'],
+          sourceContentServerUrl: 'https://worlds-content-server.dcl.dev'
+        }
+      })
+
+      it('should store the source server on the upserted rows', async () => {
+        await sceneCollaborators.upsertForScene(scene)
+        const statement = pg.query.mock.calls[3][0] as unknown as { text: string; values: unknown[] }
+        expect(statement.values).toContain('https://worlds-content-server.dcl.dev')
       })
     })
 
@@ -174,26 +195,48 @@ describe('SceneCollaboratorsComponent', () => {
   })
 
   describe('when removing every row for a world', () => {
-    it('should delete by world_name', async () => {
-      await sceneCollaborators.removeByWorld('myworld.dcl.eth')
-      const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
-      expect(statement.text).toBe('DELETE FROM scene_collaborators WHERE world_name = $1')
-      expect(statement.values).toEqual(['myworld.dcl.eth'])
+    describe('and no source server is given', () => {
+      it('should delete only the world rows from the default server', async () => {
+        await sceneCollaborators.removeByWorld('myworld.dcl.eth')
+        const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
+        expect(statement.text).toContain('source_content_server_url IS NOT DISTINCT FROM')
+        expect(statement.values).toEqual(['myworld.dcl.eth', null])
+      })
     })
 
-    it('should lowercase the world name', async () => {
-      await sceneCollaborators.removeByWorld('MyWorld.DCL.eth')
-      const statement = pg.query.mock.calls[0][0] as unknown as { values: unknown[] }
-      expect(statement.values).toEqual(['myworld.dcl.eth'])
+    describe('and a source server is given', () => {
+      it('should delete only the world rows from that server', async () => {
+        await sceneCollaborators.removeByWorld('myworld.dcl.eth', 'https://worlds-content-server.dcl.dev')
+        const statement = pg.query.mock.calls[0][0] as unknown as { values: unknown[] }
+        expect(statement.values).toEqual(['myworld.dcl.eth', 'https://worlds-content-server.dcl.dev'])
+      })
+    })
+
+    describe('and the world name has mixed case', () => {
+      it('should lowercase the world name', async () => {
+        await sceneCollaborators.removeByWorld('MyWorld.DCL.eth')
+        const statement = pg.query.mock.calls[0][0] as unknown as { values: unknown[] }
+        expect(statement.values).toEqual(['myworld.dcl.eth', null])
+      })
     })
   })
 
   describe('when removing a scene', () => {
-    it('should delete every row for the scene', async () => {
-      await sceneCollaborators.removeByScene(sceneId)
-      const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
-      expect(statement.text).toBe('DELETE FROM scene_collaborators WHERE scene_id = $1')
-      expect(statement.values).toEqual([sceneId])
+    describe('and no source server is given', () => {
+      it('should delete only the scene rows from the default server', async () => {
+        await sceneCollaborators.removeByScene(sceneId)
+        const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
+        expect(statement.text).toContain('source_content_server_url IS NOT DISTINCT FROM')
+        expect(statement.values).toEqual([sceneId, null])
+      })
+    })
+
+    describe('and a source server is given', () => {
+      it('should delete only the scene rows from that server', async () => {
+        await sceneCollaborators.removeByScene(sceneId, 'https://worlds-content-server.dcl.dev')
+        const statement = pg.query.mock.calls[0][0] as unknown as { values: unknown[] }
+        expect(statement.values).toEqual([sceneId, 'https://worlds-content-server.dcl.dev'])
+      })
     })
   })
 

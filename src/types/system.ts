@@ -8,7 +8,6 @@ import type { ICacheStorageComponent, IFetchComponent, IHttpServerComponent } fr
 import type { IPgComponent } from '@dcl/pg-component'
 import type { IQueueConsumerComponent } from '@dcl/queue-consumer-component'
 import type { ISchemaValidatorComponent } from '@dcl/schema-validator-component'
-import type { IQueueComponent } from '@dcl/sqs-component'
 import type { ICatalystContentComponent } from '../adapters/catalyst-content/types'
 import type { IDeploymentConsumerComponent } from '../adapters/deployment-consumer/types'
 import type { IEncryptionComponent } from '../adapters/encryption/types'
@@ -16,6 +15,8 @@ import type { IEnvStorageComponent } from '../adapters/env-storage/types'
 import type { IPlacesComponent } from '../adapters/places/types'
 import type { IPlayerStorageComponent } from '../adapters/player-storage/types'
 import type { ISceneCollaboratorsComponent } from '../adapters/scene-collaborators/types'
+import type { ISqsQueueComponent } from '../adapters/sqs-queue/types'
+import type { IWorldSourcesComponent } from '../adapters/world-sources/types'
 import type { IWorldStorageComponent } from '../adapters/world-storage/types'
 import type { IWorldsContentServerComponent } from '../adapters/worlds-content-server/types'
 import type { ISceneEntityComponent } from '../logic/scene-entity/types'
@@ -48,6 +49,7 @@ export interface BaseComponents {
   envStorage: IEnvStorageComponent
   worldsContentServer: IWorldsContentServerComponent
   worldPermission: IWorldPermissionComponent
+  worldSources: IWorldSourcesComponent
   cache: ICacheStorageComponent
   // Dedicated in-memory cache for storage reads, sized independently from `cache`
   // so per-scene read churn never evicts the long-lived place-id entries.
@@ -60,7 +62,7 @@ export interface BaseComponents {
   schemaValidator: ISchemaValidatorComponent<GlobalContext>
   sceneCollaborators: ISceneCollaboratorsComponent
   sceneEntity: ISceneEntityComponent
-  sqs: IQueueComponent
+  sqs: ISqsQueueComponent
   queueConsumer: IQueueConsumerComponent
   deploymentConsumer: IDeploymentConsumerComponent
 }

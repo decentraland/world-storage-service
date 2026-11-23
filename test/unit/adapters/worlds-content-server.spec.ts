@@ -44,7 +44,11 @@ describe('Worlds Content Server Component', () => {
   async function createComponent(): Promise<IWorldsContentServerComponent> {
     return createWorldsContentServerComponent({
       fetcher: { fetch: fetchMock },
-      config: { requireString: configRequireString, getNumber: jest.fn().mockResolvedValue(undefined) },
+      config: {
+        requireString: configRequireString,
+        getNumber: jest.fn().mockResolvedValue(undefined),
+        getString: jest.fn().mockResolvedValue('worlds-content-server.dcl.dev')
+      },
       cache,
       logs: createLogsMockedComponent(),
       sceneEntity: await createSceneEntityMockedComponent()
@@ -161,7 +165,11 @@ describe('Worlds Content Server Component', () => {
       it('should cache the permissions with the configured TTL', async () => {
         await component.getPermissions(WORLD_NAMES.DEFAULT)
 
-        expect(cache.set).toHaveBeenCalledWith(`world-permissions:${WORLD_NAMES.DEFAULT}`, mockPermissions, 30)
+        expect(cache.set).toHaveBeenCalledWith(
+          `world-permissions:${WORLDS_CONTENT_SERVER_URL}:${WORLD_NAMES.DEFAULT}`,
+          mockPermissions,
+          30
+        )
       })
     })
 
@@ -205,6 +213,72 @@ describe('Worlds Content Server Component', () => {
           `Worlds content server returned an unexpected permissions payload for ${WORLD_NAMES.DEFAULT}`
         )
       })
+    })
+  })
+
+  describe('when getting world permissions with a source server', () => {
+    let component: IWorldsContentServerComponent
+    let sourceUrl: string
+
+    beforeEach(async () => {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(buildMockPermissions()) })
+      component = await createComponent()
+    })
+
+    describe('and the source host is allowlisted', () => {
+      beforeEach(() => {
+        sourceUrl = 'https://worlds-content-server.dcl.dev'
+      })
+
+      it('should fetch the permissions from the source server', async () => {
+        await component.getPermissions(WORLD_NAMES.DEFAULT, sourceUrl)
+
+        expect(fetchMock).toHaveBeenCalledWith(`${sourceUrl}/world/${WORLD_NAMES.DEFAULT}/permissions`, FETCH_OPTIONS)
+      })
+
+      it('should cache the permissions under the source server', async () => {
+        await component.getPermissions(WORLD_NAMES.DEFAULT, sourceUrl)
+
+        expect(cache.set).toHaveBeenCalledWith(
+          `world-permissions:${sourceUrl}:${WORLD_NAMES.DEFAULT}`,
+          expect.anything(),
+          30
+        )
+      })
+    })
+
+    describe('and the source host is not allowlisted', () => {
+      beforeEach(() => {
+        sourceUrl = 'https://attacker.example.com'
+      })
+
+      it('should fetch the permissions from the default worlds content server', async () => {
+        await component.getPermissions(WORLD_NAMES.DEFAULT, sourceUrl)
+
+        expect(fetchMock).toHaveBeenCalledWith(
+          `${WORLDS_CONTENT_SERVER_URL}/world/${WORLD_NAMES.DEFAULT}/permissions`,
+          FETCH_OPTIONS
+        )
+      })
+    })
+  })
+
+  describe('when getting the world scenes at a parcel with an allowlisted source server', () => {
+    const sourceUrl = 'https://worlds-content-server.dcl.dev'
+    let component: IWorldsContentServerComponent
+
+    beforeEach(async () => {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ scenes: [] }) })
+      component = await createComponent()
+    })
+
+    it('should fetch the scenes from the source server', async () => {
+      await component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT, sourceUrl)
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${sourceUrl}/world/${WORLD_NAMES.DEFAULT}/scenes`,
+        expect.objectContaining({ method: 'POST' })
+      )
     })
   })
 
@@ -277,7 +351,11 @@ describe('Worlds Content Server Component', () => {
       it('should cache the scenes under world-scenes:<world>:<parcel>', async () => {
         const result = await component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT)
 
-        expect(cache.set).toHaveBeenCalledWith(`world-scenes:${WORLD_NAMES.DEFAULT}:${PARCELS.DEFAULT}`, result, 30)
+        expect(cache.set).toHaveBeenCalledWith(
+          `world-scenes:${WORLDS_CONTENT_SERVER_URL}:${WORLD_NAMES.DEFAULT}:${PARCELS.DEFAULT}`,
+          result,
+          30
+        )
       })
     })
 

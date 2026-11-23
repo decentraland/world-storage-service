@@ -19,16 +19,20 @@ interface LandsParcelPermissionsResponse {
  * This component orchestrates permission checks by:
  * 1. Routing Genesis City scenes (shared realms such as `main`) through parcel-based permission validation.
  * 2. Checking LAMBDAS parcel permissions for owner/operator-style access.
- * 3. Routing worlds (`*.eth`, DCL NAMEs and ENS) through worlds-content-server permission checks.
+ * 3. Routing worlds (`*.eth`, DCL NAMEs and ENS) through permission checks on the world's recorded
+ *    source worlds server (the default WORLDS_CONTENT_SERVER_URL when unknown).
  * 4. Granting access when the address is either the world owner or an allowed deployer.
  *
- * @param components - Required components: worldsContentServer, catalystContent, fetcher, config, logs
+ * @param components - Required components: worldsContentServer, worldSources, catalystContent, fetcher, config, logs
  * @returns Promise resolving to IWorldPermissionComponent implementation
  */
 export async function createWorldPermissionComponent(
-  components: Pick<AppComponents, 'worldsContentServer' | 'catalystContent' | 'fetcher' | 'config' | 'logs'>
+  components: Pick<
+    AppComponents,
+    'worldsContentServer' | 'worldSources' | 'catalystContent' | 'fetcher' | 'config' | 'logs'
+  >
 ): Promise<IWorldPermissionComponent> {
-  const { worldsContentServer, catalystContent, fetcher, config, logs } = components
+  const { worldsContentServer, worldSources, catalystContent, fetcher, config, logs } = components
   const logger = logs.getLogger('world-permission')
 
   // Required at startup so a missing/typoed variable fails the deployment immediately
@@ -113,7 +117,7 @@ export async function createWorldPermissionComponent(
 
   async function fetchWorldPermissions(worldName: string, address: string): Promise<WorldPermissions> {
     try {
-      return await worldsContentServer.getPermissions(worldName)
+      return await worldsContentServer.getPermissions(worldName, await worldSources.getSource(worldName))
     } catch (error) {
       logger.warn('Failed to fetch permissions from content server', {
         worldName,
@@ -191,7 +195,11 @@ export async function createWorldPermissionComponent(
         if (isSharedRealmName(worldName)) {
           scene = await catalystContent.getActiveSceneEntity(parcel)
         } else {
-          const scenes = await worldsContentServer.getScenesAtParcel(worldName, parcel)
+          const scenes = await worldsContentServer.getScenesAtParcel(
+            worldName,
+            parcel,
+            await worldSources.getSource(worldName)
+          )
           const matches = scenes.filter(candidate => sceneCoversParcel(candidate, parcel))
           scene = matches.length === 1 ? matches[0] : null
         }

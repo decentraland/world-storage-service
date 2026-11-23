@@ -30,6 +30,17 @@ export interface WorldScene {
 }
 
 export interface IWorldsContentServerComponent {
-  getPermissions(worldName: string): Promise<WorldPermissions>
-  getScenesAtParcel(worldName: string, parcel: string): Promise<WorldScene[]>
+  /**
+   * @param worldName - The world name
+   * @param sourceContentServerUrl - The world's source server; absent, null or not allowlisted = the default server
+   * @returns The world's permissions
+   */
+  getPermissions(worldName: string, sourceContentServerUrl?: string | null): Promise<WorldPermissions>
+  /**
+   * @param worldName - The world name
+   * @param parcel - The parcel "x,y"
+   * @param sourceContentServerUrl - The world's source server; absent, null or not allowlisted = the default server
+   * @returns The scenes deployed at the parcel
+   */
+  getScenesAtParcel(worldName: string, parcel: string, sourceContentServerUrl?: string | null): Promise<WorldScene[]>
 }

@@ -4,8 +4,13 @@ import type { IQueueConsumerComponent } from '@dcl/queue-consumer-component'
 import { Events } from '@dcl/schemas'
 import { createDeploymentConsumerComponent } from '../../../src/adapters/deployment-consumer'
 import { ADDRESSES, WORLD_NAMES } from '../../fixtures'
-import { createLogsMockedComponent, createSceneEntityMockedComponent } from '../../mocks/components'
+import {
+  createLogsMockedComponent,
+  createSceneEntityMockedComponent,
+  createWorldSourcesMockedComponent
+} from '../../mocks/components'
 import type { ISceneCollaboratorsComponent } from '../../../src/adapters/scene-collaborators/types'
+import type { IWorldSourcesComponent } from '../../../src/adapters/world-sources/types'
 import type { WorldScene } from '../../../src/adapters/worlds-content-server/types'
 
 type MessageHandler = (event: unknown) => Promise<void>
@@ -21,6 +26,7 @@ describe('DeploymentConsumerComponent', () => {
   let fetcher: jest.Mocked<IFetchComponent>
   let queueConsumer: jest.Mocked<IQueueConsumerComponent>
   let sceneCollaborators: jest.Mocked<ISceneCollaboratorsComponent>
+  let worldSources: jest.Mocked<IWorldSourcesComponent>
   let handlers: Map<string, MessageHandler>
 
   function mockResponse(response: Partial<Response>): Response {
@@ -79,6 +85,7 @@ describe('DeploymentConsumerComponent', () => {
       removeByWorld: jest.fn(),
       listByAddress: jest.fn()
     }
+    worldSources = createWorldSourcesMockedComponent()
 
     await createDeploymentConsumerComponent({
       config: createConfigMockedComponent({
@@ -95,7 +102,8 @@ describe('DeploymentConsumerComponent', () => {
       fetcher,
       queueConsumer,
       sceneCollaborators,
-      sceneEntity: await createSceneEntityMockedComponent()
+      sceneEntity: await createSceneEntityMockedComponent(),
+      worldSources
     })
   })
 
@@ -148,7 +156,8 @@ describe('DeploymentConsumerComponent', () => {
           title: scene.title,
           realmKind: 'world',
           deployedAt: 0,
-          addresses: scene.logsPermissions
+          addresses: scene.logsPermissions,
+          sourceContentServerUrl: null
         })
       })
     })
@@ -235,12 +244,47 @@ describe('DeploymentConsumerComponent', () => {
         )
       })
 
-      it('should upsert the scene resolved from the declared source server', async () => {
+      it('should upsert the scene recording the declared source server', async () => {
         await deploymentHandler()(event)
 
         expect(sceneCollaborators.upsertForScene).toHaveBeenCalledWith(
-          expect.objectContaining({ worldName: WORLD_NAMES.DEFAULT, sceneId: entityId, realmKind: 'world' })
+          expect.objectContaining({
+            worldName: WORLD_NAMES.DEFAULT,
+            sceneId: entityId,
+            realmKind: 'world',
+            sourceContentServerUrl: 'https://worlds-content-server.dcl.dev'
+          })
         )
+      })
+
+      it('should record the declared source server as the world source', async () => {
+        await deploymentHandler()(event)
+
+        expect(worldSources.recordDeployment).toHaveBeenCalledWith(
+          WORLD_NAMES.DEFAULT,
+          'https://worlds-content-server.dcl.dev',
+          0
+        )
+      })
+    })
+
+    describe('and it is the default worlds content server', () => {
+      beforeEach(() => {
+        event = { entity: { entityId }, contentServerUrls: [`${worldsContentServerUrl}/`] }
+      })
+
+      it('should upsert the scene with a null source', async () => {
+        await deploymentHandler()(event)
+
+        expect(sceneCollaborators.upsertForScene).toHaveBeenCalledWith(
+          expect.objectContaining({ sourceContentServerUrl: null })
+        )
+      })
+
+      it('should record a null world source', async () => {
+        await deploymentHandler()(event)
+
+        expect(worldSources.recordDeployment).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, null, 0)
       })
     })
 
@@ -253,6 +297,14 @@ describe('DeploymentConsumerComponent', () => {
         await deploymentHandler()(event)
 
         expect(fetcher.fetch).toHaveBeenCalledWith(`${worldsContentServerUrl}/contents/${entityId}`, FETCH_OPTIONS)
+      })
+
+      it('should upsert the scene with a null source', async () => {
+        await deploymentHandler()(event)
+
+        expect(sceneCollaborators.upsertForScene).toHaveBeenCalledWith(
+          expect.objectContaining({ sourceContentServerUrl: null })
+        )
       })
 
       it('should never fetch from the declared host', async () => {
@@ -335,8 +387,8 @@ describe('DeploymentConsumerComponent', () => {
         }
       })
 
-      expect(sceneCollaborators.removeByScene).toHaveBeenCalledWith('scene-a')
-      expect(sceneCollaborators.removeByScene).toHaveBeenCalledWith('scene-b')
+      expect(sceneCollaborators.removeByScene).toHaveBeenCalledWith('scene-a', null)
+      expect(sceneCollaborators.removeByScene).toHaveBeenCalledWith('scene-b', null)
       expect(sceneCollaborators.removeByScene).toHaveBeenCalledTimes(2)
     })
 
@@ -369,7 +421,7 @@ describe('DeploymentConsumerComponent', () => {
     it('should remove every scene_collaborators row for the world', async () => {
       await worldUndeploymentHandler()({ metadata: { worldName: WORLD_NAMES.DEFAULT } })
 
-      expect(sceneCollaborators.removeByWorld).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT)
+      expect(sceneCollaborators.removeByWorld).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, null)
     })
 
     describe('and the event has a missing worldName', () => {
@@ -387,6 +439,106 @@ describe('DeploymentConsumerComponent', () => {
 
       it('should reject so the undeployment is not acknowledged as processed', async () => {
         await expect(worldUndeploymentHandler()({ metadata: { worldName: WORLD_NAMES.DEFAULT } })).rejects.toThrow()
+      })
+    })
+  })
+
+  describe('when an undeployment event carries a sourceContentServerUrl attribute', () => {
+    let attributes: Record<string, string>
+
+    describe('and the source is allowlisted', () => {
+      beforeEach(() => {
+        attributes = { sourceContentServerUrl: 'https://worlds-content-server.dcl.dev/' }
+      })
+
+      it('should remove only the world rows from that source', async () => {
+        await worldUndeploymentHandler()({
+          metadata: { worldName: WORLD_NAMES.DEFAULT },
+          __messageAttributes: attributes
+        })
+
+        expect(sceneCollaborators.removeByWorld).toHaveBeenCalledWith(
+          WORLD_NAMES.DEFAULT,
+          'https://worlds-content-server.dcl.dev'
+        )
+      })
+
+      it('should forget the world source only when it is that source', async () => {
+        await worldUndeploymentHandler()({
+          metadata: { worldName: WORLD_NAMES.DEFAULT },
+          __messageAttributes: attributes
+        })
+
+        expect(worldSources.removeIfSource).toHaveBeenCalledWith(
+          WORLD_NAMES.DEFAULT,
+          'https://worlds-content-server.dcl.dev'
+        )
+      })
+
+      it('should remove the undeployed scenes only from that source', async () => {
+        await scenesUndeploymentHandler()({
+          metadata: { worldName: WORLD_NAMES.DEFAULT, scenes: [{ entityId: 'scene-a' }] },
+          __messageAttributes: attributes
+        })
+
+        expect(sceneCollaborators.removeByScene).toHaveBeenCalledWith(
+          'scene-a',
+          'https://worlds-content-server.dcl.dev'
+        )
+      })
+    })
+
+    describe('and the source is the default worlds content server', () => {
+      beforeEach(() => {
+        attributes = { sourceContentServerUrl: worldsContentServerUrl }
+      })
+
+      it('should remove the world rows with a null source', async () => {
+        await worldUndeploymentHandler()({
+          metadata: { worldName: WORLD_NAMES.DEFAULT },
+          __messageAttributes: attributes
+        })
+
+        expect(sceneCollaborators.removeByWorld).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, null)
+      })
+    })
+
+    describe('and the source host is not allowlisted', () => {
+      beforeEach(() => {
+        attributes = { sourceContentServerUrl: 'https://attacker.example.com' }
+      })
+
+      it('should drop the world undeployment without removing rows', async () => {
+        await worldUndeploymentHandler()({
+          metadata: { worldName: WORLD_NAMES.DEFAULT },
+          __messageAttributes: attributes
+        })
+
+        expect(sceneCollaborators.removeByWorld).not.toHaveBeenCalled()
+      })
+
+      it('should drop the scenes undeployment without removing rows', async () => {
+        await scenesUndeploymentHandler()({
+          metadata: { worldName: WORLD_NAMES.DEFAULT, scenes: [{ entityId: 'scene-a' }] },
+          __messageAttributes: attributes
+        })
+
+        expect(sceneCollaborators.removeByScene).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('and the source is an allowlisted host over plain HTTP', () => {
+      beforeEach(() => {
+        attributes = { sourceContentServerUrl: 'http://worlds-content-server.dcl.dev' }
+      })
+
+      it('should drop the world undeployment without removing rows', async () => {
+        await worldUndeploymentHandler()({
+          metadata: { worldName: WORLD_NAMES.DEFAULT },
+          __messageAttributes: attributes
+        })
+
+        expect(sceneCollaborators.removeByWorld).not.toHaveBeenCalled()
       })
     })
   })

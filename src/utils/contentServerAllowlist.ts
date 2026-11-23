@@ -45,3 +45,42 @@ export function resolveAllowedContentServerUrl(raw: unknown, allowedHosts: Set<s
 
   return `${url.origin}${url.pathname}`.replace(/\/+$/, '')
 }
+
+export type SourceContentServerResolution = { ok: true; source: string | null } | { ok: false }
+
+/**
+ * Resolves an event's `sourceContentServerUrl` message attribute. Absent means the default
+ * worlds server (null); an allowlisted URL equal to `defaultUrl` is also null, so rows from
+ * the default server always compare equal; any other value that is not allowlisted is
+ * rejected (the caller drops the message rather than treating it as the default server).
+ *
+ * @param raw - The attribute value, if delivered.
+ * @param allowedHosts - Exact hostnames permitted as sources.
+ * @param defaultUrl - The configured default worlds server base URL (no trailing slash).
+ * @returns The source base URL (null = default), or `ok: false` when not allowed.
+ */
+export function resolveSourceContentServerUrl(
+  raw: string | undefined,
+  allowedHosts: Set<string>,
+  defaultUrl: string
+): SourceContentServerResolution {
+  if (raw === undefined) {
+    return { ok: true, source: null }
+  }
+
+  const allowedUrl = resolveAllowedContentServerUrl(raw, allowedHosts)
+  if (!allowedUrl) {
+    return { ok: false }
+  }
+
+  return { ok: true, source: toSourceContentServerUrl(allowedUrl, defaultUrl) }
+}
+
+/**
+ * @param allowedUrl - An already allowlisted base URL.
+ * @param defaultUrl - The configured default worlds server base URL.
+ * @returns null when `allowedUrl` is the default server, else `allowedUrl`.
+ */
+export function toSourceContentServerUrl(allowedUrl: string, defaultUrl: string): string | null {
+  return allowedUrl.toLowerCase() === defaultUrl.replace(/\/+$/, '').toLowerCase() ? null : allowedUrl
+}

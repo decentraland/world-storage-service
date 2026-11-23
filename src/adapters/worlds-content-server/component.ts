@@ -1,3 +1,4 @@
+import { parseAllowedContentServerHosts, resolveAllowedContentServerUrl } from '../../utils/contentServerAllowlist'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { isRecord, pickString } from '../../utils/typeGuards'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
@@ -19,6 +20,9 @@ interface WorldSceneItem {
  * upstream round-trip. The TTL also bounds how long a revoked permission keeps working,
  * so it is deliberately short.
  *
+ * Each call targets the world's source server when given and allowlisted
+ * (`ALLOWED_CONTENT_SERVER_HOSTS`), else the default `WORLDS_CONTENT_SERVER_URL`.
+ *
  * @param components - Required components: fetcher, config, cache, logs
  * @returns Promise resolving to IWorldsContentServerComponent implementation
  */
@@ -28,7 +32,27 @@ export async function createWorldsContentServerComponent(
   const { fetcher, config, cache, logs, sceneEntity } = components
   const logger = logs.getLogger('worlds-content-server')
 
-  const worldsContentServerUrl = await config.requireString('WORLDS_CONTENT_SERVER_URL')
+  const worldsContentServerUrl = (await config.requireString('WORLDS_CONTENT_SERVER_URL')).replace(/\/+$/, '')
+  const allowedContentServerHosts = parseAllowedContentServerHosts(
+    await config.getString('ALLOWED_CONTENT_SERVER_HOSTS')
+  )
+
+  function resolveBaseUrl(worldName: string, sourceContentServerUrl?: string | null): string {
+    if (!sourceContentServerUrl) {
+      return worldsContentServerUrl
+    }
+
+    const allowedUrl = resolveAllowedContentServerUrl(sourceContentServerUrl, allowedContentServerHosts)
+    if (!allowedUrl) {
+      logger.warn('World source server is not allowlisted, using the default worlds content server', {
+        worldName,
+        sourceContentServerUrl
+      })
+      return worldsContentServerUrl
+    }
+
+    return allowedUrl
+  }
   const cacheTtlSeconds = (await config.getNumber('WORLD_PERMISSIONS_CACHE_TTL_SECONDS')) ?? 30
   const scenesCacheTtlSeconds = (await config.getNumber('SCENE_METADATA_CACHE_TTL_SECONDS')) ?? 30
 
@@ -57,14 +81,15 @@ export async function createWorldsContentServerComponent(
   }
 
   return {
-    getPermissions: async (worldName: string): Promise<WorldPermissions> => {
-      const cacheKey = `world-permissions:${worldName}`
+    getPermissions: async (worldName: string, sourceContentServerUrl?: string | null): Promise<WorldPermissions> => {
+      const baseUrl = resolveBaseUrl(worldName, sourceContentServerUrl)
+      const cacheKey = `world-permissions:${baseUrl}:${worldName}`
       const cached = await cache.get<WorldPermissions>(cacheKey)
       if (cached) {
         return cached
       }
 
-      const url = `${worldsContentServerUrl}/world/${encodeURIComponent(worldName)}/permissions`
+      const url = `${baseUrl}/world/${encodeURIComponent(worldName)}/permissions`
 
       logger.debug('Fetching world permissions from content server', {
         worldName,
@@ -108,14 +133,19 @@ export async function createWorldsContentServerComponent(
       return body
     },
 
-    getScenesAtParcel: async (worldName: string, parcel: string): Promise<WorldScene[]> => {
-      const cacheKey = `world-scenes:${worldName}:${parcel}`
+    getScenesAtParcel: async (
+      worldName: string,
+      parcel: string,
+      sourceContentServerUrl?: string | null
+    ): Promise<WorldScene[]> => {
+      const baseUrl = resolveBaseUrl(worldName, sourceContentServerUrl)
+      const cacheKey = `world-scenes:${baseUrl}:${worldName}:${parcel}`
       const cached = await cache.get<WorldScene[]>(cacheKey)
       if (cached) {
         return cached
       }
 
-      const url = `${worldsContentServerUrl}/world/${encodeURIComponent(worldName)}/scenes`
+      const url = `${baseUrl}/world/${encodeURIComponent(worldName)}/scenes`
 
       logger.debug('Fetching world scenes from content server', {
         worldName,
