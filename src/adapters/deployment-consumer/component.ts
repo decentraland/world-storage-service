@@ -1,4 +1,5 @@
 import { Events } from '@dcl/schemas'
+import { parseAllowedContentServerHosts, resolveAllowedContentServerUrl } from '../../utils/contentServerAllowlist'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { isRecord, pickString } from '../../utils/typeGuards'
 import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
@@ -15,8 +16,12 @@ const GENESIS_WORLD_NAME = 'main'
  *
  * Deployment events carry only the deployed entity id, so the world it belongs to is
  * resolved by fetching the entity itself (content-addressed, so `entityId` is both the
- * lookup key and the content hash) from the configured `WORLDS_CONTENT_SERVER_URL` —
- * never from the event's own (untrusted) `contentServerUrls`. Every event is untrusted
+ * lookup key and the content hash) from the server that published it: the event's
+ * (untrusted) `contentServerUrls[0]` when it is HTTPS and its host is exactly on
+ * `ALLOWED_CONTENT_SERVER_HOSTS`, else the configured `WORLDS_CONTENT_SERVER_URL`. A
+ * non-allowlisted host is never fetched. The undeployment handlers make no upstream call,
+ * so they need no source server (the queue is raw-delivery and SNS message attributes such
+ * as `sourceContentServerUrl` are not read). Every event is untrusted
  * ingestion data: shapes are validated with runtime guards (`@dcl/schemas` does not
  * export these Worlds event types as part of its `Event` union), and a malformed or
  * unrecognized payload is logged and skipped rather than thrown.
@@ -36,6 +41,28 @@ export async function createDeploymentConsumerComponent(
 
   const worldsContentServerUrl = (await config.requireString('WORLDS_CONTENT_SERVER_URL')).replace(/\/$/, '')
   const contentUrl = (await config.requireString('CONTENT_URL')).replace(/\/$/, '')
+  const allowedContentServerHosts = parseAllowedContentServerHosts(
+    await config.getString('ALLOWED_CONTENT_SERVER_HOSTS')
+  )
+
+  function resolveWorldsSourceUrl(event: unknown, entityId: string): string {
+    const contentServerUrls = isRecord(event) ? event.contentServerUrls : undefined
+    const declaredUrl = Array.isArray(contentServerUrls) ? contentServerUrls[0] : undefined
+    if (declaredUrl === undefined) {
+      return worldsContentServerUrl
+    }
+
+    const allowedUrl = resolveAllowedContentServerUrl(declaredUrl, allowedContentServerHosts)
+    if (!allowedUrl) {
+      logger.warn('Deployment source server is not allowlisted, using the configured worlds content server', {
+        entityId,
+        declaredUrl: String(declaredUrl).slice(0, 200)
+      })
+      return worldsContentServerUrl
+    }
+
+    return allowedUrl
+  }
 
   async function fetchEntityBody(baseUrl: string, entityId: string): Promise<unknown> {
     const url = `${baseUrl}/contents/${encodeURIComponent(entityId)}`
@@ -73,8 +100,11 @@ export async function createDeploymentConsumerComponent(
     }
   }
 
-  async function resolveDeployedScene(entityId: string): Promise<{ worldName: string; scene: WorldScene } | null> {
-    const body = await fetchEntityBody(worldsContentServerUrl, entityId)
+  async function resolveDeployedScene(
+    sourceUrl: string,
+    entityId: string
+  ): Promise<{ worldName: string; scene: WorldScene } | null> {
+    const body = await fetchEntityBody(sourceUrl, entityId)
     if (!body) {
       return null
     }
@@ -106,7 +136,7 @@ export async function createDeploymentConsumerComponent(
       return
     }
 
-    const resolved = await resolveDeployedScene(entityId)
+    const resolved = await resolveDeployedScene(resolveWorldsSourceUrl(event, entityId), entityId)
     if (!resolved) {
       logger.warn('Discarding deployment event: deployed scene is not indexable', { entityId })
       return
