@@ -15,7 +15,7 @@ export interface SceneCollaboratorsRow extends CollaboratorScene {
 export interface CollaboratorSceneDeployment extends CollaboratorScene {
   addresses: string[]
   deployedAt: number
-  /** Base URL of the worlds server the scene came from; null/absent = the default server (or Genesis). */
+  /** Origin of the worlds server the scene came from; null/absent = the default server (or Genesis). */
   sourceContentServerUrl?: string | null
 }
 
