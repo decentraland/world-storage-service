@@ -233,7 +233,10 @@ describe('Worlds Content Server Component', () => {
       it('should fetch the permissions from the source server', async () => {
         await component.getPermissions(WORLD_NAMES.DEFAULT, sourceUrl)
 
-        expect(fetchMock).toHaveBeenCalledWith(`${sourceUrl}/world/${WORLD_NAMES.DEFAULT}/permissions`, FETCH_OPTIONS)
+        expect(fetchMock).toHaveBeenCalledWith(`${sourceUrl}/world/${WORLD_NAMES.DEFAULT}/permissions`, {
+          ...FETCH_OPTIONS,
+          redirect: 'error'
+        })
       })
 
       it('should cache the permissions under the source server', async () => {
@@ -243,6 +246,21 @@ describe('Worlds Content Server Component', () => {
           `world-permissions:${sourceUrl}:${WORLD_NAMES.DEFAULT}`,
           expect.anything(),
           30
+        )
+      })
+    })
+
+    describe('and the source is the default server origin', () => {
+      beforeEach(() => {
+        sourceUrl = `${WORLDS_CONTENT_SERVER_URL}/`
+      })
+
+      it('should fetch the permissions from the default server following redirects', async () => {
+        await component.getPermissions(WORLD_NAMES.DEFAULT, sourceUrl)
+
+        expect(fetchMock).toHaveBeenCalledWith(
+          `${WORLDS_CONTENT_SERVER_URL}/world/${WORLD_NAMES.DEFAULT}/permissions`,
+          FETCH_OPTIONS
         )
       })
     })
@@ -272,12 +290,12 @@ describe('Worlds Content Server Component', () => {
       component = await createComponent()
     })
 
-    it('should fetch the scenes from the source server', async () => {
+    it('should fetch the scenes from the source server refusing redirects', async () => {
       await component.getScenesAtParcel(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT, sourceUrl)
 
       expect(fetchMock).toHaveBeenCalledWith(
         `${sourceUrl}/world/${WORLD_NAMES.DEFAULT}/scenes`,
-        expect.objectContaining({ method: 'POST' })
+        expect.objectContaining({ method: 'POST', redirect: 'error' })
       )
     })
   })

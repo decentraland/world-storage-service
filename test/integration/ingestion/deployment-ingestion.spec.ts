@@ -27,7 +27,7 @@ const OTHER_WORLDS_URL = `https://${OTHER_WORLDS_HOST}`
 process.env.AWS_REGION = process.env.AWS_REGION ?? 'us-east-1'
 process.env.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID ?? 'test'
 process.env.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY ?? 'test'
-process.env.ALLOWED_CONTENT_SERVER_HOSTS = process.env.ALLOWED_CONTENT_SERVER_HOSTS ?? OTHER_WORLDS_HOST
+process.env.ALLOWED_WORLDS_CONTENT_SERVER_HOSTS = process.env.ALLOWED_WORLDS_CONTENT_SERVER_HOSTS ?? OTHER_WORLDS_HOST
 
 const sqsAdmin = new SQSClient({
   endpoint: LOCALSTACK_ENDPOINT,
@@ -50,6 +50,7 @@ const ingestionTest = createRunner<TestComponents>({
     await createDeploymentConsumerComponent({
       config: components.config,
       logs: components.logs,
+      metrics: components.metrics,
       fetcher: components.fetcher,
       queueConsumer: realConsumer,
       sceneCollaborators: components.sceneCollaborators,

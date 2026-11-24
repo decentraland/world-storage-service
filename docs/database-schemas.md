@@ -187,7 +187,7 @@ Reverse index of a scene's collaborators, keyed by `(scene_id, address)`. A coll
 | `title`       | VARCHAR(255) | NULL     | Scene title (from metadata), or null. |
 | `realm_kind`  | VARCHAR(16)  | NOT NULL | `world` or `genesis`. |
 | `deployed_at` | BIGINT       | NOT NULL | Deployment timestamp (ms), default 0. Used to order deployment events so a stale/out-of-order event cannot overwrite a newer one. |
-| `source_content_server_url` | VARCHAR(255) | NULL | Base URL of the worlds server the scene was deployed from. NULL = the default `WORLDS_CONTENT_SERVER_URL` (and Genesis). Undeployments only remove rows of the server that sent them (`sourceContentServerUrl` message attribute). |
+| `source_content_server_url` | VARCHAR(255) | NULL | Origin (`https://<host>`) of the worlds server the scene was deployed from, from the `sourceContentServerUrl` message attribute. NULL = the default `WORLDS_CONTENT_SERVER_URL` (and Genesis). Undeployments and the latest-deployment-wins replacement at a location only touch rows of the same server. |
 | `updated_at`  | TIMESTAMP    | NOT NULL | Last update timestamp. Defaults to `current_timestamp`. |
 
 ### Indexes
@@ -220,6 +220,6 @@ The worlds server each world was last deployed from (latest `deployed_at` wins).
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
 | `world_name` | VARCHAR(255) | NOT NULL | **Primary Key**. World name, lowercased. |
-| `source_content_server_url` | VARCHAR(255) | NULL | Base URL of the source worlds server; NULL = the default server. |
+| `source_content_server_url` | VARCHAR(255) | NULL | Origin of the source worlds server; NULL = the default server. Any host on `ALLOWED_WORLDS_CONTENT_SERVER_HOSTS` may become a world's source (last deploy wins), so every listed host must resolve NAME ownership on the same chain and registry. |
 | `deployed_at` | BIGINT | NOT NULL | Timestamp (ms) of the deployment that set the source, default 0. |
 | `updated_at` | TIMESTAMP | NOT NULL | Last update timestamp. Defaults to `current_timestamp`. |

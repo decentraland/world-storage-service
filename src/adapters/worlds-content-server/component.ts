@@ -1,7 +1,15 @@
-import { parseAllowedContentServerHosts, resolveAllowedContentServerUrl } from '../../utils/contentServerAllowlist'
+import {
+  parseAllowedWorldsContentServerHosts,
+  requireOrigin,
+  resolveSourceContentServerUrl
+} from '../../utils/contentServerAllowlist'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { isRecord, pickString } from '../../utils/typeGuards'
-import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
+import {
+  ALLOWLISTED_SOURCE_FETCH_OPTIONS,
+  UPSTREAM_FETCH_OPTIONS,
+  discardResponseBody
+} from '../../utils/upstreamFetch'
 import type { IWorldsContentServerComponent, WorldPermissions, WorldScene } from './types'
 import type { AppComponents } from '../../types'
 
@@ -21,7 +29,8 @@ interface WorldSceneItem {
  * so it is deliberately short.
  *
  * Each call targets the world's source server when given and allowlisted
- * (`ALLOWED_CONTENT_SERVER_HOSTS`), else the default `WORLDS_CONTENT_SERVER_URL`.
+ * (`ALLOWED_WORLDS_CONTENT_SERVER_HOSTS`), else the default `WORLDS_CONTENT_SERVER_URL`.
+ * Calls to a non-default source refuse redirects.
  *
  * @param components - Required components: fetcher, config, cache, logs
  * @returns Promise resolving to IWorldsContentServerComponent implementation
@@ -33,25 +42,37 @@ export async function createWorldsContentServerComponent(
   const logger = logs.getLogger('worlds-content-server')
 
   const worldsContentServerUrl = (await config.requireString('WORLDS_CONTENT_SERVER_URL')).replace(/\/+$/, '')
-  const allowedContentServerHosts = parseAllowedContentServerHosts(
-    await config.getString('ALLOWED_CONTENT_SERVER_HOSTS')
+  const defaultOrigin = requireOrigin(worldsContentServerUrl)
+  const allowedWorldsContentServerHosts = parseAllowedWorldsContentServerHosts(
+    await config.getString('ALLOWED_WORLDS_CONTENT_SERVER_HOSTS')
   )
 
-  function resolveBaseUrl(worldName: string, sourceContentServerUrl?: string | null): string {
+  function resolveBaseUrl(
+    worldName: string,
+    sourceContentServerUrl?: string | null
+  ): { baseUrl: string; fetchOptions: typeof UPSTREAM_FETCH_OPTIONS | typeof ALLOWLISTED_SOURCE_FETCH_OPTIONS } {
+    const defaultBase = { baseUrl: worldsContentServerUrl, fetchOptions: UPSTREAM_FETCH_OPTIONS }
     if (!sourceContentServerUrl) {
-      return worldsContentServerUrl
+      return defaultBase
     }
 
-    const allowedUrl = resolveAllowedContentServerUrl(sourceContentServerUrl, allowedContentServerHosts)
-    if (!allowedUrl) {
+    const resolution = resolveSourceContentServerUrl(
+      sourceContentServerUrl,
+      allowedWorldsContentServerHosts,
+      defaultOrigin
+    )
+    if ('reason' in resolution) {
       logger.warn('World source server is not allowlisted, using the default worlds content server', {
         worldName,
-        sourceContentServerUrl
+        sourceContentServerUrl,
+        reason: resolution.reason
       })
-      return worldsContentServerUrl
+      return defaultBase
     }
 
-    return allowedUrl
+    return resolution.source === null
+      ? defaultBase
+      : { baseUrl: resolution.source, fetchOptions: ALLOWLISTED_SOURCE_FETCH_OPTIONS }
   }
   const cacheTtlSeconds = (await config.getNumber('WORLD_PERMISSIONS_CACHE_TTL_SECONDS')) ?? 30
   const scenesCacheTtlSeconds = (await config.getNumber('SCENE_METADATA_CACHE_TTL_SECONDS')) ?? 30
@@ -82,7 +103,7 @@ export async function createWorldsContentServerComponent(
 
   return {
     getPermissions: async (worldName: string, sourceContentServerUrl?: string | null): Promise<WorldPermissions> => {
-      const baseUrl = resolveBaseUrl(worldName, sourceContentServerUrl)
+      const { baseUrl, fetchOptions } = resolveBaseUrl(worldName, sourceContentServerUrl)
       const cacheKey = `world-permissions:${baseUrl}:${worldName}`
       const cached = await cache.get<WorldPermissions>(cacheKey)
       if (cached) {
@@ -99,7 +120,7 @@ export async function createWorldsContentServerComponent(
       let response: Awaited<ReturnType<typeof fetcher.fetch>>
 
       try {
-        response = await fetcher.fetch(url, UPSTREAM_FETCH_OPTIONS)
+        response = await fetcher.fetch(url, fetchOptions)
       } catch (error) {
         logger.error('Failed to fetch world permissions: network error', {
           worldName,
@@ -138,7 +159,7 @@ export async function createWorldsContentServerComponent(
       parcel: string,
       sourceContentServerUrl?: string | null
     ): Promise<WorldScene[]> => {
-      const baseUrl = resolveBaseUrl(worldName, sourceContentServerUrl)
+      const { baseUrl, fetchOptions } = resolveBaseUrl(worldName, sourceContentServerUrl)
       const cacheKey = `world-scenes:${baseUrl}:${worldName}:${parcel}`
       const cached = await cache.get<WorldScene[]>(cacheKey)
       if (cached) {
@@ -157,7 +178,7 @@ export async function createWorldsContentServerComponent(
 
       try {
         response = await fetcher.fetch(url, {
-          ...UPSTREAM_FETCH_OPTIONS,
+          ...fetchOptions,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ coordinates: [parcel] })

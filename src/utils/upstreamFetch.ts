@@ -16,6 +16,15 @@ export const UPSTREAM_FETCH_OPTIONS = {
 } as const
 
 /**
+ * Bounds for calls to a non-default worlds server: redirects are refused so a fetch never
+ * leaves the allowlisted host (the `/permissions` answer decides authorization).
+ */
+export const ALLOWLISTED_SOURCE_FETCH_OPTIONS = {
+  ...UPSTREAM_FETCH_OPTIONS,
+  redirect: 'error'
+} as const
+
+/**
  * Releases the body of a response that is about to be discarded on an error path.
  *
  * The fetcher cancels the bodies of *retried* responses itself, but the final response it

@@ -71,9 +71,10 @@ test('when world events from two worlds servers are ingested', function ({ compo
       config: createConfigComponent({
         WORLDS_CONTENT_SERVER_URL: DEFAULT_URL,
         CONTENT_URL: 'https://peer.decentraland.org/content',
-        ALLOWED_CONTENT_SERVER_HOSTS: 'worlds-content-server.decentraland.org,worlds-content-server.dcl.dev'
+        ALLOWED_WORLDS_CONTENT_SERVER_HOSTS: 'worlds-content-server.dcl.dev'
       }),
       logs: components.logs,
+      metrics: components.metrics,
       fetcher,
       queueConsumer,
       sceneCollaborators: components.sceneCollaborators,
@@ -86,12 +87,14 @@ test('when world events from two worlds servers are ingested', function ({ compo
     mockEntity('0,0', 100)
     await handler(Events.SubType.Worlds.DEPLOYMENT)({
       entity: { entityId: 'scene-from-default' },
-      contentServerUrls: [DEFAULT_URL]
+      contentServerUrls: [DEFAULT_URL],
+      __messageAttributes: { sourceContentServerUrl: DEFAULT_URL }
     })
     mockEntity('1,1', 200)
     await handler(Events.SubType.Worlds.DEPLOYMENT)({
       entity: { entityId: 'scene-from-other' },
-      contentServerUrls: [OTHER_URL]
+      contentServerUrls: [OTHER_URL],
+      __messageAttributes: { sourceContentServerUrl: OTHER_URL }
     })
   })
 
@@ -150,6 +153,21 @@ test('when world events from two worlds servers are ingested', function ({ compo
 
     it('should drop it and keep every scene', async () => {
       expect(await listSceneIds()).toEqual(['scene-from-default', 'scene-from-other'])
+    })
+  })
+
+  describe('and the other server deploys a newer scene at the default server scene parcel', () => {
+    beforeEach(async () => {
+      mockEntity('0,0', 300)
+      await handler(Events.SubType.Worlds.DEPLOYMENT)({
+        entity: { entityId: 'scene-from-other-at-origin' },
+        contentServerUrls: [OTHER_URL],
+        __messageAttributes: { sourceContentServerUrl: OTHER_URL }
+      })
+    })
+
+    it('should keep the default server scene at that parcel', async () => {
+      expect(await listSceneIds()).toEqual(['scene-from-default', 'scene-from-other', 'scene-from-other-at-origin'])
     })
   })
 

@@ -1,13 +1,17 @@
 import { Events } from '@dcl/schemas'
 import {
-  parseAllowedContentServerHosts,
-  resolveAllowedContentServerUrl,
-  resolveSourceContentServerUrl,
-  toSourceContentServerUrl
+  originOf,
+  parseAllowedWorldsContentServerHosts,
+  requireOrigin,
+  resolveSourceContentServerUrl
 } from '../../utils/contentServerAllowlist'
 import { errorMessageOrDefault } from '../../utils/errors'
 import { isRecord, pickString } from '../../utils/typeGuards'
-import { UPSTREAM_FETCH_OPTIONS, discardResponseBody } from '../../utils/upstreamFetch'
+import {
+  ALLOWLISTED_SOURCE_FETCH_OPTIONS,
+  UPSTREAM_FETCH_OPTIONS,
+  discardResponseBody
+} from '../../utils/upstreamFetch'
 import { readMessageAttributes } from '../sqs-queue/component'
 import type { IDeploymentConsumerComponent } from './types'
 import type { AppComponents } from '../../types'
@@ -20,88 +24,97 @@ const GENESIS_WORLD_NAME = 'main'
  * WORLD events and catalyst CATALYST_DEPLOYMENT scene events that keep
  * `scene_collaborators` current.
  *
- * Deployment events carry only the deployed entity id, so the world it belongs to is
- * resolved by fetching the entity itself (content-addressed, so `entityId` is both the
- * lookup key and the content hash) from the server that published it: the event's
- * (untrusted) `contentServerUrls[0]` when it is HTTPS and its host is exactly on
- * `ALLOWED_CONTENT_SERVER_HOSTS`, else the configured `WORLDS_CONTENT_SERVER_URL`. A
- * non-allowlisted host is never fetched. The rows and the world's source are recorded with
- * that server (NULL = the default server).
+ * A world event's source server is its `sourceContentServerUrl` message attribute: absent or
+ * equal to the `WORLDS_CONTENT_SERVER_URL` origin = the default server (stored NULL); otherwise
+ * it must be a bare HTTPS origin whose host is on `ALLOWED_WORLDS_CONTENT_SERVER_HOSTS`, or the
+ * event is dropped (treating it as the default server would let it write or remove the
+ * default server's rows). A deployment whose `contentServerUrls[0]` origin differs from the
+ * attribute is dropped too. Deployment events carry only the entity id, so the scene is
+ * fetched from the source server; a non-allowlisted host is never fetched.
  *
- * Undeployment events only remove rows of the server that sent them, named by the
- * `sourceContentServerUrl` message attribute: absent = the default server; present but not
- * an allowlisted HTTPS URL = the message is dropped (treating it as the default server would
- * let it remove the default server's rows). Every event is untrusted
- * ingestion data: shapes are validated with runtime guards (`@dcl/schemas` does not
- * export these Worlds event types as part of its `Event` union), and a malformed or
- * unrecognized payload is logged and skipped rather than thrown.
+ * Every event is untrusted ingestion data: shapes are validated with runtime guards
+ * (`@dcl/schemas` does not export these Worlds event types as part of its `Event` union), and
+ * a malformed or unrecognized payload is logged and skipped rather than thrown.
  *
- * @param components - Required components: config, logs, fetcher, queueConsumer,
+ * @param components - Required components: config, logs, metrics, fetcher, queueConsumer,
  * sceneCollaborators, sceneEntity, worldSources
  * @returns Promise resolving to IDeploymentConsumerComponent implementation
  */
 export async function createDeploymentConsumerComponent(
   components: Pick<
     AppComponents,
-    'config' | 'logs' | 'fetcher' | 'queueConsumer' | 'sceneCollaborators' | 'sceneEntity' | 'worldSources'
+    'config' | 'logs' | 'metrics' | 'fetcher' | 'queueConsumer' | 'sceneCollaborators' | 'sceneEntity' | 'worldSources'
   >
 ): Promise<IDeploymentConsumerComponent> {
-  const { config, logs, fetcher, queueConsumer, sceneCollaborators, sceneEntity, worldSources } = components
+  const { config, logs, metrics, fetcher, queueConsumer, sceneCollaborators, sceneEntity, worldSources } = components
   const logger = logs.getLogger('deployment-consumer')
 
   const worldsContentServerUrl = (await config.requireString('WORLDS_CONTENT_SERVER_URL')).replace(/\/$/, '')
+  const defaultOrigin = requireOrigin(worldsContentServerUrl)
   const contentUrl = (await config.requireString('CONTENT_URL')).replace(/\/$/, '')
-  const allowedContentServerHosts = parseAllowedContentServerHosts(
-    await config.getString('ALLOWED_CONTENT_SERVER_HOSTS')
+  const allowedWorldsContentServerHosts = parseAllowedWorldsContentServerHosts(
+    await config.getString('ALLOWED_WORLDS_CONTENT_SERVER_HOSTS')
   )
 
+  function dropEvent(subType: string, reason: string, context: Record<string, string>): undefined {
+    logger.error('Dropping world event: source server is not accepted', { subType, reason, ...context })
+    metrics.increment('world_storage_world_events_dropped_total', { sub_type: subType, reason })
+    return undefined
+  }
+
   /**
-   * @returns The source of an undeployment event (null = default server), or undefined when
-   * its `sourceContentServerUrl` attribute is not allowed and the event must be dropped.
+   * @returns The event's source (null = default server) and its origin, or undefined when the
+   * event must be dropped.
    */
-  function resolveUndeploymentSource(event: unknown, subType: string): string | null | undefined {
+  function resolveEventSource(event: unknown, subType: string): { origin: string; source: string | null } | undefined {
     const { sourceContentServerUrl } = readMessageAttributes(event)
+    if (sourceContentServerUrl === undefined) {
+      return { origin: defaultOrigin, source: null }
+    }
+
     const resolution = resolveSourceContentServerUrl(
       sourceContentServerUrl,
-      allowedContentServerHosts,
-      worldsContentServerUrl
+      allowedWorldsContentServerHosts,
+      defaultOrigin
     )
-    if (!resolution.ok) {
-      logger.warn('Dropping undeployment: sourceContentServerUrl is not an allowed content server', {
-        subType,
-        sourceContentServerUrl: String(sourceContentServerUrl).slice(0, 200)
+    if ('reason' in resolution) {
+      return dropEvent(subType, resolution.reason, {
+        sourceContentServerUrl: sourceContentServerUrl.slice(0, 200)
       })
-      return undefined
     }
-    return resolution.source
+    return { origin: resolution.origin, source: resolution.source }
   }
 
-  function resolveWorldsSourceUrl(event: unknown, entityId: string): string {
+  /**
+   * @returns The deployment's source (null = default server), or undefined when it must be
+   * dropped. With the attribute present, the body's `contentServerUrls[0]` must share its origin.
+   */
+  function resolveDeploymentSource(event: unknown, entityId: string): { source: string | null } | undefined {
+    const subType = Events.SubType.Worlds.DEPLOYMENT
+    const resolved = resolveEventSource(event, subType)
+    if (!resolved || readMessageAttributes(event).sourceContentServerUrl === undefined) {
+      return resolved
+    }
+
     const contentServerUrls = isRecord(event) ? event.contentServerUrls : undefined
     const declaredUrl = Array.isArray(contentServerUrls) ? contentServerUrls[0] : undefined
-    if (declaredUrl === undefined) {
-      return worldsContentServerUrl
-    }
-
-    const allowedUrl = resolveAllowedContentServerUrl(declaredUrl, allowedContentServerHosts)
-    if (!allowedUrl) {
-      logger.warn('Deployment source server is not allowlisted, using the configured worlds content server', {
+    if (originOf(declaredUrl) !== resolved.origin) {
+      return dropEvent(subType, 'source_mismatch', {
         entityId,
+        sourceContentServerUrl: resolved.origin,
         declaredUrl: String(declaredUrl).slice(0, 200)
       })
-      return worldsContentServerUrl
     }
-
-    return allowedUrl
+    return resolved
   }
 
-  async function fetchEntityBody(baseUrl: string, entityId: string): Promise<unknown> {
+  async function fetchEntityBody(baseUrl: string, entityId: string, isDefaultSource = true): Promise<unknown> {
     const url = `${baseUrl}/contents/${encodeURIComponent(entityId)}`
 
     let response: Awaited<ReturnType<typeof fetcher.fetch>>
 
     try {
-      response = await fetcher.fetch(url, UPSTREAM_FETCH_OPTIONS)
+      response = await fetcher.fetch(url, isDefaultSource ? UPSTREAM_FETCH_OPTIONS : ALLOWLISTED_SOURCE_FETCH_OPTIONS)
     } catch (error) {
       logger.warn('Discarding deployment: network error fetching deployed entity', {
         entityId,
@@ -132,10 +145,10 @@ export async function createDeploymentConsumerComponent(
   }
 
   async function resolveDeployedScene(
-    sourceUrl: string,
+    source: string | null,
     entityId: string
   ): Promise<{ worldName: string; scene: WorldScene } | null> {
-    const body = await fetchEntityBody(sourceUrl, entityId)
+    const body = await fetchEntityBody(source ?? worldsContentServerUrl, entityId, source === null)
     if (!body) {
       return null
     }
@@ -167,14 +180,17 @@ export async function createDeploymentConsumerComponent(
       return
     }
 
-    const sourceUrl = resolveWorldsSourceUrl(event, entityId)
-    const resolved = await resolveDeployedScene(sourceUrl, entityId)
+    const eventSource = resolveDeploymentSource(event, entityId)
+    if (!eventSource) {
+      return
+    }
+    const sourceContentServerUrl = eventSource.source
+
+    const resolved = await resolveDeployedScene(sourceContentServerUrl, entityId)
     if (!resolved) {
       logger.warn('Discarding deployment event: deployed scene is not indexable', { entityId })
       return
     }
-
-    const sourceContentServerUrl = toSourceContentServerUrl(sourceUrl, worldsContentServerUrl)
 
     await sceneCollaborators.upsertForScene({
       worldName: resolved.worldName,
@@ -198,10 +214,11 @@ export async function createDeploymentConsumerComponent(
       return
     }
 
-    const source = resolveUndeploymentSource(event, Events.SubType.Worlds.WORLD_SCENES_UNDEPLOYMENT)
-    if (source === undefined) {
+    const resolved = resolveEventSource(event, Events.SubType.Worlds.WORLD_SCENES_UNDEPLOYMENT)
+    if (!resolved) {
       return
     }
+    const { source } = resolved
 
     for (const scene of scenes) {
       const sceneId = isRecord(scene) ? scene.entityId : undefined
@@ -224,10 +241,11 @@ export async function createDeploymentConsumerComponent(
       return
     }
 
-    const source = resolveUndeploymentSource(event, Events.SubType.Worlds.WORLD_UNDEPLOYMENT)
-    if (source === undefined) {
+    const resolved = resolveEventSource(event, Events.SubType.Worlds.WORLD_UNDEPLOYMENT)
+    if (!resolved) {
       return
     }
+    const { source } = resolved
 
     await sceneCollaborators.removeByWorld(worldName, source)
     await worldSources.removeIfSource(worldName, source)

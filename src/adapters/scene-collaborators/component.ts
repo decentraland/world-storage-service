@@ -33,7 +33,8 @@ export const createSceneCollaboratorsComponent = async ({
     await pg.withAsyncContextTransaction(async () => {
       const newest = await pg.query<{ max_deployed_at: string | null }>(SQL`
         SELECT MAX(deployed_at) AS max_deployed_at FROM scene_collaborators
-        WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}`)
+        WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}
+          AND source_content_server_url IS NOT DISTINCT FROM ${sourceContentServerUrl}`)
       if (Number(newest.rows[0]?.max_deployed_at ?? 0) > deployedAt) {
         logger.debug('Skipping stale deployment; a newer one is already indexed at this location', {
           sceneId,
@@ -44,13 +45,16 @@ export const createSceneCollaboratorsComponent = async ({
 
       if (normalizedAddresses.length === 0) {
         await pg.query(SQL`
-          DELETE FROM scene_collaborators WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}`)
+          DELETE FROM scene_collaborators
+          WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}
+            AND source_content_server_url IS NOT DISTINCT FROM ${sourceContentServerUrl}`)
         return
       }
 
       await pg.query(SQL`
         DELETE FROM scene_collaborators
-        WHERE world_name = ${worldName} AND base_parcel = ${baseParcel} AND scene_id <> ${sceneId}`)
+        WHERE world_name = ${worldName} AND base_parcel = ${baseParcel} AND scene_id <> ${sceneId}
+          AND source_content_server_url IS NOT DISTINCT FROM ${sourceContentServerUrl}`)
 
       await pg.query(SQL`
         DELETE FROM scene_collaborators

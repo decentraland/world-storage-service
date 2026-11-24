@@ -64,6 +64,8 @@ export async function createSqsQueueComponent(components: Pick<AppComponents, 'c
   const base = await createSqsComponent(config)
   const client = new SQSClient(endpoint ? { endpoint } : {})
 
+  // Mirrors @dcl/sqs-component 2.2.6 receiveMessages (same client config, 60s visibility,
+  // 20s wait, abortSignal) plus MessageAttributeNames; re-check on upgrade.
   async function receiveMessages(amount = 1, options?: ReceiveMessagesOptions): Promise<Message[]> {
     const { Messages = [] } = await client.send(
       new ReceiveMessageCommand({

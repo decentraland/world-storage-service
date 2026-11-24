@@ -45,7 +45,7 @@ describe('SceneCollaboratorsComponent', () => {
         await sceneCollaborators.upsertForScene(scene)
         const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
         expect(statement.text).toContain('MAX(deployed_at)')
-        expect(statement.values).toEqual([worldName, baseParcel])
+        expect(statement.values).toEqual([worldName, baseParcel, null])
       })
 
       it('should replace any other scene indexed at the same world and parcel', async () => {
@@ -53,7 +53,7 @@ describe('SceneCollaboratorsComponent', () => {
         const statement = pg.query.mock.calls[1][0] as unknown as { text: string; values: unknown[] }
         expect(statement.text).toContain('DELETE FROM scene_collaborators')
         expect(statement.text).toContain('scene_id <>')
-        expect(statement.values).toEqual([worldName, baseParcel, sceneId])
+        expect(statement.values).toEqual([worldName, baseParcel, sceneId, null])
       })
 
       it('should delete rows for the scene whose address is not in the new set', async () => {
@@ -129,6 +129,34 @@ describe('SceneCollaboratorsComponent', () => {
       })
     })
 
+    describe('and the scene comes from a non-default source server', () => {
+      beforeEach(() => {
+        scene = {
+          sceneId,
+          worldName,
+          baseParcel,
+          title,
+          realmKind,
+          deployedAt: 100,
+          addresses: ['0xAbC'],
+          sourceContentServerUrl: 'https://worlds-content-server.dcl.dev'
+        }
+      })
+
+      it('should scope the newest deployment check to that source', async () => {
+        await sceneCollaborators.upsertForScene(scene)
+        const statement = pg.query.mock.calls[0][0] as unknown as { text: string; values: unknown[] }
+        expect(statement.values).toEqual([worldName, baseParcel, 'https://worlds-content-server.dcl.dev'])
+      })
+
+      it('should only replace other scenes of that source at the same world and parcel', async () => {
+        await sceneCollaborators.upsertForScene(scene)
+        const statement = pg.query.mock.calls[1][0] as unknown as { text: string; values: unknown[] }
+        expect(statement.text).toContain('source_content_server_url IS NOT DISTINCT FROM')
+        expect(statement.values).toEqual([worldName, baseParcel, sceneId, 'https://worlds-content-server.dcl.dev'])
+      })
+    })
+
     describe('and the new address set is empty', () => {
       beforeEach(() => {
         scene = { sceneId, worldName, baseParcel, title, realmKind, deployedAt: 100, addresses: [] }
@@ -141,7 +169,7 @@ describe('SceneCollaboratorsComponent', () => {
         expect(statement.text).toContain('DELETE FROM scene_collaborators')
         expect(statement.text).toContain('world_name =')
         expect(statement.text).toContain('base_parcel =')
-        expect(statement.values).toEqual([worldName, baseParcel])
+        expect(statement.values).toEqual([worldName, baseParcel, null])
       })
     })
 
@@ -161,7 +189,7 @@ describe('SceneCollaboratorsComponent', () => {
       it('should lowercase the world name in the staleness guard', async () => {
         await sceneCollaborators.upsertForScene(scene)
         const statement = pg.query.mock.calls[0][0] as unknown as { values: unknown[] }
-        expect(statement.values).toEqual(['my-world.dcl.eth', baseParcel])
+        expect(statement.values).toEqual(['my-world.dcl.eth', baseParcel, null])
       })
 
       it('should lowercase the world name in the insert', async () => {

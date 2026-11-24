@@ -199,6 +199,7 @@ export async function initComponents(): Promise<AppComponents> {
   const deploymentConsumer = await createDeploymentConsumerComponent({
     config,
     logs,
+    metrics,
     fetcher,
     queueConsumer,
     sceneCollaborators,
