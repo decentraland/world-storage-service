@@ -44,6 +44,14 @@ erDiagram
     VARCHAR(255) title "Scene title (nullable)"
     VARCHAR(16) realm_kind "'world' or 'genesis'"
     BIGINT deployed_at "Deployment timestamp (ms); latest-wins ordering"
+    VARCHAR(255) source_content_server_url "Worlds server the scene came from (NULL = default)"
+    TIMESTAMP updated_at "Last update timestamp"
+  }
+
+  world_sources {
+    VARCHAR(255) world_name PK "World name (lowercased)"
+    VARCHAR(255) source_content_server_url "Worlds server of the latest deployment (NULL = default)"
+    BIGINT deployed_at "Deployment timestamp (ms); latest-wins ordering"
     TIMESTAMP updated_at "Last update timestamp"
   }
 ```
@@ -58,6 +66,7 @@ The database contains the following tables:
 2. **`player_storage`** - Player-scoped key-value storage (JSON) isolated by `world_name`, `place_id`, and `player_address`
 3. **`env_variables`** - Encrypted environment variables isolated by `world_name` and `place_id`
 4. **`scene_collaborators`** - Reverse index of scene collaborators (wallets in a scene's `logsPermissions`), keyed by `(scene_id, address)`; powers `GET /collaborator` discovery
+5. **`world_sources`** - Worlds server each world was last deployed from; request-path permission/scene lookups call it
 
 <!-- Description of each table in a section per table -->
 
@@ -178,6 +187,7 @@ Reverse index of a scene's collaborators, keyed by `(scene_id, address)`. A coll
 | `title`       | VARCHAR(255) | NULL     | Scene title (from metadata), or null. |
 | `realm_kind`  | VARCHAR(16)  | NOT NULL | `world` or `genesis`. |
 | `deployed_at` | BIGINT       | NOT NULL | Deployment timestamp (ms), default 0. Used to order deployment events so a stale/out-of-order event cannot overwrite a newer one. |
+| `source_content_server_url` | VARCHAR(255) | NULL | Origin (`https://<host>`) of the worlds server the scene was deployed from, from the `sourceContentServerUrl` message attribute. NULL = the default `WORLDS_CONTENT_SERVER_URL` (and Genesis). Undeployments and the latest-deployment-wins replacement at a location only touch rows of the same server. |
 | `updated_at`  | TIMESTAMP    | NOT NULL | Last update timestamp. Defaults to `current_timestamp`. |
 
 ### Indexes
@@ -198,3 +208,18 @@ Reverse index of a scene's collaborators, keyed by `(scene_id, address)`. A coll
   3. **Pre-existing scenes** — scenes deployed before the SQS subscription existed emit no event this service saw. There is no full bootstrap/reconciliation: Genesis City's scene space is effectively unbounded and cannot be enumerated.
   For (2) and (3), the self-heal is the write-through on first authorized access (a collaborator who uses a scene's storage backfills its row) or a later redeployment. A dormant scene whose collaborator never accesses storage may stay absent from discovery indefinitely — collaborators can always reach a scene directly by realm/parcel, so this is a UX gap, not an access one.
 - **Latest deployment wins**: a destructive replacement at a `(world_name, base_parcel)` location is skipped when an indexed row there has a higher `deployed_at`, so in-order and most out-of-order SQS delivery cannot resurrect a stale scene (see staleness source 1 for the residual empty-set/undeployment case).
+
+---
+
+## Table: `world_sources`
+
+The worlds server each world was last deployed from (latest `deployed_at` wins). World permission and scene lookups call that server, falling back to `WORLDS_CONTENT_SERVER_URL` when the world is unknown or its source is NULL. A world undeployment removes the row only when it comes from the recorded server.
+
+### Columns
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `world_name` | VARCHAR(255) | NOT NULL | **Primary Key**. World name, lowercased. |
+| `source_content_server_url` | VARCHAR(255) | NULL | Origin of the source worlds server; NULL = the default server. Any host on `ALLOWED_WORLDS_CONTENT_SERVER_HOSTS` may become a world's source (last deploy wins), so every listed host must resolve NAME ownership on the same chain and registry. |
+| `deployed_at` | BIGINT | NOT NULL | Timestamp (ms) of the deployment that set the source, default 0. |
+| `updated_at` | TIMESTAMP | NOT NULL | Last update timestamp. Defaults to `current_timestamp`. |

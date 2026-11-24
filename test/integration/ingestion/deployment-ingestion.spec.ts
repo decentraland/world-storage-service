@@ -6,10 +6,10 @@ import type { IQueueConsumerComponent } from '@dcl/queue-consumer-component'
 import { createQueueConsumerComponent } from '@dcl/queue-consumer-component'
 import { Events } from '@dcl/schemas'
 import type { IQueueComponent } from '@dcl/sqs-component'
-import { createSqsComponent } from '@dcl/sqs-component'
 import { createLocalFetchComponent, createRunner } from '@dcl/test-helpers'
 import type { signedFetchFactory } from 'decentraland-crypto-fetch'
 import { createDeploymentConsumerComponent } from '../../../src/adapters/deployment-consumer'
+import { createSqsQueueComponent } from '../../../src/adapters/sqs-queue'
 import { initComponents as originalInitComponents } from '../../../src/components'
 import { main } from '../../../src/service'
 import { PARCELS, WORLD_NAMES } from '../../fixtures'
@@ -21,10 +21,13 @@ const LOCALSTACK_ENDPOINT = process.env.AWS_SQS_ENDPOINT ?? 'http://localhost:45
 const QUEUE_NAME = `world-storage-deployments-${Date.now()}`
 const QUEUE_URL = `${LOCALSTACK_ENDPOINT}/000000000000/${QUEUE_NAME}`
 const GENESIS_WORLD_NAME = 'main'
+const OTHER_WORLDS_HOST = 'worlds-content-server.dcl.dev'
+const OTHER_WORLDS_URL = `https://${OTHER_WORLDS_HOST}`
 
 process.env.AWS_REGION = process.env.AWS_REGION ?? 'us-east-1'
 process.env.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID ?? 'test'
 process.env.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY ?? 'test'
+process.env.ALLOWED_WORLDS_CONTENT_SERVER_HOSTS = process.env.ALLOWED_WORLDS_CONTENT_SERVER_HOSTS ?? OTHER_WORLDS_HOST
 
 const sqsAdmin = new SQSClient({
   endpoint: LOCALSTACK_ENDPOINT,
@@ -40,17 +43,19 @@ const ingestionTest = createRunner<TestComponents>({
   async initComponents() {
     const components = await originalInitComponents()
 
-    realSqs = await createSqsComponent(
-      createConfigComponent({ AWS_SQS_QUEUE_URL: QUEUE_URL, AWS_SQS_ENDPOINT: LOCALSTACK_ENDPOINT })
-    )
+    realSqs = await createSqsQueueComponent({
+      config: createConfigComponent({ AWS_SQS_QUEUE_URL: QUEUE_URL, AWS_SQS_ENDPOINT: LOCALSTACK_ENDPOINT })
+    })
     realConsumer = createQueueConsumerComponent({ sqs: realSqs, logs: components.logs })
     await createDeploymentConsumerComponent({
       config: components.config,
       logs: components.logs,
+      metrics: components.metrics,
       fetcher: components.fetcher,
       queueConsumer: realConsumer,
       sceneCollaborators: components.sceneCollaborators,
-      sceneEntity: components.sceneEntity
+      sceneEntity: components.sceneEntity,
+      worldSources: components.worldSources
     })
 
     return { ...components, localFetch: await createLocalFetchComponent(components.config) }
@@ -113,6 +118,7 @@ describeIngestion(
     beforeEach(async () => {
       await components.sceneCollaborators.removeByWorld(GENESIS_WORLD_NAME)
       await components.sceneCollaborators.removeByWorld(WORLD_NAMES.DEFAULT)
+      await components.sceneCollaborators.removeByWorld(WORLD_NAMES.DEFAULT, OTHER_WORLDS_URL)
       const setup = await createTestSetup(components, stubComponents)
       signedFetch = setup.signedFetch
       baseUrl = setup.baseUrl
@@ -125,6 +131,58 @@ describeIngestion(
       resetStubs()
       await components.sceneCollaborators.removeByWorld(GENESIS_WORLD_NAME)
       await components.sceneCollaborators.removeByWorld(WORLD_NAMES.DEFAULT)
+      await components.sceneCollaborators.removeByWorld(WORLD_NAMES.DEFAULT, OTHER_WORLDS_URL)
+    })
+
+    describe('and another worlds server undeploys a world both servers deployed', () => {
+      async function waitForSceneIds(expected: string[], timeoutMs = 15000): Promise<string[]> {
+        const deadline = Date.now() + timeoutMs
+        let sceneIds: string[] = []
+        while (Date.now() < deadline) {
+          const { data } = await components.sceneCollaborators.listByAddress(address, 50, 0)
+          sceneIds = data.map(scene => scene.sceneId).sort()
+          if (JSON.stringify(sceneIds) === JSON.stringify(expected)) {
+            return sceneIds
+          }
+          await new Promise(resolve => setTimeout(resolve, 250))
+        }
+        return sceneIds
+      }
+
+      beforeEach(async () => {
+        const base = { worldName: WORLD_NAMES.DEFAULT, title: null, realmKind: 'world' as const, deployedAt: 1 }
+        await components.sceneCollaborators.upsertForScene({
+          ...base,
+          sceneId: 'scene-from-default',
+          baseParcel: PARCELS.SCENE_A,
+          addresses: [address]
+        })
+        await components.sceneCollaborators.upsertForScene({
+          ...base,
+          sceneId: 'scene-from-other',
+          baseParcel: PARCELS.SCENE_B,
+          addresses: [address],
+          sourceContentServerUrl: OTHER_WORLDS_URL
+        })
+
+        await sqsAdmin.send(
+          new SendMessageCommand({
+            QueueUrl: QUEUE_URL,
+            MessageBody: JSON.stringify({
+              type: Events.Type.WORLD,
+              subType: Events.SubType.Worlds.WORLD_UNDEPLOYMENT,
+              metadata: { worldName: WORLD_NAMES.DEFAULT }
+            }),
+            MessageAttributes: {
+              sourceContentServerUrl: { DataType: 'String', StringValue: OTHER_WORLDS_URL }
+            }
+          })
+        )
+      })
+
+      it('should remove only the scene of the server named by the message attribute', async () => {
+        expect(await waitForSceneIds(['scene-from-default'])).toEqual(['scene-from-default'])
+      }, 20000)
     })
 
     describe('and a catalyst scene deployment lists the signed-in wallet in logsPermissions', () => {

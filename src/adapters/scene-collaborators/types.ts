@@ -12,6 +12,13 @@ export interface SceneCollaboratorsRow extends CollaboratorScene {
   deployedAt: number
 }
 
+export interface CollaboratorSceneDeployment extends CollaboratorScene {
+  addresses: string[]
+  deployedAt: number
+  /** Origin of the worlds server the scene came from; null/absent = the default server (or Genesis). */
+  sourceContentServerUrl?: string | null
+}
+
 export interface ISceneCollaboratorsComponent {
   /**
    * Replaces the address set for a scene with `addresses` (lowercased), deleting rows
@@ -19,9 +26,9 @@ export interface ISceneCollaboratorsComponent {
    * (higher `deployedAt`) is already indexed at the scene's world/parcel, so out-of-order
    * SQS delivery cannot let a stale deployment overwrite a newer one.
    *
-   * @param scene - Scene identifiers, the full new address set, and the deployment timestamp
+   * @param scene - Scene identifiers, the full new address set, the deployment timestamp and source server
    */
-  upsertForScene(scene: CollaboratorScene & { addresses: string[]; deployedAt: number }): Promise<void>
+  upsertForScene(scene: CollaboratorSceneDeployment): Promise<void>
 
   /**
    * Inserts a single (scene, address) row if absent; a no-op when it already exists.
@@ -31,18 +38,21 @@ export interface ISceneCollaboratorsComponent {
   insert(row: SceneCollaboratorsRow): Promise<void>
 
   /**
-   * Removes every row for a scene.
+   * Removes every row for a scene that came from `sourceContentServerUrl`.
    *
    * @param sceneId - The scene identifier
+   * @param sourceContentServerUrl - The undeploying server; null (default) = the default worlds server
    */
-  removeByScene(sceneId: string): Promise<void>
+  removeByScene(sceneId: string, sourceContentServerUrl?: string | null): Promise<void>
 
   /**
-   * Removes every row for a world (used when a whole world is undeployed).
+   * Removes every row for a world that came from `sourceContentServerUrl` (used when a whole
+   * world is undeployed), leaving rows another server deployed.
    *
    * @param worldName - The world identifier
+   * @param sourceContentServerUrl - The undeploying server; null (default) = the default worlds server
    */
-  removeByWorld(worldName: string): Promise<void>
+  removeByWorld(worldName: string, sourceContentServerUrl?: string | null): Promise<void>
 
   /**
    * Returns a page of scenes a wallet may watch, newest first.

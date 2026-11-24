@@ -2,7 +2,7 @@
 # yarn lockfile v1
 
 
-"@aws-sdk/client-sqs@^3.956.0":
+"@aws-sdk/client-sqs@3.1130.0", "@aws-sdk/client-sqs@^3.956.0":
   version "3.1130.0"
   resolved "https://registry.yarnpkg.com/@aws-sdk/client-sqs/-/client-sqs-3.1130.0.tgz#91bff859536b7e323435effea80c30efa0e10aa0"
   integrity sha512-l7WYZ/XzBuIoDwptQXnkS0BzADu7jaPAfdePsGMB7DrDvrG5UKREfU/C8kBuCsztuUmjLEh9Hl6wafRPZ7RD8w==

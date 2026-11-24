@@ -14,6 +14,7 @@
     "migrate": "node-pg-migrate -j ts --tsconfig tsconfig.json -m src/migrations"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "3.1130.0",
     "@dcl/core-commons": "^0.11.0",
     "@dcl/crypto": "^3.7.0",
     "@dcl/crypto-middleware": "^6.3.0",

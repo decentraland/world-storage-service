@@ -13,7 +13,6 @@ import { createMetricsComponent } from '@dcl/metrics'
 import { createPgComponent } from '@dcl/pg-component'
 import { createQueueConsumerComponent } from '@dcl/queue-consumer-component'
 import { createSchemaValidatorComponent } from '@dcl/schema-validator-component'
-import { createSqsComponent } from '@dcl/sqs-component'
 import type { IQueueComponent } from '@dcl/sqs-component'
 import { createTracedFetcherComponent } from '@dcl/traced-fetch-component'
 import { createTracerComponent } from '@dcl/tracer-component'
@@ -24,6 +23,8 @@ import { createEnvStorageComponent } from './adapters/env-storage'
 import { createPlacesComponent } from './adapters/places'
 import { createPlayerStorageComponent } from './adapters/player-storage'
 import { createSceneCollaboratorsComponent } from './adapters/scene-collaborators'
+import { createSqsQueueComponent } from './adapters/sqs-queue'
+import { createWorldSourcesComponent } from './adapters/world-sources'
 import { createWorldStorageComponent } from './adapters/world-storage'
 import { createWorldsContentServerComponent } from './adapters/worlds-content-server'
 import { createSceneEntityComponent } from './logic/scene-entity'
@@ -181,8 +182,10 @@ export async function initComponents(): Promise<AppComponents> {
     sceneEntity
   })
   const catalystContent = await createCatalystContentComponent({ fetcher, config, cache, logs, sceneEntity })
+  const worldSources = await createWorldSourcesComponent({ pg, cache, config, logs })
   const worldPermission = await createWorldPermissionComponent({
     worldsContentServer,
+    worldSources,
     catalystContent,
     fetcher,
     config,
@@ -191,15 +194,17 @@ export async function initComponents(): Promise<AppComponents> {
   const storageExport = await createStorageExportComponent({ worldStorage, playerStorage, config, logs })
 
   const queueUrl = await config.getString('AWS_SQS_QUEUE_URL')
-  const sqs = queueUrl ? await createSqsComponent(config) : createLocalDevQueueComponent()
+  const sqs = queueUrl ? await createSqsQueueComponent({ config }) : createLocalDevQueueComponent()
   const queueConsumer = createQueueConsumerComponent({ sqs, logs })
   const deploymentConsumer = await createDeploymentConsumerComponent({
     config,
     logs,
+    metrics,
     fetcher,
     queueConsumer,
     sceneCollaborators,
-    sceneEntity
+    sceneEntity,
+    worldSources
   })
 
   return {
@@ -218,6 +223,7 @@ export async function initComponents(): Promise<AppComponents> {
     envStorage,
     worldsContentServer,
     worldPermission,
+    worldSources,
     cache,
     storageCache,
     places,

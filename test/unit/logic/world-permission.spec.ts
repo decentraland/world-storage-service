@@ -3,8 +3,13 @@ import type { IFetchComponent } from '@dcl/core-commons'
 import { createConfigMockedComponent, createFetchMockedComponent } from '@dcl/core-commons'
 import { createWorldPermissionComponent } from '../../../src/logic/world-permission'
 import { ADDRESSES, PARCELS, WORLD_NAMES } from '../../fixtures'
-import { createCatalystContentMockedComponent, createLogsMockedComponent } from '../../mocks/components'
+import {
+  createCatalystContentMockedComponent,
+  createLogsMockedComponent,
+  createWorldSourcesMockedComponent
+} from '../../mocks/components'
 import type { ICatalystContentComponent } from '../../../src/adapters/catalyst-content'
+import type { IWorldSourcesComponent } from '../../../src/adapters/world-sources'
 import type {
   IWorldsContentServerComponent,
   WorldPermissions,
@@ -17,6 +22,7 @@ describe('World Permission Component', () => {
   let getScenesAtParcelMock: jest.Mock
   let worldsContentServerMock: IWorldsContentServerComponent
   let catalystContent: jest.Mocked<ICatalystContentComponent>
+  let worldSources: jest.Mocked<IWorldSourcesComponent>
   let fetcher: jest.Mocked<IFetchComponent>
   let config: jest.Mocked<IConfigComponent>
 
@@ -28,6 +34,7 @@ describe('World Permission Component', () => {
       getScenesAtParcel: getScenesAtParcelMock
     }
     catalystContent = createCatalystContentMockedComponent()
+    worldSources = createWorldSourcesMockedComponent()
     fetcher = createFetchMockedComponent() as jest.Mocked<IFetchComponent>
     config = createConfigMockedComponent() as jest.Mocked<IConfigComponent>
     config.requireString.mockResolvedValue('https://peer.decentraland.org/lambdas')
@@ -57,6 +64,7 @@ describe('World Permission Component', () => {
   function createComponent(): Promise<IWorldPermissionComponent> {
     return createWorldPermissionComponent({
       worldsContentServer: worldsContentServerMock,
+      worldSources,
       catalystContent,
       fetcher,
       config,
@@ -220,7 +228,7 @@ describe('World Permission Component', () => {
       })
 
       it('should resolve permissions from the content server for the ENS name', () => {
-        expect(getPermissionsMock).toHaveBeenCalledWith(WORLD_NAMES.ENS)
+        expect(getPermissionsMock).toHaveBeenCalledWith(WORLD_NAMES.ENS, null)
       })
 
       it('should not fall back to a LAND permission check at the base parcel', () => {
@@ -405,8 +413,56 @@ describe('World Permission Component', () => {
     })
   })
 
+  describe('when calling hasWorldPermission for a world with a recorded source server', () => {
+    const sourceUrl = 'https://worlds-content-server.dcl.dev'
+    let component: IWorldPermissionComponent
+
+    beforeEach(async () => {
+      worldSources.getSource.mockResolvedValueOnce(sourceUrl)
+      getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+      component = await createComponent()
+    })
+
+    it('should fetch the permissions from the recorded source server', async () => {
+      await component.hasWorldPermission(WORLD_NAMES.DEFAULT, ADDRESSES.OWNER, PARCELS.DEFAULT)
+
+      expect(getPermissionsMock).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, sourceUrl)
+    })
+  })
+
+  describe('when calling hasWorldPermission for a world with no recorded source server', () => {
+    let component: IWorldPermissionComponent
+
+    beforeEach(async () => {
+      getPermissionsMock.mockResolvedValueOnce(buildWorldPermissions())
+      component = await createComponent()
+    })
+
+    it('should fetch the permissions with a null source so the default server is used', async () => {
+      await component.hasWorldPermission(WORLD_NAMES.DEFAULT, ADDRESSES.OWNER, PARCELS.DEFAULT)
+
+      expect(getPermissionsMock).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, null)
+    })
+  })
+
   describe('when calling getLogsAccessibleScene', () => {
     describe('and the worldName is a world', () => {
+      describe('and the world has a recorded source server', () => {
+        const sourceUrl = 'https://worlds-content-server.dcl.dev'
+        let component: IWorldPermissionComponent
+
+        beforeEach(async () => {
+          worldSources.getSource.mockResolvedValueOnce(sourceUrl)
+          getScenesAtParcelMock.mockResolvedValueOnce([])
+          component = await createComponent()
+          await component.getLogsAccessibleScene(WORLD_NAMES.DEFAULT, ADDRESSES.PLAYER, PARCELS.DEFAULT)
+        })
+
+        it('should fetch the scenes from the recorded source server', () => {
+          expect(getScenesAtParcelMock).toHaveBeenCalledWith(WORLD_NAMES.DEFAULT, PARCELS.DEFAULT, sourceUrl)
+        })
+      })
+
       describe('and one scene covers the parcel and lists the address in logsPermissions', () => {
         let component: IWorldPermissionComponent
         let scene: WorldScene

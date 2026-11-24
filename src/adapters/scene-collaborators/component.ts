@@ -1,5 +1,10 @@
 import { SQL } from 'sql-template-strings'
-import type { CollaboratorScene, ISceneCollaboratorsComponent, SceneCollaboratorsRow } from './types'
+import type {
+  CollaboratorScene,
+  CollaboratorSceneDeployment,
+  ISceneCollaboratorsComponent,
+  SceneCollaboratorsRow
+} from './types'
 import type { AppComponents } from '../../types'
 
 /**
@@ -17,8 +22,9 @@ export const createSceneCollaboratorsComponent = async ({
 }: Pick<AppComponents, 'pg' | 'logs'>): Promise<ISceneCollaboratorsComponent> => {
   const logger = logs.getLogger('scene-collaborators')
 
-  async function upsertForScene(scene: CollaboratorScene & { addresses: string[]; deployedAt: number }): Promise<void> {
+  async function upsertForScene(scene: CollaboratorSceneDeployment): Promise<void> {
     const { sceneId, baseParcel, title, realmKind, addresses, deployedAt } = scene
+    const sourceContentServerUrl = scene.sourceContentServerUrl ?? null
     const worldName = scene.worldName.toLowerCase()
     const normalizedAddresses = [...new Set(addresses.map(address => address.toLowerCase()))]
 
@@ -27,7 +33,8 @@ export const createSceneCollaboratorsComponent = async ({
     await pg.withAsyncContextTransaction(async () => {
       const newest = await pg.query<{ max_deployed_at: string | null }>(SQL`
         SELECT MAX(deployed_at) AS max_deployed_at FROM scene_collaborators
-        WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}`)
+        WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}
+          AND source_content_server_url IS NOT DISTINCT FROM ${sourceContentServerUrl}`)
       if (Number(newest.rows[0]?.max_deployed_at ?? 0) > deployedAt) {
         logger.debug('Skipping stale deployment; a newer one is already indexed at this location', {
           sceneId,
@@ -38,24 +45,27 @@ export const createSceneCollaboratorsComponent = async ({
 
       if (normalizedAddresses.length === 0) {
         await pg.query(SQL`
-          DELETE FROM scene_collaborators WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}`)
+          DELETE FROM scene_collaborators
+          WHERE world_name = ${worldName} AND base_parcel = ${baseParcel}
+            AND source_content_server_url IS NOT DISTINCT FROM ${sourceContentServerUrl}`)
         return
       }
 
       await pg.query(SQL`
         DELETE FROM scene_collaborators
-        WHERE world_name = ${worldName} AND base_parcel = ${baseParcel} AND scene_id <> ${sceneId}`)
+        WHERE world_name = ${worldName} AND base_parcel = ${baseParcel} AND scene_id <> ${sceneId}
+          AND source_content_server_url IS NOT DISTINCT FROM ${sourceContentServerUrl}`)
 
       await pg.query(SQL`
         DELETE FROM scene_collaborators
         WHERE scene_id = ${sceneId} AND address <> ALL(${normalizedAddresses})`)
 
       await pg.query(SQL`
-        INSERT INTO scene_collaborators (scene_id, address, world_name, base_parcel, title, realm_kind, deployed_at, updated_at)
-        SELECT ${sceneId}, address, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, ${deployedAt}, current_timestamp
+        INSERT INTO scene_collaborators (scene_id, address, world_name, base_parcel, title, realm_kind, deployed_at, source_content_server_url, updated_at)
+        SELECT ${sceneId}, address, ${worldName}, ${baseParcel}, ${title}, ${realmKind}, ${deployedAt}, ${sourceContentServerUrl}, current_timestamp
         FROM UNNEST(${normalizedAddresses}::text[]) AS address
         ON CONFLICT (scene_id, address) DO UPDATE
-        SET world_name = ${worldName}, base_parcel = ${baseParcel}, title = ${title}, realm_kind = ${realmKind}, deployed_at = ${deployedAt}, updated_at = current_timestamp`)
+        SET world_name = ${worldName}, base_parcel = ${baseParcel}, title = ${title}, realm_kind = ${realmKind}, deployed_at = ${deployedAt}, source_content_server_url = ${sourceContentServerUrl}, updated_at = current_timestamp`)
     })
 
     logger.debug('Scene collaborators upserted successfully', { sceneId })
@@ -72,20 +82,25 @@ export const createSceneCollaboratorsComponent = async ({
       ON CONFLICT (scene_id, address) DO NOTHING`)
   }
 
-  async function removeByScene(sceneId: string): Promise<void> {
+  async function removeByScene(sceneId: string, sourceContentServerUrl: string | null = null): Promise<void> {
     logger.debug('Removing scene collaborators', { sceneId })
 
-    await pg.query(SQL`DELETE FROM scene_collaborators WHERE scene_id = ${sceneId}`)
+    await pg.query(SQL`
+      DELETE FROM scene_collaborators
+      WHERE scene_id = ${sceneId} AND source_content_server_url IS NOT DISTINCT FROM ${sourceContentServerUrl}`)
 
     logger.debug('Scene collaborators removed successfully', { sceneId })
   }
 
-  async function removeByWorld(worldName: string): Promise<void> {
+  async function removeByWorld(worldName: string, sourceContentServerUrl: string | null = null): Promise<void> {
     const normalizedWorldName = worldName.toLowerCase()
 
     logger.debug('Removing scene collaborators for world', { worldName: normalizedWorldName })
 
-    await pg.query(SQL`DELETE FROM scene_collaborators WHERE world_name = ${normalizedWorldName}`)
+    await pg.query(SQL`
+      DELETE FROM scene_collaborators
+      WHERE world_name = ${normalizedWorldName}
+        AND source_content_server_url IS NOT DISTINCT FROM ${sourceContentServerUrl}`)
 
     logger.debug('Scene collaborators removed for world successfully', { worldName: normalizedWorldName })
   }
